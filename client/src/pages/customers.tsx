@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2 } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -360,8 +360,49 @@ export default function Customers() {
       yardNotes: "",
       status: "active",
       billingMethod: "invoice",
+      smsOptIn: true,
     },
   });
+
+  const [bestFitLoading, setBestFitLoading] = useState(false);
+  const [bestFitSuggestions, setBestFitSuggestions] = useState<any[]>([]);
+
+  const findBestFit = async () => {
+    const address = form.getValues("address");
+    if (!address) {
+      toast({
+        title: "Address Required",
+        description: "Please enter a service address first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBestFitLoading(true);
+    try {
+      const response = await apiRequest("POST", "/api/find-best-fit", { address });
+      const data = await response.json();
+      setBestFitSuggestions(data.suggestions);
+      
+      if (data.coordinates) {
+        form.setValue("lat", data.coordinates.lat.toString());
+        form.setValue("lng", data.coordinates.lng.toString());
+      }
+
+      toast({
+        title: "Best Fit Calculated",
+        description: `Found ${data.suggestions.length} route day suggestions`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not calculate best fit. Check address format.",
+        variant: "destructive",
+      });
+    } finally {
+      setBestFitLoading(false);
+    }
+  };
 
   const filteredCustomers = customers?.filter((customer) =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -447,13 +488,45 @@ export default function Customers() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Service Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="123 Main St, City, State 12345" data-testid="input-address" {...field} />
-                      </FormControl>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input placeholder="123 Main St, City, State 12345" data-testid="input-address" {...field} />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={findBestFit}
+                          disabled={bestFitLoading || !field.value}
+                          data-testid="button-find-best-fit"
+                        >
+                          <Navigation className="w-4 h-4 mr-1" />
+                          {bestFitLoading ? "..." : "Find Best Fit"}
+                        </Button>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {bestFitSuggestions.length > 0 && (
+                  <div className="bg-muted p-4 rounded-md space-y-2">
+                    <h4 className="font-medium text-sm">Best Route Days (by proximity)</h4>
+                    <div className="space-y-1">
+                      {bestFitSuggestions.slice(0, 3).map((suggestion, index) => (
+                        <div key={suggestion.dayOfWeek} className="text-sm flex items-center justify-between">
+                          <span>
+                            {index + 1}. {suggestion.dayName}
+                            {suggestion.customerCount > 0 && ` (${suggestion.customerCount} nearby customers)`}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {suggestion.customerCount > 0 
+                              ? `Avg ${suggestion.averageDistance.toFixed(1)} km` 
+                              : "No customers on this day"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -572,6 +645,29 @@ export default function Customers() {
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="smsOptIn"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-sms-opt-in"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Send SMS Reminders
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Customer will receive night-before service reminders at 6 PM
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel">
                     Cancel
