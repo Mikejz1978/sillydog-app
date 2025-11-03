@@ -1,4 +1,4 @@
-import { Home, Users, MapPin, FileText, Settings, LogOut, BarChart3 } from "lucide-react";
+import { Home, Users, MapPin, FileText, Settings, LogOut, BarChart3, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -29,6 +29,11 @@ const menuItems = [
     title: "Routes",
     url: "/routes",
     icon: MapPin,
+  },
+  {
+    title: "Messages",
+    url: "/messages",
+    icon: MessageSquare,
   },
   {
     title: "Invoices",

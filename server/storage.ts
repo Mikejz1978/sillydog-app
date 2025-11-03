@@ -7,6 +7,8 @@ import {
   type InsertInvoice,
   type JobHistory,
   type InsertJobHistory,
+  type Message,
+  type InsertMessage,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -40,6 +42,11 @@ export interface IStorage {
   getJobHistoryByCustomer(customerId: string): Promise<JobHistory[]>;
   createJobHistory(history: InsertJobHistory): Promise<JobHistory>;
   updateJobHistory(id: string, history: Partial<InsertJobHistory>): Promise<JobHistory>;
+
+  // Messages
+  getAllMessages(): Promise<Message[]>;
+  getMessagesByCustomer(customerId: string): Promise<Message[]>;
+  createMessage(message: InsertMessage): Promise<Message>;
 }
 
 export class MemStorage implements IStorage {
@@ -418,6 +425,27 @@ export class DbStorage implements IStorage {
       .where(eq(schema.jobHistory.id, id))
       .returning();
     if (!result[0]) throw new Error("Job history not found");
+    return result[0];
+  }
+
+  // Messages
+  async getAllMessages(): Promise<Message[]> {
+    return await this.db.select().from(schema.messages).orderBy(schema.messages.sentAt);
+  }
+
+  async getMessagesByCustomer(customerId: string): Promise<Message[]> {
+    return await this.db
+      .select()
+      .from(schema.messages)
+      .where(eq(schema.messages.customerId, customerId))
+      .orderBy(schema.messages.sentAt);
+  }
+
+  async createMessage(insertMessage: InsertMessage): Promise<Message> {
+    const result = await this.db
+      .insert(schema.messages)
+      .values(insertMessage)
+      .returning();
     return result[0];
   }
 }

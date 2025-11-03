@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
 import Routes from "@/pages/routes";
+import Messages from "@/pages/messages";
 import Invoices from "@/pages/invoices";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/customers" component={Customers} />
       <Route path="/routes" component={Routes} />
+      <Route path="/messages" component={Messages} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />

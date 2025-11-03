@@ -95,6 +95,26 @@ export const insertJobHistorySchema = createInsertSchema(jobHistory).omit({
 export type JobHistory = typeof jobHistory.$inferSelect;
 export type InsertJobHistory = z.infer<typeof insertJobHistorySchema>;
 
+// Messages
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  direction: text("direction").notNull(), // 'inbound', 'outbound'
+  messageText: text("message_text").notNull(),
+  status: text("status").notNull().default("sent"), // 'sent', 'delivered', 'failed'
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+});
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
 // Service Plan Pricing
 export const pricingRates = {
   weekly: {

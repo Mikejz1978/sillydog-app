@@ -7,6 +7,7 @@ import {
   insertRouteSchema,
   insertInvoiceSchema,
   insertJobHistorySchema,
+  insertMessageSchema,
 } from "@shared/schema";
 
 // Initialize Stripe - from Replit Stripe integration blueprint
@@ -402,6 +403,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = insertJobHistorySchema.parse(req.body);
       const history = await storage.createJobHistory(validated);
       res.status(201).json(history);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ========== MESSAGES ROUTES ==========
+  app.get("/api/messages", async (req, res) => {
+    try {
+      const { customerId } = req.query;
+      let messages;
+      if (customerId && typeof customerId === "string") {
+        messages = await storage.getMessagesByCustomer(customerId);
+      } else {
+        messages = await storage.getAllMessages();
+      }
+      res.json(messages);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/messages/send", async (req, res) => {
+    try {
+      const validated = insertMessageSchema.parse(req.body);
+      
+      // Get customer details for phone number
+      const customer = await storage.getCustomer(validated.customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Send SMS via Twilio
+      await sendSMS(customer.phone, validated.messageText);
+      
+      // Save message to database
+      const message = await storage.createMessage({
+        ...validated,
+        direction: "outbound",
+        status: "sent",
+      });
+      
+      res.status(201).json(message);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
