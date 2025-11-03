@@ -17,6 +17,9 @@ export const customers = pgTable("customers", {
   status: text("status").notNull().default("active"), // 'active', 'inactive'
   billingMethod: text("billing_method").notNull().default("invoice"), // 'card', 'invoice'
   stripeCustomerId: text("stripe_customer_id"),
+  lat: decimal("lat", { precision: 10, scale: 7 }), // Latitude for geocoding
+  lng: decimal("lng", { precision: 10, scale: 7 }), // Longitude for geocoding
+  smsOptIn: boolean("sms_opt_in").notNull().default(true), // SMS reminder opt-in
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -174,6 +177,27 @@ export const pricingRates = {
     8: 120.00,
   },
 };
+
+// Reminder Logs
+export const reminderLogs = pgTable("reminder_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  serviceDate: text("service_date").notNull(), // YYYY-MM-DD format
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  twilioSid: text("twilio_sid"),
+  status: text("status").notNull().default("sent"), // 'sent', 'failed'
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertReminderLogSchema = createInsertSchema(reminderLogs).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+});
+
+export type ReminderLog = typeof reminderLogs.$inferSelect;
+export type InsertReminderLog = z.infer<typeof insertReminderLogSchema>;
 
 // Helper function to calculate service price
 export function calculateServicePrice(servicePlan: string, numberOfDogs: number): number {
