@@ -354,33 +354,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customer = await storage.getCustomer(route.customerId);
       
       if (customer) {
-        // Send SMS based on status
+        // Send SMS based on status (only if customer has opted in)
         if (status === "in_route") {
-          await sendSMS(
-            customer.phone,
-            `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll text you when the service is complete!`
-          );
+          if (customer.smsOptIn && customer.phone) {
+            await sendSMS(
+              customer.phone,
+              `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll text you when the service is complete!`
+            );
+            console.log(`✅ "In Route" SMS sent to ${customer.name} at ${customer.phone}`);
+          } else {
+            console.log(`ℹ️ "In Route" SMS NOT sent to ${customer.name} - SMS Opt-In: ${customer.smsOptIn}, Phone: ${customer.phone ? 'Yes' : 'No'}`);
+          }
           
           // Create job history entry
           await storage.createJobHistory({
             customerId: customer.id,
             routeId: route.id,
             serviceDate: route.date,
-            smsInRouteSent: true,
+            smsInRouteSent: customer.smsOptIn && !!customer.phone,
             smsCompleteSent: false,
           });
         } else if (status === "completed") {
-          await sendSMS(
-            customer.phone,
-            `Service complete at ${customer.address}! Your yard is all cleaned up. Thank you for choosing SillyDog!`
-          );
+          if (customer.smsOptIn && customer.phone) {
+            await sendSMS(
+              customer.phone,
+              `Service complete at ${customer.address}! Your yard is all cleaned up. Thank you for choosing SillyDog!`
+            );
+            console.log(`✅ "Service Complete" SMS sent to ${customer.name} at ${customer.phone}`);
+          } else {
+            console.log(`ℹ️ "Service Complete" SMS NOT sent to ${customer.name} - SMS Opt-In: ${customer.smsOptIn}, Phone: ${customer.phone ? 'Yes' : 'No'}`);
+          }
           
           // Update job history
           const jobHistory = await storage.getAllJobHistory();
           const job = jobHistory.find(j => j.routeId === route.id);
           if (job) {
             await storage.updateJobHistory(job.id, {
-              smsCompleteSent: true,
+              smsCompleteSent: customer.smsOptIn && !!customer.phone,
             });
           }
         }
