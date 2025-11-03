@@ -13,6 +13,7 @@ import Messages from "@/pages/messages";
 import Invoices from "@/pages/invoices";
 import Reports from "@/pages/reports";
 import Import from "@/pages/import";
+import PriceBook from "@/pages/price-book";
 import Settings from "@/pages/settings";
 import CustomerPortal from "@/pages/customer-portal";
 import Bookings from "@/pages/bookings";
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/invoices" component={Invoices} />
       <Route path="/reports" component={Reports} />
       <Route path="/import" component={Import} />
+      <Route path="/price-book" component={PriceBook} />
       <Route path="/settings" component={Settings} />
       <Route path="/bookings" component={Bookings} />
       <Route path="/portal" component={CustomerPortal} />

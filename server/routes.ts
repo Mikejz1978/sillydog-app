@@ -9,6 +9,7 @@ import {
   insertJobHistorySchema,
   insertMessageSchema,
   insertScheduleRuleSchema,
+  insertServiceTypeSchema,
   insertBookingRequestSchema,
 } from "@shared/schema";
 import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geocoding";
@@ -569,6 +570,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/schedule-rules/:id", async (req, res) => {
     try {
       await storage.deleteScheduleRule(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ========== SERVICE TYPES (PRICE BOOK) ROUTES ==========
+  app.get("/api/service-types", async (req, res) => {
+    try {
+      const { active } = req.query;
+      let serviceTypes;
+      if (active === "true") {
+        serviceTypes = await storage.getActiveServiceTypes();
+      } else {
+        serviceTypes = await storage.getAllServiceTypes();
+      }
+      res.json(serviceTypes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/service-types/:id", async (req, res) => {
+    try {
+      const serviceType = await storage.getServiceType(req.params.id);
+      if (!serviceType) {
+        return res.status(404).json({ message: "Service type not found" });
+      }
+      res.json(serviceType);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/service-types", async (req, res) => {
+    try {
+      const validated = insertServiceTypeSchema.parse(req.body);
+      const serviceType = await storage.createServiceType(validated);
+      res.status(201).json(serviceType);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/service-types/:id", async (req, res) => {
+    try {
+      const serviceType = await storage.updateServiceType(req.params.id, req.body);
+      res.json(serviceType);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/service-types/:id", async (req, res) => {
+    try {
+      await storage.deleteServiceType(req.params.id);
       res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
