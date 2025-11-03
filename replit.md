@@ -25,7 +25,7 @@ This project is a comprehensive web-based business management platform designed 
 -   **Automated Notifications**: "In Route," "Service Complete," night-before reminders, and booking notifications via SMS.
 -   **Invoicing & Billing**: Auto-calculated invoices based on service plans and dog counts, timer-based billing for one-time services, automatic monthly billing, and autopay system.
 -   **Customer Portal**: Allows clients to view service details, upcoming routes, payment history, and outstanding balances.
--   **Public Booking Page**: Customer-facing interface for new service requests with rate-limiting and admin notification system.
+-   **Public Booking Page**: Customer-facing interface for new service requests with rate-limiting and admin notification system. When a booking is accepted, a customer is automatically created and added to the customer list.
 -   **Service Catalog (Price Book)**: Manages service types with flexible pricing (base price + per-dog pricing).
 -   **Job Documentation**: Photo upload system for before/after photos during service completion.
 -   **Reporting**: Generates reports with CSV exports for revenue, jobs, and invoices.

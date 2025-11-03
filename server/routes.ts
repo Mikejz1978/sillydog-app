@@ -1129,6 +1129,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       
+      // If accepting a booking, automatically create a customer
+      if (updates.status === "accepted") {
+        const booking = await storage.getBookingRequest(id);
+        if (!booking) {
+          return res.status(404).json({ message: "Booking request not found" });
+        }
+        
+        // Only create customer if not already created
+        if (!booking.customerId) {
+          // Create customer from booking data
+          const newCustomer = await storage.createCustomer({
+            name: booking.name,
+            address: booking.address,
+            phone: booking.phone,
+            email: booking.email || "",
+            servicePlan: booking.preferredServicePlan || "one-time",
+            numberOfDogs: booking.numberOfDogs,
+            gateCode: "",
+            yardNotes: booking.yardNotes || "",
+            status: "active",
+            billingMethod: "invoice",
+            autopayEnabled: false,
+            smsOptIn: true,
+          });
+          
+          // Link the customer to the booking
+          updates.customerId = newCustomer.id;
+        }
+      }
+      
       const updated = await storage.updateBookingRequest(id, updates);
       res.json(updated);
     } catch (error) {

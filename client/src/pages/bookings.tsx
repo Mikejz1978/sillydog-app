@@ -43,9 +43,10 @@ export default function Bookings() {
       queryClient.invalidateQueries({ queryKey: ["/api/booking-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/booking-requests/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       toast({
         title: "Booking accepted",
-        description: "You can now convert this to a customer.",
+        description: "Customer has been automatically created and added to your customer list.",
       });
       setShowAcceptDialog(false);
       setSelectedBooking(null);
