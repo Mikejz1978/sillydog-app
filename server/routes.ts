@@ -9,10 +9,13 @@ import {
   insertJobHistorySchema,
   insertMessageSchema,
   insertScheduleRuleSchema,
+  insertBookingRequestSchema,
 } from "@shared/schema";
 import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geocoding";
 import { generateMonthlyInvoices } from "./services/billing";
 import { sendNightBeforeReminders } from "./services/reminders";
+import { notifyAdminOfNewBooking } from "./services/notifications";
+import rateLimit from "express-rate-limit";
 
 // Initialize Stripe - from Replit Stripe integration blueprint
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -949,6 +952,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Reminder error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== PUBLIC BOOKING REQUEST ENDPOINT ==========
+  // Rate limiter: 5 requests per 15 minutes per IP
+  const bookingLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 requests per windowMs
+    message: "Too many booking requests from this IP, please try again later.",
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.post("/api/public/booking", bookingLimiter, async (req, res) => {
+    try {
+      // Validate request body
+      const validation = insertBookingRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid booking data",
+          errors: validation.error.errors 
+        });
+      }
+
+      // Get client IP for spam prevention
+      const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
+
+      // Create booking request with IP tracking
+      const bookingData = {
+        ...validation.data,
+        ipAddress,
+      };
+
+      const booking = await storage.createBookingRequest(bookingData);
+
+      // Send notifications (SMS + in-app)
+      const notificationResult = await notifyAdminOfNewBooking(booking);
+
+      res.status(201).json({
+        message: "Booking request received! We'll contact you soon to schedule your service.",
+        bookingId: booking.id,
+        notifications: {
+          smsDelivered: notificationResult.smsDelivered,
+          inAppCreated: notificationResult.notificationCreated,
+        },
+      });
+    } catch (error) {
+      console.error("Public booking error:", error);
+      res.status(500).json({ message: "Unable to process booking request. Please try again later." });
+    }
+  });
+
+  // ========== BOOKING REQUEST MANAGEMENT ==========
+  app.get("/api/booking-requests", async (_req, res) => {
+    try {
+      const requests = await storage.getAllBookingRequests();
+      res.json(requests);
+    } catch (error) {
+      console.error("Get booking requests error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/booking-requests/pending", async (_req, res) => {
+    try {
+      const requests = await storage.getPendingBookingRequests();
+      res.json(requests);
+    } catch (error) {
+      console.error("Get pending requests error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.patch("/api/booking-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updated = await storage.updateBookingRequest(id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Update booking request error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== NOTIFICATIONS MANAGEMENT ==========
+  app.get("/api/notifications", async (_req, res) => {
+    try {
+      const notifications = await storage.getAllNotifications();
+      res.json(notifications);
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/notifications/unread", async (_req, res) => {
+    try {
+      const notifications = await storage.getUnreadNotifications();
+      res.json(notifications);
+    } catch (error) {
+      console.error("Get unread notifications error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const notification = await storage.markNotificationRead(id);
+      res.json(notification);
+    } catch (error) {
+      console.error("Mark notification read error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });
