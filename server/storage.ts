@@ -13,6 +13,8 @@ import {
   type InsertScheduleRule,
   type ReminderLog,
   type InsertReminderLog,
+  type ServiceType,
+  type InsertServiceType,
   type BookingRequest,
   type InsertBookingRequest,
   type Notification,
@@ -75,6 +77,14 @@ export interface IStorage {
   // Reminder Logs
   createReminderLog(log: InsertReminderLog): Promise<ReminderLog>;
   getReminderLogsByDate(serviceDate: string): Promise<ReminderLog[]>;
+
+  // Service Types (Price Book)
+  getAllServiceTypes(): Promise<ServiceType[]>;
+  getActiveServiceTypes(): Promise<ServiceType[]>;
+  getServiceType(id: string): Promise<ServiceType | undefined>;
+  createServiceType(serviceType: InsertServiceType): Promise<ServiceType>;
+  updateServiceType(id: string, serviceType: Partial<InsertServiceType>): Promise<ServiceType>;
+  deleteServiceType(id: string): Promise<void>;
 
   // Booking Requests
   getAllBookingRequests(): Promise<BookingRequest[]>;
@@ -644,6 +654,49 @@ export class DbStorage implements IStorage {
       .select()
       .from(schema.reminderLogs)
       .where(eq(schema.reminderLogs.serviceDate, serviceDate));
+  }
+
+  // Service Types (Price Book)
+  async getAllServiceTypes(): Promise<ServiceType[]> {
+    return await this.db.select().from(schema.serviceTypes).orderBy(schema.serviceTypes.name);
+  }
+
+  async getActiveServiceTypes(): Promise<ServiceType[]> {
+    return await this.db
+      .select()
+      .from(schema.serviceTypes)
+      .where(eq(schema.serviceTypes.active, true))
+      .orderBy(schema.serviceTypes.name);
+  }
+
+  async getServiceType(id: string): Promise<ServiceType | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.serviceTypes)
+      .where(eq(schema.serviceTypes.id, id));
+    return result[0];
+  }
+
+  async createServiceType(insertServiceType: InsertServiceType): Promise<ServiceType> {
+    const result = await this.db
+      .insert(schema.serviceTypes)
+      .values(insertServiceType)
+      .returning();
+    return result[0];
+  }
+
+  async updateServiceType(id: string, updates: Partial<InsertServiceType>): Promise<ServiceType> {
+    const result = await this.db
+      .update(schema.serviceTypes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.serviceTypes.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Service type not found");
+    return result[0];
+  }
+
+  async deleteServiceType(id: string): Promise<void> {
+    await this.db.delete(schema.serviceTypes).where(eq(schema.serviceTypes.id, id));
   }
 
   // Booking Requests
