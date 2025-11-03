@@ -63,6 +63,8 @@ Streamline daily operations for Michael and staff by providing:
 - `POST /api/messages/send` - Send SMS to customer via Twilio
 - `GET/POST /api/schedule-rules` - Get/create recurring schedule rules
 - `DELETE /api/schedule-rules/:id` - Delete a schedule rule
+- `POST /api/import/customers` - Import customers from CSV
+- `POST /api/import/schedules` - Import schedules from CSV
 
 ### Key Features
 1. **Customer Management**: Full CRM with service plans, dog counts, gate codes, yard notes
@@ -74,18 +76,24 @@ Streamline daily operations for Michael and staff by providing:
    - "Next Visit" badge on customer cards showing earliest upcoming service
    - "Generate Routes" button auto-creates routes from active schedules
    - Automatic start date validation to match selected weekday
-4. **Text Messaging Portal**: 
+4. **CSV Import from HouseCall Pro**:
+   - Import existing customers from HouseCall Pro CSV exports
+   - Import schedules/jobs to create recurring service rules
+   - Automatic field mapping with duplicate detection
+   - Skip duplicates based on phone number or email
+   - Detailed import summary with success/skip/error counts
+5. **Text Messaging Portal**: 
    - Two-column interface: customer list + conversation view
    - Send SMS messages directly to customers via Twilio
    - Message history with inbound/outbound tracking
    - Real-time conversation updates
-5. **Automated Notifications**: 
+6. **Automated Notifications**: 
    - "In Route" SMS when technician starts driving
    - "Service Complete" SMS when job finished
    - Invoice notifications and payment confirmations
-6. **Invoicing**: Auto-calculate prices based on service plan + dog count, track payment status
-7. **Customer Portal**: View service details, upcoming routes, payment history, outstanding balance
-8. **Pricing Calculator**: Built-in rate tables for weekly/biweekly/one-time services (1-8 dogs)
+7. **Invoicing**: Auto-calculate prices based on service plan + dog count, track payment status
+8. **Customer Portal**: View service details, upcoming routes, payment history, outstanding balance
+9. **Pricing Calculator**: Built-in rate tables for weekly/biweekly/one-time services (1-8 dogs)
 
 ### Design System
 - **Primary Colors**: Blue (#2196F3) to Green (#1DBF73) gradient for branding
@@ -128,13 +136,14 @@ Required secrets (configured via Replit Secrets):
 - Map visualization with route paths
 
 ## Project Status
-**Current Phase**: Phase 2 Complete ✓ + Text Messaging Portal + Recurring Scheduling
+**Current Phase**: Phase 2 Complete ✓ + Advanced Features
 - PostgreSQL database for persistent data storage
 - Photo upload system for service documentation
 - Route optimization functionality
 - Reports page with CSV exports for revenue, jobs, and invoices
 - Text messaging portal for direct customer communication
-- **NEW: Recurring customer scheduling with automatic route generation**
+- Recurring customer scheduling with automatic route generation
+- **NEW: CSV import from HouseCall Pro for easy migration**
 - All core features implemented and functional
 - Stripe payment integration ready
 - Twilio SMS notifications operational
@@ -152,3 +161,5 @@ Required secrets (configured via Replit Secrets):
 - Schedule start dates are automatically adjusted to match selected weekday
 - Route generation checks schedule patterns: weekly (every 7 days) or biweekly (every 14 days) from dtStart
 - Multiple schedules per customer supported - "Next Visit" shows earliest upcoming service
+- CSV import accepts flexible column names (e.g., "Customer Name", "Name", or "name")
+- Duplicate customers are automatically skipped during import based on phone or email match
