@@ -11,6 +11,7 @@ import Routes from "@/pages/routes";
 import Messages from "@/pages/messages";
 import Invoices from "@/pages/invoices";
 import Reports from "@/pages/reports";
+import Import from "@/pages/import";
 import Settings from "@/pages/settings";
 import CustomerPortal from "@/pages/customer-portal";
 import NotFound from "@/pages/not-found";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/messages" component={Messages} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/reports" component={Reports} />
+      <Route path="/import" component={Import} />
       <Route path="/settings" component={Settings} />
       <Route path="/portal" component={CustomerPortal} />
       <Route component={NotFound} />

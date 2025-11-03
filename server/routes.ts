@@ -555,6 +555,223 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== CSV IMPORT ==========
+  app.post("/api/import/customers", async (req, res) => {
+    try {
+      const { csvData } = req.body;
+      
+      if (!csvData) {
+        return res.status(400).json({ 
+          success: false, 
+          imported: 0, 
+          skipped: 0, 
+          errors: ["No CSV data provided"] 
+        });
+      }
+
+      const lines = csvData.trim().split("\n");
+      if (lines.length < 2) {
+        return res.status(400).json({ 
+          success: false, 
+          imported: 0, 
+          skipped: 0, 
+          errors: ["CSV file is empty or has no data rows"] 
+        });
+      }
+
+      // Parse CSV headers
+      const headers = lines[0].split(",").map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+      
+      let imported = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      // Process each row
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(",").map(v => v.trim().replace(/^"(.*)"$/, '$1'));
+          const row: Record<string, string> = {};
+          
+          headers.forEach((header, idx) => {
+            row[header] = values[idx] || "";
+          });
+
+          // Map HouseCall Pro fields to our schema
+          const name = row["Customer Name"] || row["Name"] || row["name"] || "";
+          const phone = row["Phone"] || row["phone"] || row["Mobile"] || "";
+          const email = row["Email"] || row["email"] || "";
+          const address = row["Address"] || row["address"] || row["Street Address"] || "";
+          
+          if (!name || !phone) {
+            skipped++;
+            continue;
+          }
+
+          // Check for duplicates
+          const existingCustomers = await storage.getCustomers();
+          const isDuplicate = existingCustomers.some(c => 
+            c.phone === phone || (email && c.email === email)
+          );
+
+          if (isDuplicate) {
+            skipped++;
+            continue;
+          }
+
+          // Create customer
+          await storage.createCustomer({
+            name,
+            address,
+            phone,
+            email: email || "",
+            servicePlan: "weekly",
+            numberOfDogs: 1,
+            gateCode: "",
+            yardNotes: "",
+            billingMethod: "invoice",
+            status: "active",
+          });
+
+          imported++;
+        } catch (error) {
+          errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        }
+      }
+
+      res.json({
+        success: errors.length === 0,
+        imported,
+        skipped,
+        errors: errors.slice(0, 10),
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      res.status(500).json({ 
+        success: false, 
+        imported: 0, 
+        skipped: 0, 
+        errors: [error instanceof Error ? error.message : "Server error"] 
+      });
+    }
+  });
+
+  app.post("/api/import/schedules", async (req, res) => {
+    try {
+      const { csvData } = req.body;
+      
+      if (!csvData) {
+        return res.status(400).json({ 
+          success: false, 
+          imported: 0, 
+          skipped: 0, 
+          errors: ["No CSV data provided"] 
+        });
+      }
+
+      const lines = csvData.trim().split("\n");
+      if (lines.length < 2) {
+        return res.status(400).json({ 
+          success: false, 
+          imported: 0, 
+          skipped: 0, 
+          errors: ["CSV file is empty or has no data rows"] 
+        });
+      }
+
+      // Parse CSV headers
+      const headers = lines[0].split(",").map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+      
+      let imported = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      // Process each row
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(",").map(v => v.trim().replace(/^"(.*)"$/, '$1'));
+          const row: Record<string, string> = {};
+          
+          headers.forEach((header, idx) => {
+            row[header] = values[idx] || "";
+          });
+
+          // Map HouseCall Pro job fields
+          const customerName = row["Customer Name"] || row["Name"] || "";
+          const scheduledDate = row["Scheduled Date"] || row["Start Date"] || "";
+          const scheduledTime = row["Scheduled Time"] || row["Start Time"] || "09:00";
+          const jobType = row["Job Type"] || row["Service Type"] || "";
+          
+          if (!customerName || !scheduledDate) {
+            skipped++;
+            continue;
+          }
+
+          // Find customer by name
+          const customers = await storage.getCustomers();
+          const customer = customers.find(c => 
+            c.name.toLowerCase() === customerName.toLowerCase()
+          );
+
+          if (!customer) {
+            errors.push(`Row ${i + 1}: Customer "${customerName}" not found`);
+            skipped++;
+            continue;
+          }
+
+          // Parse date
+          const date = new Date(scheduledDate);
+          if (isNaN(date.getTime())) {
+            errors.push(`Row ${i + 1}: Invalid date "${scheduledDate}"`);
+            skipped++;
+            continue;
+          }
+
+          const dayOfWeek = date.getDay();
+          const dtStart = date.toISOString().split("T")[0];
+
+          // Determine frequency from job type or default to weekly
+          let frequency: "weekly" | "biweekly" = "weekly";
+          if (jobType.toLowerCase().includes("bi-week") || jobType.toLowerCase().includes("biweek")) {
+            frequency = "biweekly";
+          }
+
+          // Create schedule rule
+          await storage.createScheduleRule({
+            customerId: customer.id,
+            frequency,
+            byDay: dayOfWeek,
+            dtStart,
+            windowStart: scheduledTime,
+            windowEnd: "17:00",
+            timezone: "America/Chicago",
+            notes: "",
+            addons: [],
+            paused: false,
+          });
+
+          imported++;
+        } catch (error) {
+          errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        }
+      }
+
+      res.json({
+        success: errors.length === 0,
+        imported,
+        skipped,
+        errors: errors.slice(0, 10),
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      res.status(500).json({ 
+        success: false, 
+        imported: 0, 
+        skipped: 0, 
+        errors: [error instanceof Error ? error.message : "Server error"] 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
