@@ -8,7 +8,7 @@ export default function Settings() {
   return (
     <div className="p-8 space-y-6">
       <div>
-        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" data-testid="title-settings">
+        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" data-testid="title-settings">
           Settings
         </h1>
         <p className="text-muted-foreground mt-1">Configure your business preferences</p>
@@ -36,7 +36,7 @@ export default function Settings() {
               <Label htmlFor="email">Business Email</Label>
               <Input id="email" type="email" placeholder="contact@sillydog.com" className="mt-1" data-testid="input-business-email" />
             </div>
-            <Button className="w-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-save-business">
+            <Button className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-save-business">
               Save Changes
             </Button>
           </CardContent>
@@ -57,21 +57,21 @@ export default function Settings() {
                   <p className="font-medium text-sm">SMS: In Route</p>
                   <p className="text-xs text-muted-foreground">Notify customers when starting route</p>
                 </div>
-                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"></div>
+                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"></div>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div>
                   <p className="font-medium text-sm">SMS: Service Complete</p>
                   <p className="text-xs text-muted-foreground">Notify when service is finished</p>
                 </div>
-                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"></div>
+                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"></div>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div>
                   <p className="font-medium text-sm">SMS: Payment Received</p>
                   <p className="text-xs text-muted-foreground">Send receipt when payment is made</p>
                 </div>
-                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"></div>
+                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"></div>
               </div>
             </div>
           </CardContent>

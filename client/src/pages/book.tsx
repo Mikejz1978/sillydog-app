@@ -72,7 +72,7 @@ export default function BookNow() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
         <Card className="max-w-2xl w-full text-center">
           <CardHeader>
-            <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center">
+            <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center">
               <CheckCircle2 className="h-12 w-12 text-white" />
             </div>
             <CardTitle className="text-3xl font-fredoka">Booking Request Received!</CardTitle>
@@ -109,8 +109,8 @@ export default function BookNow() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2">
-            <PawPrint className="h-8 w-8 text-[#2196F3]" />
-            <h1 className="text-2xl font-fredoka font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent">
+            <PawPrint className="h-8 w-8 text-[#00BCD4]" />
+            <h1 className="text-2xl font-fredoka font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent">
               SillyDog Pooper Scooper
             </h1>
           </div>
@@ -294,7 +294,7 @@ export default function BookNow() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-gradient-to-r from-[#2196F3] to-[#1DBF73] hover:shadow-lg"
+                  className="w-full h-12 bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] hover:shadow-lg"
                   disabled={isSubmitting}
                   data-testid="button-submit-booking"
                 >

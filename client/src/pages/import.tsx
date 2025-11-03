@@ -95,7 +95,7 @@ export default function Import() {
   return (
     <div className="p-8 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" style={{ fontFamily: "Fredoka" }}>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" style={{ fontFamily: "Fredoka" }}>
           Import Data
         </h1>
         <p className="text-muted-foreground mt-2">

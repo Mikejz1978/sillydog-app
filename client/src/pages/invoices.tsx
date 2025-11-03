@@ -95,14 +95,14 @@ export default function Invoices() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" data-testid="title-invoices">
+          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" data-testid="title-invoices">
             Invoices
           </h1>
           <p className="text-muted-foreground mt-1">Manage billing and payments</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-create-invoice">
+            <Button className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-create-invoice">
               <Plus className="w-4 h-4 mr-2" />
               Create Invoice
             </Button>
@@ -188,7 +188,7 @@ export default function Invoices() {
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createMutation.isPending} className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-submit-invoice">
+                  <Button type="submit" disabled={createMutation.isPending} className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-submit-invoice">
                     {createMutation.isPending ? "Creating..." : "Create Invoice"}
                   </Button>
                 </div>
@@ -206,7 +206,7 @@ export default function Invoices() {
                 <p className="text-sm text-muted-foreground">Total Invoices</p>
                 <p className="text-2xl font-bold mt-1">{stats.total}</p>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
             </div>
@@ -273,7 +273,7 @@ export default function Invoices() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center text-white">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white">
                         <DollarSign className="w-6 h-6" />
                       </div>
                       <div className="flex-1">

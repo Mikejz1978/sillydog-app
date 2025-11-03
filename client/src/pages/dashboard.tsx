@@ -29,7 +29,7 @@ export default function Dashboard() {
       value: activeCustomers,
       icon: Users,
       description: "Currently serviced",
-      gradient: "from-[#2196F3] to-[#1DBF73]",
+      gradient: "from-[#00BCD4] to-[#FF6F00]",
       testId: "stat-customers"
     },
     {
@@ -37,7 +37,7 @@ export default function Dashboard() {
       value: todayRoutes,
       icon: MapPin,
       description: "Scheduled for today",
-      gradient: "from-[#1DBF73] to-[#2196F3]",
+      gradient: "from-[#FF6F00] to-[#00BCD4]",
       testId: "stat-routes"
     },
     {
@@ -45,7 +45,7 @@ export default function Dashboard() {
       value: unpaidInvoices,
       icon: FileText,
       description: "Awaiting payment",
-      gradient: "from-[#2196F3] to-[#1DBF73]",
+      gradient: "from-[#00BCD4] to-[#FF6F00]",
       testId: "stat-invoices"
     },
     {
@@ -53,7 +53,7 @@ export default function Dashboard() {
       value: `$${totalRevenue.toFixed(2)}`,
       icon: DollarSign,
       description: "All-time earnings",
-      gradient: "from-[#1DBF73] to-[#2196F3]",
+      gradient: "from-[#FF6F00] to-[#00BCD4]",
       testId: "stat-revenue"
     },
   ];
@@ -71,7 +71,7 @@ export default function Dashboard() {
   return (
     <div className="p-8 space-y-8">
       <div>
-        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" data-testid="title-dashboard">
+        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" data-testid="title-dashboard">
           Dashboard
         </h1>
         <p className="text-muted-foreground mt-1">Welcome back! Here's your business overview.</p>
@@ -116,7 +116,7 @@ export default function Dashboard() {
                       data-testid={`route-${route.id}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white text-xs font-semibold">
                           {route.orderIndex + 1}
                         </div>
                         <div>

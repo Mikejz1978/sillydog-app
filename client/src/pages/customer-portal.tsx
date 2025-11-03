@@ -35,7 +35,7 @@ export default function CustomerPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2196F3]/10 via-background to-[#1DBF73]/10">
+    <div className="min-h-screen bg-gradient-to-br from-[#00BCD4]/10 via-background to-[#FF6F00]/10">
       <div className="container max-w-6xl mx-auto p-8 space-y-8">
         <div className="text-center py-12">
           <img 
@@ -44,7 +44,7 @@ export default function CustomerPortal() {
             className="w-24 h-24 mx-auto mb-4 object-contain"
             data-testid="img-portal-logo"
           />
-          <h1 className="text-5xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent">
+          <h1 className="text-5xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent">
             SillyDog Portal
           </h1>
           <p className="text-muted-foreground mt-2">Welcome back, {customer.name}!</p>
@@ -60,7 +60,7 @@ export default function CustomerPortal() {
                     {customerRoutes && customerRoutes.length > 0 ? "Scheduled" : "None"}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -76,7 +76,7 @@ export default function CustomerPortal() {
                     ${unpaidInvoices?.reduce((sum, inv) => sum + parseFloat(inv.amount), 0).toFixed(2) || "0.00"}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#1DBF73] to-[#2196F3] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#FF6F00] to-[#00BCD4] flex items-center justify-center">
                   <DollarSign className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -90,7 +90,7 @@ export default function CustomerPortal() {
                   <p className="text-sm text-muted-foreground">Service Plan</p>
                   <p className="text-2xl font-bold mt-1 capitalize">{customer.servicePlan.replace('-', ' ')}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center">
                   <MapPin className="w-6 h-6 text-white" />
                 </div>
               </div>
@@ -161,7 +161,7 @@ export default function CustomerPortal() {
                 <p className="text-sm text-muted-foreground text-center py-8">No invoices yet</p>
               )}
               {unpaidInvoices && unpaidInvoices.length > 0 && (
-                <Button className="w-full mt-4 bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-pay">
+                <Button className="w-full mt-4 bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-pay">
                   <CreditCard className="w-4 h-4 mr-2" />
                   Pay Outstanding Balance
                 </Button>

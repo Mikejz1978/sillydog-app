@@ -67,7 +67,7 @@ export default function Messages() {
   return (
     <div className="h-full flex flex-col p-6">
       <div className="mb-6">
-        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent">
+        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent">
           Messages
         </h1>
         <p className="text-muted-foreground mt-1">Communicate with your customers via SMS</p>
@@ -90,7 +90,7 @@ export default function Messages() {
                     onClick={() => setSelectedCustomerId(customer.id)}
                     className={`w-full text-left p-4 hover-elevate active-elevate-2 transition-colors ${
                       selectedCustomerId === customer.id
-                        ? "bg-gradient-to-r from-[#2196F3]/10 to-[#1DBF73]/10"
+                        ? "bg-gradient-to-r from-[#00BCD4]/10 to-[#FF6F00]/10"
                         : ""
                     }`}
                     data-testid={`button-customer-${customer.id}`}
@@ -143,7 +143,7 @@ export default function Messages() {
                           <div
                             className={`max-w-[70%] rounded-lg p-3 ${
                               message.direction === 'outbound'
-                                ? 'bg-gradient-to-r from-[#2196F3] to-[#1DBF73] text-white'
+                                ? 'bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] text-white'
                                 : 'bg-muted'
                             }`}
                           >

@@ -105,7 +105,7 @@ export default function Reports() {
     <div className="p-8 space-y-6">
       <div>
         <h1
-          className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent"
+          className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent"
           data-testid="title-reports"
         >
           Reports & Analytics
@@ -211,7 +211,7 @@ export default function Reports() {
               Export detailed revenue breakdown with customer information
             </p>
             <Button
-              className="w-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
               onClick={() => exportToCSV("revenue")}
               data-testid="button-export-revenue"
             >
@@ -230,7 +230,7 @@ export default function Reports() {
               Export completed jobs with duration and status details
             </p>
             <Button
-              className="w-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
               onClick={() => exportToCSV("jobs")}
               data-testid="button-export-jobs"
             >
@@ -249,7 +249,7 @@ export default function Reports() {
               Export all invoices with payment status and due dates
             </p>
             <Button
-              className="w-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
               onClick={() => exportToCSV("invoices")}
               data-testid="button-export-invoices"
             >

@@ -233,7 +233,7 @@ export default function Bookings() {
   return (
     <div className="p-8 space-y-6">
       <div>
-        <h1 className="text-4xl font-fredoka font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" data-testid="title-bookings">
+        <h1 className="text-4xl font-fredoka font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" data-testid="title-bookings">
           Booking Requests
         </h1>
         <p className="text-muted-foreground mt-2">

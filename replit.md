@@ -31,7 +31,7 @@ This project is a comprehensive web-based business management platform designed 
 -   **Reporting**: Generates reports with CSV exports for revenue, jobs, and invoices.
 
 ### Design System
--   **Primary Colors**: Blue (#2196F3) to Green (#1DBF73) gradient for branding.
+-   **Primary Colors**: Teal (#00BCD4) to Orange (#FF6F00) gradient matching the SillyDog logo, with Yellow (#FFC107) accents.
 -   **Typography**: Fredoka for headers/display, Open Sans for body/data.
 -   **Components**: Shadcn UI with hover-elevate interactions.
 -   **Responsiveness**: Mobile-first design supporting iOS, Android, and desktop browsers.

@@ -239,14 +239,14 @@ export default function Routes() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" data-testid="title-routes">
+          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" data-testid="title-routes">
             Routes & Scheduling
           </h1>
           <p className="text-muted-foreground mt-1">Manage your daily service routes</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-add-route">
+            <Button className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-add-route">
               <Plus className="w-4 h-4 mr-2" />
               Schedule Route
             </Button>
@@ -334,7 +334,7 @@ export default function Routes() {
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createMutation.isPending} className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-submit-route">
+                  <Button type="submit" disabled={createMutation.isPending} className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-submit-route">
                     {createMutation.isPending ? "Scheduling..." : "Schedule Route"}
                   </Button>
                 </div>
@@ -399,7 +399,7 @@ export default function Routes() {
                       data-testid={`route-item-${route.id}`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center text-white font-semibold flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white font-semibold flex-shrink-0">
                           {index + 1}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -439,7 +439,7 @@ export default function Routes() {
                                   onClick={() => handleStatusUpdate(route.id, "in_route")}
                                   disabled={updateStatusMutation.isPending}
                                   data-testid={`button-start-${route.id}`}
-                                  className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+                                  className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
                                 >
                                   <Navigation className="w-3 h-3 mr-1" />
                                   Start Route
@@ -453,7 +453,7 @@ export default function Routes() {
                                   onClick={() => handleStatusUpdate(route.id, "completed")}
                                   disabled={updateStatusMutation.isPending}
                                   data-testid={`button-complete-${route.id}`}
-                                  className="bg-gradient-to-r from-[#1DBF73] to-[#2196F3]"
+                                  className="bg-gradient-to-r from-[#FF6F00] to-[#00BCD4]"
                                 >
                                   <Check className="w-3 h-3 mr-1" />
                                   Complete Service
@@ -603,7 +603,7 @@ export default function Routes() {
             </div>
 
             <Button
-              className="w-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
               onClick={handlePhotoUpload}
               disabled={uploadPhotosMutation.isPending || (!photoBefore && !photoAfter)}
               data-testid="button-upload-photos"

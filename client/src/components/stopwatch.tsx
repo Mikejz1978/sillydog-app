@@ -53,7 +53,7 @@ export function Stopwatch({ startTime, onStart, onStop, isStarted, isStopped, sh
       <Button
         size="sm"
         onClick={onStart}
-        className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+        className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
         data-testid="button-start-timer"
       >
         <Play className="w-3 h-3 mr-1" />

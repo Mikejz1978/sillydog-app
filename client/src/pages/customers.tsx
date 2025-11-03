@@ -290,7 +290,7 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                   <Button type="button" variant="outline" onClick={() => setScheduleDialogOpen(false)}>
                     Close
                   </Button>
-                  <Button type="submit" disabled={createScheduleMutation.isPending} className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-submit-schedule">
+                  <Button type="submit" disabled={createScheduleMutation.isPending} className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-submit-schedule">
                     {createScheduleMutation.isPending ? "Creating..." : "Add Schedule"}
                   </Button>
                 </div>
@@ -514,14 +514,14 @@ export default function Customers() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent" data-testid="title-customers">
+          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent" data-testid="title-customers">
             Customers
           </h1>
           <p className="text-muted-foreground mt-1">Manage your customer database</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-add-customer">
+            <Button className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-add-customer">
               <Plus className="w-4 h-4 mr-2" />
               Add Customer
             </Button>
@@ -791,7 +791,7 @@ export default function Customers() {
                   <Button 
                     type="submit" 
                     disabled={createMutation.isPending || updateMutation.isPending} 
-                    className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" 
+                    className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" 
                     data-testid="button-submit-customer"
                   >
                     {editingCustomer 
@@ -851,7 +851,7 @@ export default function Customers() {
                       {customer.status}
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center text-white font-semibold">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white font-semibold">
                     {customer.numberOfDogs}
                   </div>
                 </div>
