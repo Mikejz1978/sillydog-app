@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -316,6 +316,7 @@ function formatNextVisit(date: Date, windowStart: string): string {
 export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
 
   const { data: customers, isLoading } = useQuery<Customer[]>({
@@ -338,12 +339,81 @@ export default function Customers() {
         description: "New customer has been successfully added.",
       });
       setDialogOpen(false);
+      setEditingCustomer(null);
       form.reset();
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCustomer> }) => {
+      const response = await apiRequest("PATCH", `/api/customers/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Customer Updated",
+        description: "Customer information has been updated.",
+      });
+      setDialogOpen(false);
+      setEditingCustomer(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await apiRequest("PATCH", `/api/customers/${id}`, { status });
+      return response.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: variables.status === "active" ? "Customer Activated" : "Customer Archived",
+        description: variables.status === "active" 
+          ? "Customer has been reactivated." 
+          : "Customer has been archived and won't appear in active lists.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update customer status: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/customers/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules"] });
+      toast({
+        title: "Customer Deleted",
+        description: "Customer and all associated data have been permanently deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete customer: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -438,11 +508,26 @@ export default function Customers() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Customer</DialogTitle>
-              <DialogDescription>Enter customer details to add them to your database</DialogDescription>
+              <DialogTitle>{editingCustomer ? "Edit Customer" : "Add New Customer"}</DialogTitle>
+              <DialogDescription>
+                {editingCustomer ? "Update customer information" : "Enter customer details to add them to your database"}
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+              <form onSubmit={form.handleSubmit((data) => {
+                // Clean up empty string values for numeric fields
+                const cleanedData = {
+                  ...data,
+                  lat: data.lat === "" ? undefined : data.lat,
+                  lng: data.lng === "" ? undefined : data.lng,
+                };
+                
+                if (editingCustomer) {
+                  updateMutation.mutate({ id: editingCustomer.id, data: cleanedData });
+                } else {
+                  createMutation.mutate(cleanedData);
+                }
+              })} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -671,11 +756,28 @@ export default function Customers() {
                   )}
                 />
                 <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      setDialogOpen(false);
+                      setEditingCustomer(null);
+                      form.reset();
+                    }} 
+                    data-testid="button-cancel"
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createMutation.isPending} className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-submit-customer">
-                    {createMutation.isPending ? "Adding..." : "Add Customer"}
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending} 
+                    className="bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" 
+                    data-testid="button-submit-customer"
+                  >
+                    {editingCustomer 
+                      ? (updateMutation.isPending ? "Updating..." : "Update Customer")
+                      : (createMutation.isPending ? "Adding..." : "Add Customer")
+                    }
                   </Button>
                 </div>
               </form>
@@ -770,6 +872,61 @@ export default function Customers() {
 
                 <div className="flex items-center gap-2 pt-2">
                   <ScheduleDialog customer={customer} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Populate form with customer data
+                      form.reset({
+                        ...customer,
+                        lat: customer.lat?.toString() || "",
+                        lng: customer.lng?.toString() || "",
+                      });
+                      setEditingCustomer(customer);
+                      setDialogOpen(true);
+                    }}
+                    data-testid={`button-edit-${customer.id}`}
+                  >
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      updateStatusMutation.mutate({
+                        id: customer.id,
+                        status: customer.status === "active" ? "inactive" : "active"
+                      });
+                    }}
+                    disabled={updateStatusMutation.isPending}
+                    data-testid={`button-archive-${customer.id}`}
+                  >
+                    {customer.status === "active" ? (
+                      <>
+                        <Archive className="w-3 h-3 mr-1" />
+                        Archive
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Activate
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to permanently delete ${customer.name}? This cannot be undone.`)) {
+                        deleteMutation.mutate(customer.id);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    data-testid={`button-delete-${customer.id}`}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
