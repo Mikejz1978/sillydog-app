@@ -27,6 +27,7 @@ Streamline daily operations for Michael and staff by providing:
 - **Route Optimization**: Alphabetical route sorting with "Optimize Routes" button (foundation for future geocoding)
 - **Reporting & Analytics**: New reports page with CSV exports for revenue, jobs, and invoices with date filtering
 - **Server-side Validation**: Enhanced photo upload endpoint with MIME type and size validation
+- **Text Messaging Portal**: Two-way SMS communication interface with customer list, conversation view, and message history
 
 ## Project Architecture
 
@@ -43,6 +44,7 @@ Streamline daily operations for Michael and staff by providing:
 2. **Routes**: Date, customer, scheduled time, status (scheduled/in_route/completed), order index
 3. **Invoices**: Customer, invoice number, amount, status (unpaid/paid/overdue), due date, Stripe payment intent ID
 4. **Job History**: Customer, route, service date, duration, before/after photos (base64), SMS notification tracking
+5. **Messages**: Customer, direction (inbound/outbound), message text, status, timestamp
 
 ### API Endpoints
 - `GET/POST /api/customers` - Customer CRUD
@@ -54,17 +56,24 @@ Streamline daily operations for Michael and staff by providing:
 - `POST /api/invoices/:id/pay` - Mark invoice paid
 - `GET/POST /api/job-history` - Service history tracking
 - `POST /api/job-history/:id/photos` - Upload before/after photos
+- `GET /api/messages` - Get all messages or filter by customer
+- `POST /api/messages/send` - Send SMS to customer via Twilio
 
 ### Key Features
 1. **Customer Management**: Full CRM with service plans, dog counts, gate codes, yard notes
 2. **Route Scheduling**: Daily route planning with manual ordering, status tracking (scheduled → in route → completed)
-3. **Automated Notifications**: 
+3. **Text Messaging Portal**: 
+   - Two-column interface: customer list + conversation view
+   - Send SMS messages directly to customers via Twilio
+   - Message history with inbound/outbound tracking
+   - Real-time conversation updates
+4. **Automated Notifications**: 
    - "In Route" SMS when technician starts driving
    - "Service Complete" SMS when job finished
    - Invoice notifications and payment confirmations
-4. **Invoicing**: Auto-calculate prices based on service plan + dog count, track payment status
-5. **Customer Portal**: View service details, upcoming routes, payment history, outstanding balance
-6. **Pricing Calculator**: Built-in rate tables for weekly/biweekly/one-time services (1-8 dogs)
+5. **Invoicing**: Auto-calculate prices based on service plan + dog count, track payment status
+6. **Customer Portal**: View service details, upcoming routes, payment history, outstanding balance
+7. **Pricing Calculator**: Built-in rate tables for weekly/biweekly/one-time services (1-8 dogs)
 
 ### Design System
 - **Primary Colors**: Blue (#2196F3) to Green (#1DBF73) gradient for branding
@@ -107,16 +116,17 @@ Required secrets (configured via Replit Secrets):
 - Map visualization with route paths
 
 ## Project Status
-**Current Phase**: Phase 2 Complete ✓
+**Current Phase**: Phase 2 Complete ✓ + Text Messaging Portal
 - PostgreSQL database for persistent data storage
 - Photo upload system for service documentation
 - Route optimization functionality
 - Reports page with CSV exports for revenue, jobs, and invoices
+- **NEW: Text messaging portal for direct customer communication**
 - All core features implemented and functional
 - Stripe payment integration ready
 - Twilio SMS notifications operational
-- Beautiful, responsive UI with SillyDog branding
-- Ready for comprehensive end-to-end testing and deployment
+- Beautiful, responsive UI with SillyDog branding and professional logo
+- Ready for production deployment
 
 ## Notes
 - This is a web-based solution accessible on any device (iOS, Android, desktop)

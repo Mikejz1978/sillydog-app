@@ -1,0 +1,98 @@
+🗓️ Feature: Recurring Customer Scheduling (Weekly / Biweekly)
+
+Goal:
+Allow admin users (Michael or staff) to create and manage recurring customer schedules with flexible parameters — such as weekly or biweekly visits on specific days and time windows.
+
+🧩 Functional Requirements
+
+Scheduling Options
+
+Each customer can be assigned one or more recurring service rules.
+
+Each rule includes:
+
+Frequency: Weekly or Biweekly
+
+Day of Week: (e.g., Tuesday)
+
+Start Date: the first service date (this anchors the biweekly pattern)
+
+Time Window: service window (e.g., between 7:00 AM and 12:00 PM)
+
+Timezone: e.g., "America/Los_Angeles"
+
+Notes / Special Instructions: optional text (gate code, dog info, etc.)
+
+Add-ons: optional service flags (e.g., “extra yard”, “odor spray”)
+
+Status: active / paused
+
+Scheduling Behavior
+
+The system auto-generates future service dates based on the rule.
+
+For weekly, the job repeats every 7 days.
+
+For biweekly, the job repeats every 14 days from the start date.
+
+If a job is skipped or rescheduled, the next recurrence should still follow the original pattern.
+
+UI Integration
+
+When adding or editing a customer, include a “Service Schedule” section:
+
+Frequency dropdown: Weekly or Biweekly
+
+Day selector: Sun–Sat
+
+Time window inputs: Start / End
+
+Notes textarea
+
+Checkbox for optional add-ons
+
+Show next upcoming visit on customer detail view (e.g., “Next Visit: Tuesday, Nov 5 @ 8–11 AM”).
+
+Route View Integration
+
+The daily route automatically loads all customers whose next service date matches today.
+
+Admin can override, pause, or mark as completed.
+
+Data Model Example (TypeScript / JSON)
+
+export type Frequency = "WEEKLY" | "BIWEEKLY";
+
+export interface ScheduleRule {
+  customerId: string;
+  frequency: Frequency;
+  byDay: number;               // 0=Sunday ... 6=Saturday
+  dtStartISO: string;          // first service datetime
+  windowStart: string;         // "07:00"
+  windowEnd: string;           // "12:00"
+  tz: string;                  // "America/Los_Angeles"
+  notes?: string;
+  addons?: string[];           // e.g., ["extra-yard", "odor-spray"]
+  paused?: boolean;
+}
+
+
+Logic Notes
+
+Biweekly scheduling is determined by (today - dtStart) % 14 == 0 on matching weekday.
+
+Jobs auto-generate into the Routes collection each morning.
+
+Paused rules are ignored in route generation.
+
+✅ Developer To-Do Summary
+
+ Add ScheduleRule model/table in the backend (CloudKit or PostgreSQL).
+
+ Add schedule creation UI in “Add Customer” or “Edit Customer” view.
+
+ Implement auto-route generation script (daily at 6 AM or on demand).
+
+ Add logic to skip paused schedules.
+
+ Include “Next Visit” field in Customer Detail screen.
