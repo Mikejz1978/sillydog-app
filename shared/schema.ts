@@ -80,6 +80,8 @@ export const jobHistory = pgTable("job_history", {
   serviceDate: text("service_date").notNull(), // YYYY-MM-DD format
   duration: integer("duration"), // in minutes
   notes: text("notes"),
+  photoBefore: text("photo_before"), // base64 encoded image
+  photoAfter: text("photo_after"), // base64 encoded image
   smsInRouteSent: boolean("sms_in_route_sent").notNull().default(false),
   smsCompleteSent: boolean("sms_complete_sent").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),

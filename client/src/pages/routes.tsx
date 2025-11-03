@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,6 +16,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 export default function Routes() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [selectedRouteForPhotos, setSelectedRouteForPhotos] = useState<Route | null>(null);
+  const [photoBefore, setPhotoBefore] = useState<string>("");
+  const [photoAfter, setPhotoAfter] = useState<string>("");
+  const beforeInputRef = useRef<HTMLInputElement>(null);
+  const afterInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: customers } = useQuery<Customer[]>({
@@ -24,6 +30,11 @@ export default function Routes() {
 
   const { data: routes, isLoading } = useQuery<Route[]>({
     queryKey: ["/api/routes", selectedDate],
+    queryFn: async () => {
+      const response = await fetch(`/api/routes?date=${selectedDate}`);
+      if (!response.ok) throw new Error('Failed to fetch routes');
+      return response.json();
+    },
   });
 
   const createMutation = useMutation({
@@ -57,6 +68,100 @@ export default function Routes() {
       });
     },
   });
+
+  const uploadPhotosMutation = useMutation({
+    mutationFn: async ({ jobHistoryId, photoBefore, photoAfter }: { jobHistoryId: string; photoBefore?: string; photoAfter?: string }) => {
+      const response = await apiRequest("POST", `/api/job-history/${jobHistoryId}/photos`, { photoBefore, photoAfter });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/job-history"] });
+      toast({
+        title: "Photos Uploaded",
+        description: "Before and after photos have been saved.",
+      });
+      setPhotoDialogOpen(false);
+      setPhotoBefore("");
+      setPhotoAfter("");
+    },
+  });
+
+  const optimizeRoutesMutation = useMutation({
+    mutationFn: async (date: string) => {
+      const response = await apiRequest("POST", "/api/routes/optimize", { date });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Routes Optimized",
+        description: "Routes have been reordered for efficiency.",
+      });
+    },
+  });
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Image must be less than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      if (type === 'before') {
+        setPhotoBefore(base64);
+      } else {
+        setPhotoAfter(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedRouteForPhotos) return;
+
+    // Find corresponding job history entry
+    const { data: jobHistory } = await queryClient.fetchQuery({
+      queryKey: ["/api/job-history"],
+    });
+    
+    const job = (jobHistory as any[])?.find(j => j.routeId === selectedRouteForPhotos.id);
+    if (!job) {
+      toast({
+        title: "Error",
+        description: "No job history found for this route.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    uploadPhotosMutation.mutate({
+      jobHistoryId: job.id,
+      photoBefore: photoBefore || undefined,
+      photoAfter: photoAfter || undefined,
+    });
+  };
 
   const form = useForm<InsertRoute>({
     resolver: zodResolver(insertRouteSchema),
@@ -171,7 +276,7 @@ export default function Routes() {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-muted-foreground" />
           <Input
@@ -182,6 +287,17 @@ export default function Routes() {
             data-testid="input-date-filter"
           />
         </div>
+        {sortedRoutes.length > 1 && (
+          <Button
+            variant="outline"
+            onClick={() => optimizeRoutesMutation.mutate(selectedDate)}
+            disabled={optimizeRoutesMutation.isPending}
+            data-testid="button-optimize-routes"
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            {optimizeRoutesMutation.isPending ? "Optimizing..." : "Optimize Routes"}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -236,16 +352,30 @@ export default function Routes() {
                               </>
                             )}
                             {route.status === "in_route" && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleStatusUpdate(route.id, "completed")}
-                                disabled={updateStatusMutation.isPending}
-                                data-testid={`button-complete-${route.id}`}
-                                className="bg-gradient-to-r from-[#1DBF73] to-[#2196F3]"
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Complete Service
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleStatusUpdate(route.id, "completed")}
+                                  disabled={updateStatusMutation.isPending}
+                                  data-testid={`button-complete-${route.id}`}
+                                  className="bg-gradient-to-r from-[#1DBF73] to-[#2196F3]"
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Complete Service
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedRouteForPhotos(route);
+                                    setPhotoDialogOpen(true);
+                                  }}
+                                  data-testid={`button-photo-${route.id}`}
+                                >
+                                  <Camera className="w-3 h-3 mr-1" />
+                                  Photos
+                                </Button>
+                              </>
                             )}
                             {route.status === "completed" && (
                               <div className="text-xs font-medium px-3 py-1 rounded-full bg-green-100 text-green-800">
@@ -294,6 +424,100 @@ export default function Routes() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Photo Upload Dialog */}
+      <Dialog open={photoDialogOpen} onOpenChange={setPhotoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Before & After Photos</DialogTitle>
+            <DialogDescription>
+              Capture evidence of the completed service
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Before Photo</label>
+              <input
+                ref={beforeInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, 'before')}
+                data-testid="input-photo-before"
+              />
+              {photoBefore ? (
+                <div className="relative">
+                  <img src={photoBefore} alt="Before" className="w-full h-48 object-cover rounded-lg" />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => setPhotoBefore("")}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 border-dashed"
+                  onClick={() => beforeInputRef.current?.click()}
+                >
+                  <Camera className="w-6 h-6 mr-2" />
+                  Capture Before Photo
+                </Button>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">After Photo</label>
+              <input
+                ref={afterInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, 'after')}
+                data-testid="input-photo-after"
+              />
+              {photoAfter ? (
+                <div className="relative">
+                  <img src={photoAfter} alt="After" className="w-full h-48 object-cover rounded-lg" />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => setPhotoAfter("")}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 border-dashed"
+                  onClick={() => afterInputRef.current?.click()}
+                >
+                  <Camera className="w-6 h-6 mr-2" />
+                  Capture After Photo
+                </Button>
+              )}
+            </div>
+
+            <Button
+              className="w-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73]"
+              onClick={handlePhotoUpload}
+              disabled={uploadPhotosMutation.isPending || (!photoBefore && !photoAfter)}
+              data-testid="button-upload-photos"
+            >
+              {uploadPhotosMutation.isPending ? "Uploading..." : "Save Photos"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

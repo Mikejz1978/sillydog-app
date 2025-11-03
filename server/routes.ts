@@ -51,6 +51,93 @@ async function sendSMS(to: string, message: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ========== ROUTE OPTIMIZATION ==========
+  app.post("/api/routes/optimize", async (req, res) => {
+    try {
+      const { date } = req.body;
+      
+      if (!date) {
+        return res.status(400).json({ message: "Date is required" });
+      }
+
+      const routes = await storage.getRoutesByDate(date);
+      
+      if (routes.length === 0) {
+        return res.json({ message: "No routes to optimize" });
+      }
+
+      // Get customer details for all routes
+      const routesWithCustomers = await Promise.all(
+        routes.map(async (route) => {
+          const customer = await storage.getCustomer(route.customerId);
+          return { route, customer };
+        })
+      );
+
+      // Simple optimization algorithm: alphabetical by address (proxy for geographic sorting)
+      // In a real system, you'd use geocoding + traveling salesman algorithm
+      const optimized = routesWithCustomers.sort((a, b) => {
+        if (!a.customer || !b.customer) return 0;
+        return a.customer.address.localeCompare(b.customer.address);
+      });
+
+      // Update order indexes
+      await Promise.all(
+        optimized.map(({ route }, index) =>
+          storage.updateRoute(route.id, { orderIndex: index })
+        )
+      );
+
+      const updatedRoutes = await storage.getRoutesByDate(date);
+      res.json(updatedRoutes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ========== PHOTO UPLOAD ROUTE ==========
+  app.post("/api/job-history/:id/photos", async (req, res) => {
+    try {
+      const { photoBefore, photoAfter } = req.body;
+      
+      // Validate photo is base64 encoded image
+      const isValidImage = (base64: string) => {
+        if (!base64 || typeof base64 !== 'string') return false;
+        // Check for valid image MIME types in base64 prefix
+        const validTypes = ['data:image/jpeg', 'data:image/jpg', 'data:image/png', 'data:image/webp', 'data:image/gif'];
+        return validTypes.some(type => base64.startsWith(type));
+      };
+      
+      // Validate photo size (max 5MB each when base64 encoded)
+      if (photoBefore) {
+        if (!isValidImage(photoBefore)) {
+          return res.status(400).json({ message: "Before photo must be a valid image (JPEG, PNG, WebP, or GIF)" });
+        }
+        if (photoBefore.length > 7000000) {
+          return res.status(400).json({ message: "Before photo too large (max 5MB)" });
+        }
+      }
+      
+      if (photoAfter) {
+        if (!isValidImage(photoAfter)) {
+          return res.status(400).json({ message: "After photo must be a valid image (JPEG, PNG, WebP, or GIF)" });
+        }
+        if (photoAfter.length > 7000000) {
+          return res.status(400).json({ message: "After photo too large (max 5MB)" });
+        }
+      }
+      
+      const updated = await storage.updateJobHistory(req.params.id, {
+        photoBefore,
+        photoAfter,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ========== CUSTOMER ROUTES ==========
   app.get("/api/customers", async (req, res) => {
     try {

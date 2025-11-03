@@ -231,4 +231,195 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { eq, and } from "drizzle-orm";
+import * as schema from "@shared/schema";
+import ws from "ws";
+
+// Enable WebSocket for Neon
+neonConfig.webSocketConstructor = ws;
+
+export class DbStorage implements IStorage {
+  private db;
+
+  constructor() {
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+    this.db = drizzle(pool, { schema });
+  }
+
+  // Customers
+  async getAllCustomers(): Promise<Customer[]> {
+    return await this.db.select().from(schema.customers);
+  }
+
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.customers)
+      .where(eq(schema.customers.id, id));
+    return result[0];
+  }
+
+  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
+    const result = await this.db
+      .insert(schema.customers)
+      .values(insertCustomer)
+      .returning();
+    return result[0];
+  }
+
+  async updateCustomer(id: string, updates: Partial<InsertCustomer>): Promise<Customer> {
+    const result = await this.db
+      .update(schema.customers)
+      .set(updates)
+      .where(eq(schema.customers.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Customer not found");
+    return result[0];
+  }
+
+  async deleteCustomer(id: string): Promise<void> {
+    await this.db.delete(schema.customers).where(eq(schema.customers.id, id));
+  }
+
+  // Routes
+  async getAllRoutes(): Promise<Route[]> {
+    return await this.db.select().from(schema.routes);
+  }
+
+  async getRoutesByDate(date: string): Promise<Route[]> {
+    return await this.db
+      .select()
+      .from(schema.routes)
+      .where(eq(schema.routes.date, date));
+  }
+
+  async getRoute(id: string): Promise<Route | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.routes)
+      .where(eq(schema.routes.id, id));
+    return result[0];
+  }
+
+  async createRoute(insertRoute: InsertRoute): Promise<Route> {
+    const result = await this.db
+      .insert(schema.routes)
+      .values(insertRoute)
+      .returning();
+    return result[0];
+  }
+
+  async updateRoute(id: string, updates: Partial<InsertRoute>): Promise<Route> {
+    const result = await this.db
+      .update(schema.routes)
+      .set(updates)
+      .where(eq(schema.routes.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Route not found");
+    return result[0];
+  }
+
+  async updateRouteStatus(id: string, status: string): Promise<Route> {
+    const updates: any = { status };
+    if (status === "completed") {
+      updates.completedAt = new Date();
+    }
+    const result = await this.db
+      .update(schema.routes)
+      .set(updates)
+      .where(eq(schema.routes.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Route not found");
+    return result[0];
+  }
+
+  async deleteRoute(id: string): Promise<void> {
+    await this.db.delete(schema.routes).where(eq(schema.routes.id, id));
+  }
+
+  // Invoices
+  async getAllInvoices(): Promise<Invoice[]> {
+    return await this.db.select().from(schema.invoices);
+  }
+
+  async getInvoicesByCustomer(customerId: string): Promise<Invoice[]> {
+    return await this.db
+      .select()
+      .from(schema.invoices)
+      .where(eq(schema.invoices.customerId, customerId));
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.invoices)
+      .where(eq(schema.invoices.id, id));
+    return result[0];
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const result = await this.db
+      .insert(schema.invoices)
+      .values(insertInvoice)
+      .returning();
+    return result[0];
+  }
+
+  async updateInvoice(id: string, updates: Partial<InsertInvoice>): Promise<Invoice> {
+    const result = await this.db
+      .update(schema.invoices)
+      .set(updates)
+      .where(eq(schema.invoices.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Invoice not found");
+    return result[0];
+  }
+
+  async markInvoicePaid(id: string, paymentIntentId: string): Promise<Invoice> {
+    const result = await this.db
+      .update(schema.invoices)
+      .set({
+        status: "paid",
+        paidAt: new Date(),
+        stripePaymentIntentId: paymentIntentId,
+      })
+      .where(eq(schema.invoices.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Invoice not found");
+    return result[0];
+  }
+
+  // Job History
+  async getAllJobHistory(): Promise<JobHistory[]> {
+    return await this.db.select().from(schema.jobHistory);
+  }
+
+  async getJobHistoryByCustomer(customerId: string): Promise<JobHistory[]> {
+    return await this.db
+      .select()
+      .from(schema.jobHistory)
+      .where(eq(schema.jobHistory.customerId, customerId));
+  }
+
+  async createJobHistory(insertHistory: InsertJobHistory): Promise<JobHistory> {
+    const result = await this.db
+      .insert(schema.jobHistory)
+      .values(insertHistory)
+      .returning();
+    return result[0];
+  }
+
+  async updateJobHistory(id: string, updates: Partial<InsertJobHistory>): Promise<JobHistory> {
+    const result = await this.db
+      .update(schema.jobHistory)
+      .set(updates)
+      .where(eq(schema.jobHistory.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Job history not found");
+    return result[0];
+  }
+}
+
+export const storage = new DbStorage();
