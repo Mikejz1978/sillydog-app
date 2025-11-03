@@ -182,6 +182,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/customers/:id", async (req, res) => {
     try {
       const customer = await storage.updateCustomer(req.params.id, req.body);
+      
+      // If customer is being archived/inactivated, pause all their schedules
+      if (req.body.status === 'inactive') {
+        const schedules = await storage.getScheduleRulesByCustomer(req.params.id);
+        await Promise.all(
+          schedules.map(schedule => 
+            storage.updateScheduleRule(schedule.id, { paused: true })
+          )
+        );
+      }
+      
+      // If customer is being reactivated, unpause all their schedules
+      if (req.body.status === 'active') {
+        const schedules = await storage.getScheduleRulesByCustomer(req.params.id);
+        await Promise.all(
+          schedules.map(schedule => 
+            storage.updateScheduleRule(schedule.id, { paused: false })
+          )
+        );
+      }
+      
       res.json(customer);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -190,6 +211,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/customers/:id", async (req, res) => {
     try {
+      // Delete all schedule rules for this customer
+      const schedules = await storage.getScheduleRulesByCustomer(req.params.id);
+      await Promise.all(
+        schedules.map(schedule => storage.deleteScheduleRule(schedule.id))
+      );
+      
+      // Delete future routes that haven't been started yet
+      const allRoutes = await storage.getAllRoutes();
+      const today = new Date().toISOString().split("T")[0];
+      const futureRoutes = allRoutes.filter(
+        route => route.customerId === req.params.id && 
+                 route.date >= today && 
+                 route.status === 'scheduled'
+      );
+      await Promise.all(
+        futureRoutes.map(route => storage.deleteRoute(route.id))
+      );
+      
+      // Finally delete the customer
       await storage.deleteCustomer(req.params.id);
       res.status(204).send();
     } catch (error: any) {
