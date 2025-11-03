@@ -28,6 +28,7 @@ Streamline daily operations for Michael and staff by providing:
 - **Reporting & Analytics**: New reports page with CSV exports for revenue, jobs, and invoices with date filtering
 - **Server-side Validation**: Enhanced photo upload endpoint with MIME type and size validation
 - **Text Messaging Portal**: Two-way SMS communication interface with customer list, conversation view, and message history
+- **Recurring Customer Scheduling**: Automated weekly/biweekly service scheduling with "Generate Routes" feature, next visit display on customer cards, and automatic start date validation
 
 ## Project Architecture
 
@@ -45,12 +46,14 @@ Streamline daily operations for Michael and staff by providing:
 3. **Invoices**: Customer, invoice number, amount, status (unpaid/paid/overdue), due date, Stripe payment intent ID
 4. **Job History**: Customer, route, service date, duration, before/after photos (base64), SMS notification tracking
 5. **Messages**: Customer, direction (inbound/outbound), message text, status, timestamp
+6. **Schedule Rules**: Customer, frequency (weekly/biweekly), day of week (0-6), start date, time window (start/end), timezone, notes, addons, paused status
 
 ### API Endpoints
 - `GET/POST /api/customers` - Customer CRUD
 - `GET/POST /api/routes` - Route scheduling
 - `PATCH /api/routes/:id/status` - Update route status (triggers SMS)
 - `POST /api/routes/optimize` - Optimize route order
+- `POST /api/routes/generate` - Auto-generate routes from active schedule rules for a given date
 - `GET/POST /api/invoices` - Invoice management
 - `POST /api/create-payment-intent` - Stripe payment initialization
 - `POST /api/invoices/:id/pay` - Mark invoice paid
@@ -58,22 +61,31 @@ Streamline daily operations for Michael and staff by providing:
 - `POST /api/job-history/:id/photos` - Upload before/after photos
 - `GET /api/messages` - Get all messages or filter by customer
 - `POST /api/messages/send` - Send SMS to customer via Twilio
+- `GET/POST /api/schedule-rules` - Get/create recurring schedule rules
+- `DELETE /api/schedule-rules/:id` - Delete a schedule rule
 
 ### Key Features
 1. **Customer Management**: Full CRM with service plans, dog counts, gate codes, yard notes
 2. **Route Scheduling**: Daily route planning with manual ordering, status tracking (scheduled → in route → completed)
-3. **Text Messaging Portal**: 
+3. **Recurring Service Scheduling**:
+   - Set up automatic weekly/biweekly service schedules per customer
+   - Define day of week, time window, and start date
+   - Support for multiple schedules per customer
+   - "Next Visit" badge on customer cards showing earliest upcoming service
+   - "Generate Routes" button auto-creates routes from active schedules
+   - Automatic start date validation to match selected weekday
+4. **Text Messaging Portal**: 
    - Two-column interface: customer list + conversation view
    - Send SMS messages directly to customers via Twilio
    - Message history with inbound/outbound tracking
    - Real-time conversation updates
-4. **Automated Notifications**: 
+5. **Automated Notifications**: 
    - "In Route" SMS when technician starts driving
    - "Service Complete" SMS when job finished
    - Invoice notifications and payment confirmations
-5. **Invoicing**: Auto-calculate prices based on service plan + dog count, track payment status
-6. **Customer Portal**: View service details, upcoming routes, payment history, outstanding balance
-7. **Pricing Calculator**: Built-in rate tables for weekly/biweekly/one-time services (1-8 dogs)
+6. **Invoicing**: Auto-calculate prices based on service plan + dog count, track payment status
+7. **Customer Portal**: View service details, upcoming routes, payment history, outstanding balance
+8. **Pricing Calculator**: Built-in rate tables for weekly/biweekly/one-time services (1-8 dogs)
 
 ### Design System
 - **Primary Colors**: Blue (#2196F3) to Green (#1DBF73) gradient for branding
@@ -116,12 +128,13 @@ Required secrets (configured via Replit Secrets):
 - Map visualization with route paths
 
 ## Project Status
-**Current Phase**: Phase 2 Complete ✓ + Text Messaging Portal
+**Current Phase**: Phase 2 Complete ✓ + Text Messaging Portal + Recurring Scheduling
 - PostgreSQL database for persistent data storage
 - Photo upload system for service documentation
 - Route optimization functionality
 - Reports page with CSV exports for revenue, jobs, and invoices
-- **NEW: Text messaging portal for direct customer communication**
+- Text messaging portal for direct customer communication
+- **NEW: Recurring customer scheduling with automatic route generation**
 - All core features implemented and functional
 - Stripe payment integration ready
 - Twilio SMS notifications operational
@@ -135,3 +148,7 @@ Required secrets (configured via Replit Secrets):
 - Photos stored as base64 in database (max 5MB each, validated server-side)
 - Twilio SMS gracefully degrades if credentials unavailable (logs to console)
 - Route optimization uses simple alphabetical sorting (placeholder for future geocoding API)
+- Recurring schedules use "America/Chicago" timezone
+- Schedule start dates are automatically adjusted to match selected weekday
+- Route generation checks schedule patterns: weekly (every 7 days) or biweekly (every 14 days) from dtStart
+- Multiple schedules per customer supported - "Next Visit" shows earliest upcoming service
