@@ -425,6 +425,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("active");
   const { toast } = useToast();
 
   const { data: customers, isLoading } = useQuery<Customer[]>({
@@ -584,11 +585,22 @@ export default function Customers() {
     }
   };
 
-  const filteredCustomers = customers?.filter((customer) =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm)
-  );
+  const filteredCustomers = customers?.filter((customer) => {
+    // Apply status filter
+    const statusMatch = statusFilter === "all" 
+      ? true 
+      : statusFilter === "active" 
+        ? customer.status === "active"
+        : customer.status === "inactive";
+    
+    // Apply search filter
+    const searchMatch = searchTerm === "" || 
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone.includes(searchTerm);
+    
+    return statusMatch && searchMatch;
+  });
 
   if (isLoading) {
     return (
@@ -894,15 +906,48 @@ export default function Customers() {
         </Dialog>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search customers by name, address, or phone..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-          data-testid="input-search"
-        />
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customers by name, address, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+            data-testid="input-search"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Show:</span>
+          <div className="flex gap-2">
+            <Button
+              variant={statusFilter === "active" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("active")}
+              data-testid="filter-active"
+            >
+              Active ({customers?.filter(c => c.status === "active").length || 0})
+            </Button>
+            <Button
+              variant={statusFilter === "archived" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("archived")}
+              data-testid="filter-archived"
+            >
+              <Archive className="w-3 h-3 mr-1" />
+              Archived ({customers?.filter(c => c.status === "inactive").length || 0})
+            </Button>
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+              data-testid="filter-all"
+            >
+              All ({customers?.length || 0})
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1041,7 +1086,16 @@ export default function Customers() {
           )})
         ) : (
           <div className="col-span-full text-center py-12">
-            <p className="text-muted-foreground">No customers found</p>
+            <p className="text-muted-foreground">
+              {searchTerm 
+                ? "No customers match your search" 
+                : statusFilter === "archived" 
+                  ? "No archived customers" 
+                  : statusFilter === "active"
+                    ? "No active customers"
+                    : "No customers found"
+              }
+            </p>
           </div>
         )}
       </div>
