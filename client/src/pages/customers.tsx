@@ -53,7 +53,7 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
     defaultValues: {
       customerId: customer.id,
       frequency: "weekly",
-      byDay: 1, // Monday
+      byDay: [1], // Monday - now an array for multiple days
       dtStart: new Date().toISOString().split("T")[0],
       windowStart: "08:00",
       windowEnd: "12:00",
@@ -66,11 +66,11 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: InsertScheduleRule) => {
-      // Validate and adjust dtStart to match the selected weekday
+      // Validate and adjust dtStart to match the first selected weekday
       const startDate = new Date(data.dtStart);
-      const targetDay = data.byDay;
+      const targetDay = data.byDay && data.byDay.length > 0 ? data.byDay[0] : 1;
       
-      // Advance the start date until it matches the selected weekday
+      // Advance the start date until it matches the first selected weekday
       while (startDate.getDay() !== targetDay) {
         startDate.setDate(startDate.getDate() + 1);
       }
@@ -122,7 +122,10 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                     <div className="space-y-1">
                       <div className="font-medium capitalize">{rule.frequency}</div>
                       <div className="text-sm text-muted-foreground">
-                        {dayNames[rule.byDay]} • {rule.windowStart} - {rule.windowEnd}
+                        {rule.byDay && rule.byDay.length > 0 
+                          ? rule.byDay.map(day => dayNames[day]).join(", ")
+                          : "No days selected"
+                        } • {rule.windowStart} - {rule.windowEnd}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Starts: {rule.dtStart}
@@ -183,19 +186,36 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                     name="byDay"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Day of Week</FormLabel>
-                        <Select onValueChange={(val) => field.onChange(parseInt(val))} defaultValue={field.value?.toString()}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-day">
-                              <SelectValue placeholder="Select day" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {dayNames.map((day, index) => (
-                              <SelectItem key={index} value={index.toString()}>{day}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Days of Week (Select 1-5)</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
+                          {dayNames.map((day, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`day-${index}`}
+                                checked={field.value?.includes(index)}
+                                onCheckedChange={(checked) => {
+                                  const currentDays = field.value || [];
+                                  if (checked) {
+                                    // Add day if not already included (max 5 days)
+                                    if (currentDays.length < 5 && !currentDays.includes(index)) {
+                                      field.onChange([...currentDays, index].sort());
+                                    }
+                                  } else {
+                                    // Remove day
+                                    field.onChange(currentDays.filter(d => d !== index));
+                                  }
+                                }}
+                                data-testid={`checkbox-day-${index}`}
+                              />
+                              <label
+                                htmlFor={`day-${index}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {day}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
