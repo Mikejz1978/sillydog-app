@@ -30,6 +30,16 @@ Streamline daily operations for Michael and staff by providing:
 - **Text Messaging Portal**: Two-way SMS communication interface with customer list, conversation view, and message history
 - **Recurring Customer Scheduling**: Automated weekly/biweekly service scheduling with "Generate Routes" feature, next visit display on customer cards, and automatic start date validation
 
+### Phase 3 - Automation & Smart Features
+- **Automatic Monthly Billing**: Cron job generates invoices on 1st of month at midnight CST and auto-charges customers with autopay enabled via Stripe
+- **Autopay System**: Customers can save payment methods securely via Stripe for automatic monthly charges
+- **Night-Before SMS Reminders**: Automated daily cron job at 6 PM CST sends service reminders to customers with SMS opt-in for next day's routes
+- **Smart Route Placement**: "Find Best Fit" button uses Google Maps Geocoding API to suggest optimal service days based on proximity to existing customers
+- **Geocoding Integration**: Automatic address-to-coordinates conversion stores lat/lng for distance calculations
+- **SMS Opt-In Management**: Customer-level SMS preferences with checkbox in customer form
+- **Reminder Logs**: Track all sent reminders to prevent duplicates and monitor delivery status
+- **Timezone-Aware Scheduling**: All cron jobs properly handle America/Chicago timezone using date-fns-tz
+
 ## Project Architecture
 
 ### Tech Stack

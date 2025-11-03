@@ -1,14 +1,19 @@
 import cron from "node-cron";
+import { addDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { generateMonthlyInvoices } from "./services/billing";
 import { sendNightBeforeReminders } from "./services/reminders";
 import { storage } from "./storage";
 
+const TIMEZONE = "America/Chicago";
+
 export function startScheduledJobs() {
   cron.schedule("0 0 1 * *", async () => {
     console.log("Running monthly billing job...");
-    const now = new Date();
-    const month = (now.getMonth() + 1).toString();
-    const year = now.getFullYear().toString();
+    
+    const nowUTC = new Date();
+    const month = formatInTimeZone(nowUTC, TIMEZONE, "M");
+    const year = formatInTimeZone(nowUTC, TIMEZONE, "yyyy");
     
     try {
       const results = await generateMonthlyInvoices(month, year);
@@ -17,15 +22,17 @@ export function startScheduledJobs() {
       console.error("Monthly billing job failed:", error);
     }
   }, {
-    timezone: "America/Chicago"
+    timezone: TIMEZONE
   });
 
   cron.schedule("0 18 * * *", async () => {
     console.log("Running night-before reminder job...");
     
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const serviceDate = tomorrow.toISOString().split("T")[0];
+    const nowUTC = new Date();
+    const tomorrowUTC = addDays(nowUTC, 1);
+    const serviceDate = formatInTimeZone(tomorrowUTC, TIMEZONE, "yyyy-MM-dd");
+    
+    console.log(`Sending reminders for service date: ${serviceDate} (America/Chicago timezone)`);
     
     try {
       const results = await sendNightBeforeReminders(serviceDate);
@@ -34,7 +41,7 @@ export function startScheduledJobs() {
       console.error("Reminder job failed:", error);
     }
   }, {
-    timezone: "America/Chicago"
+    timezone: TIMEZONE
   });
 
   console.log("Scheduled jobs started:");

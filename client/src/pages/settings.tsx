@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Bell, DollarSign, MapPin } from "lucide-react";
+import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard } from "lucide-react";
 
 export default function Settings() {
   return (
@@ -134,6 +134,35 @@ export default function Settings() {
             <Button variant="outline" className="w-full" data-testid="button-save-service-area">
               Save Service Area
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Autopay & Billing
+            </CardTitle>
+            <CardDescription>Automatic monthly billing configuration</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="font-medium text-sm">Monthly Billing Schedule</p>
+                <p className="text-xs text-muted-foreground mt-1">Invoices generated on 1st of month at midnight CST</p>
+                <p className="text-xs text-muted-foreground">Autopay charges processed immediately for enrolled customers</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="font-medium text-sm">SMS Reminder Schedule</p>
+                <p className="text-xs text-muted-foreground mt-1">Night-before reminders sent daily at 6 PM CST</p>
+                <p className="text-xs text-muted-foreground">Only sent to customers with SMS opt-in enabled</p>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <p className="font-medium text-sm text-primary">Customer Autopay Setup</p>
+                <p className="text-xs text-muted-foreground mt-1">Customers can enable autopay from their customer card</p>
+                <p className="text-xs text-muted-foreground">Payment methods are securely stored via Stripe</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
