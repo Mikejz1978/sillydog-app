@@ -12,7 +12,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import logoImage from "@assets/logo_1762200437346.png";
+import logoImage from "@assets/sillydog-logo.png";
 
 const menuItems = [
   {
