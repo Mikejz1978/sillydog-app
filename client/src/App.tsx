@@ -3,25 +3,56 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import Dashboard from "@/pages/dashboard";
+import Customers from "@/pages/customers";
+import Routes from "@/pages/routes";
+import Invoices from "@/pages/invoices";
+import Settings from "@/pages/settings";
+import CustomerPortal from "@/pages/customer-portal";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
+      <Route path="/" component={Dashboard} />
+      <Route path="/customers" component={Customers} />
+      <Route path="/routes" component={Routes} />
+      <Route path="/invoices" component={Invoices} />
+      <Route path="/settings" component={Settings} />
+      <Route path="/portal" component={CustomerPortal} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 function App() {
+  const style = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <AppSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center justify-between p-4 border-b bg-background">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <div className="text-xs text-muted-foreground">
+                  Logged in as Admin
+                </div>
+              </header>
+              <main className="flex-1 overflow-auto">
+                <Router />
+              </main>
+            </div>
+          </div>
+        </SidebarProvider>
         <Toaster />
-        <Router />
       </TooltipProvider>
     </QueryClientProvider>
   );

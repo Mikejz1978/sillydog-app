@@ -48,9 +48,9 @@
 
   --popover-border: 220 13% 89%;
 
-  --primary: 210 88% 52%;
+  --primary: 157 68% 48%;
 
-  --primary-foreground: 210 88% 98%;
+  --primary-foreground: 157 68% 98%;
 
   --secondary: 220 13% 91%;
 
@@ -76,8 +76,8 @@
   --chart-4: 30 90% 55%;
   --chart-5: 340 75% 55%;
 
-  --font-sans: Open Sans, sans-serif;
-  --font-serif: Georgia, serif;
+  --font-sans: 'Open Sans', sans-serif;
+  --font-serif: 'Fredoka', sans-serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem; /* 8px */
   --shadow-2xs: 0px 1px 2px 0px hsl(220 13% 13% / 0.05);
@@ -166,9 +166,9 @@
 
   --popover-border: 220 13% 20%;
 
-  --primary: 210 88% 52%;
+  --primary: 157 68% 48%;
 
-  --primary-foreground: 210 88% 98%;
+  --primary-foreground: 157 68% 98%;
 
   --secondary: 220 13% 18%;
 
