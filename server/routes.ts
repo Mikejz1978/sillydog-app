@@ -608,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Check for duplicates
-          const existingCustomers = await storage.getCustomers();
+          const existingCustomers = await storage.getAllCustomers();
           const isDuplicate = existingCustomers.some(c => 
             c.phone === phone || (email && c.email === email)
           );
@@ -707,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Find customer by name
-          const customers = await storage.getCustomers();
+          const customers = await storage.getAllCustomers();
           const customer = customers.find(c => 
             c.name.toLowerCase() === customerName.toLowerCase()
           );
