@@ -32,6 +32,7 @@ export default function Routes() {
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Route Added",
@@ -48,6 +49,7 @@ export default function Routes() {
       return response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Status Updated",
@@ -268,7 +270,7 @@ export default function Routes() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">
-                No routes scheduled for this date 🐾
+                No routes scheduled for this date
               </p>
             )}
           </CardContent>

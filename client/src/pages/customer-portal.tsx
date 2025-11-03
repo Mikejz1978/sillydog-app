@@ -37,8 +37,10 @@ export default function CustomerPortal() {
     <div className="min-h-screen bg-gradient-to-br from-[#2196F3]/10 via-background to-[#1DBF73]/10">
       <div className="container max-w-6xl mx-auto p-8 space-y-8">
         <div className="text-center py-12">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center text-white text-3xl mb-4">
-            🐾
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center mb-4">
+            <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
           </div>
           <h1 className="text-5xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent">
             SillyDog Portal
@@ -154,7 +156,7 @@ export default function CustomerPortal() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No invoices yet 🐾</p>
+                <p className="text-sm text-muted-foreground text-center py-8">No invoices yet</p>
               )}
               {unpaidInvoices && unpaidInvoices.length > 0 && (
                 <Button className="w-full mt-4 bg-gradient-to-r from-[#2196F3] to-[#1DBF73]" data-testid="button-pay">

@@ -162,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (status === "in_route") {
           await sendSMS(
             customer.phone,
-            `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll text you when the service is complete! 🐾`
+            `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll text you when the service is complete!`
           );
           
           // Create job history entry
@@ -176,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (status === "completed") {
           await sendSMS(
             customer.phone,
-            `Service complete at ${customer.address}! Your yard is all cleaned up. Thank you for choosing SillyDog! 🐾`
+            `Service complete at ${customer.address}! Your yard is all cleaned up. Thank you for choosing SillyDog!`
           );
           
           // Update job history
@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (customer) {
         await sendSMS(
           customer.phone,
-          `New invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} is now available. Due date: ${invoice.dueDate}. Thank you! 🐾`
+          `New invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} is now available. Due date: ${invoice.dueDate}. Thank you!`
         );
       }
       
@@ -284,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (customer) {
         await sendSMS(
           customer.phone,
-          `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you! 🐾`
+          `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
         );
       }
       

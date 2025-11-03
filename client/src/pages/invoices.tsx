@@ -321,7 +321,7 @@ export default function Invoices() {
           })
         ) : (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No invoices found 🐾</p>
+            <p className="text-muted-foreground">No invoices found</p>
           </div>
         )}
       </div>

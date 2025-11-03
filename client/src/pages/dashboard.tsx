@@ -132,7 +132,7 @@ export default function Dashboard() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No routes scheduled yet 🐾</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No routes scheduled yet</p>
             )}
           </CardContent>
         </Card>
@@ -174,7 +174,7 @@ export default function Dashboard() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No invoices yet 🐾</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No invoices yet</p>
             )}
           </CardContent>
         </Card>
