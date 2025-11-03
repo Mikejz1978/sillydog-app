@@ -1,0 +1,118 @@
+🗓️ Feature: Recurring Scheduling + Smart Route Optimization
+🎯 Goal
+
+Expand the SillyDog Pooper Scooper app’s customer scheduling system so staff can:
+
+Schedule customers recurring weekly or biweekly on specific days and time windows.
+
+Automatically suggest the best-fit day and time slot for new customers by comparing their address to existing routes.
+
+🧩 Functional Requirements
+1. Recurring Scheduling
+
+Each customer can have one or more recurring service rules:
+
+Field	Description
+Frequency	Weekly or Biweekly
+Day of Week	Numeric (0=Sun … 6=Sat)
+Start Date	First cleanup date; anchors biweekly pattern
+Time Window	Start and end times (e.g., 7:00 AM–12:00 PM)
+Timezone	Default America/Los_Angeles
+Notes / Special Instructions	Optional (gate code, dogs, etc.)
+Add-ons	Array of extras (e.g., ["odor-spray","extra-yard"])
+Paused	Boolean to temporarily skip scheduling
+
+Behavior
+
+Weekly = repeat every 7 days
+
+Biweekly = repeat every 14 days from Start Date
+
+Paused rules are ignored during route generation
+
+Missed services don’t reset the recurrence pattern
+
+2. Smart “Best-Fit” Route Placement (New)
+
+When a new customer signs up, the system should analyze their address and find the most efficient route/day placement.
+
+Process
+
+Geocode the customer address → convert to latitude/longitude via Google Maps API or Mapbox.
+
+Compare distance/time to all active routes for the week.
+
+Suggest the closest existing route/day where adding the new stop increases total travel time by the smallest margin.
+
+Display the suggestion to the admin:
+
+“Best fit: Tuesday Route – near 123 Maple St (2 min detour)”
+
+Admin can accept or override the suggestion before saving.
+
+Algorithm (simplified):
+
+for each routeDay in week:
+   totalAddedMinutes = calcRouteDelta(routeDay, newCustomerCoords)
+choose routeDay with smallest totalAddedMinutes
+
+
+Integration Notes
+
+Use Google Distance Matrix API or Mapbox Directions API for distance calculations.
+
+Store route coordinates in a Routes collection.
+
+Add a “Find Best Fit” button next to “Assign Schedule” in the Add Customer UI.
+
+3. UI Components
+
+Schedule Editor Modal (for weekly/biweekly setup)
+
+Best-Fit Finder Button (auto-suggests optimal route/day)
+
+Next Visit Display in Customer Detail view
+(“Next Visit: Wednesday, Nov 6 @ 8 – 11 AM”)
+
+4. Data Model (TypeScript Example)
+export type Frequency = "WEEKLY" | "BIWEEKLY";
+
+export interface ScheduleRule {
+  customerId: string;
+  frequency: Frequency;
+  byDay: number;           // 0=Sun … 6=Sat
+  dtStartISO: string;      // First service datetime
+  windowStart: string;     // "07:00"
+  windowEnd: string;       // "12:00"
+  tz: string;              // "America/Los_Angeles"
+  notes?: string;
+  addons?: string[];
+  paused?: boolean;
+}
+
+export interface RouteStop {
+  customerId: string;
+  address: string;
+  lat: number;
+  lng: number;
+  estimatedDurationMins: number;
+}
+
+export interface RouteDay {
+  dayOfWeek: number;
+  stops: RouteStop[];
+}
+
+✅ Developer To-Dos
+
+ Add ScheduleRule and RouteDay models to backend (CloudKit or PostgreSQL).
+
+ Implement scheduling UI in Add/Edit Customer page.
+
+ Create route-generation script to auto-build daily routes each morning.
+
+ Add “Best Fit” algorithm using Maps API to suggest route placement.
+
+ Integrate geocoding service for address → coordinates.
+
+ Display suggested route/day in confirmation modal.

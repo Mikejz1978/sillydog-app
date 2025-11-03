@@ -66,7 +66,21 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: InsertScheduleRule) => {
-      const response = await apiRequest("POST", "/api/schedule-rules", data);
+      // Validate and adjust dtStart to match the selected weekday
+      const startDate = new Date(data.dtStart);
+      const targetDay = data.byDay;
+      
+      // Advance the start date until it matches the selected weekday
+      while (startDate.getDay() !== targetDay) {
+        startDate.setDate(startDate.getDate() + 1);
+      }
+      
+      const adjustedData = {
+        ...data,
+        dtStart: startDate.toISOString().split("T")[0],
+      };
+      
+      const response = await apiRequest("POST", "/api/schedule-rules", adjustedData);
       return response.json();
     },
     onSuccess: () => {
@@ -267,6 +281,36 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
   );
 }
 
+// Calculate next visit date from schedule rule - returns the Date object
+function calculateNextVisitDate(rule: ScheduleRule): Date {
+  // Use date-only comparison (set time to midnight)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const startDate = new Date(rule.dtStart);
+  startDate.setHours(0, 0, 0, 0);
+  
+  const period = rule.frequency === "weekly" ? 7 : 14;
+
+  // Start from the dtStart date (first service date)
+  let nextDate = new Date(startDate);
+  
+  // Advance by the period until we reach or pass today
+  while (nextDate < today) {
+    nextDate.setDate(nextDate.getDate() + period);
+  }
+
+  return nextDate;
+}
+
+// Format a visit date as a readable string
+function formatNextVisit(date: Date, windowStart: string): string {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  return `${dayNames[date.getDay()]}, ${monthNames[date.getMonth()]} ${date.getDate()} • ${windowStart}`;
+}
+
 export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -274,6 +318,10 @@ export default function Customers() {
 
   const { data: customers, isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
+  });
+
+  const { data: allScheduleRules } = useQuery<ScheduleRule[]>({
+    queryKey: ["/api/schedule-rules"],
   });
 
   const createMutation = useMutation({
@@ -551,7 +599,25 @@ export default function Customers() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCustomers && filteredCustomers.length > 0 ? (
-          filteredCustomers.map((customer) => (
+          filteredCustomers.map((customer) => {
+            // Find active schedule rules for this customer
+            const customerRules = allScheduleRules?.filter(rule => rule.customerId === customer.id && !rule.paused) || [];
+            
+            // Calculate the earliest upcoming visit across all active schedules
+            let nextVisit: string | null = null;
+            if (customerRules.length > 0) {
+              const upcomingVisits = customerRules.map(rule => ({
+                date: calculateNextVisitDate(rule),
+                windowStart: rule.windowStart
+              }));
+              
+              // Sort by date and pick the earliest
+              upcomingVisits.sort((a, b) => a.date.getTime() - b.date.getTime());
+              const earliest = upcomingVisits[0];
+              nextVisit = formatNextVisit(earliest.date, earliest.windowStart);
+            }
+
+            return (
             <Card key={customer.id} className="hover-elevate" data-testid={`customer-card-${customer.id}`}>
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
@@ -569,6 +635,13 @@ export default function Customers() {
                     {customer.numberOfDogs}
                   </div>
                 </div>
+
+                {nextVisit && (
+                  <div className="flex items-center gap-2 text-sm bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 p-2 rounded-lg">
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-medium">Next: {nextVisit}</span>
+                  </div>
+                )}
                 
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
@@ -602,7 +675,7 @@ export default function Customers() {
                 </div>
               </CardContent>
             </Card>
-          ))
+          )})
         ) : (
           <div className="col-span-full text-center py-12">
             <p className="text-muted-foreground">No customers found</p>

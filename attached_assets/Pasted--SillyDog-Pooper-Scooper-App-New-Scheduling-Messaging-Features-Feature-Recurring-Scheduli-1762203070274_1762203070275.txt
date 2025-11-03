@@ -1,0 +1,217 @@
+🐾 SillyDog Pooper Scooper App – New Scheduling & Messaging Features
+🗓️ Feature: Recurring Scheduling + Smart Route Optimization
+🎯 Goal
+
+Enable the SillyDog Pooper Scooper app to:
+
+Schedule customers on recurring weekly or biweekly service days.
+
+Automatically suggest the best-fit day for new customers based on their address and existing routes.
+
+Keep all services within the standard 7 AM–12 PM window (no time selection needed).
+
+🧩 Functional Requirements
+1. Recurring Scheduling
+
+Each customer can have one or more recurring service rules.
+
+Field	Description
+Frequency	Weekly or Biweekly
+Service Day	Numeric (0=Sunday … 6=Saturday)
+Start Date	First cleanup date; anchors biweekly rotation
+Timezone	"America/Los_Angeles"
+Notes / Special Instructions	Optional (gate code, dogs, etc.)
+Add-ons	Optional extras (e.g., "odor-spray", "extra-yard")
+Paused	Boolean to temporarily skip scheduling
+
+Behavior
+
+Weekly = repeats every 7 days.
+
+Biweekly = repeats every 14 days from the start date.
+
+All services occur between 7 AM–12 PM (no time selection required).
+
+Paused customers are skipped during route generation.
+
+Missed or delayed cleanups don’t alter future recurrence dates.
+
+2. Smart “Best-Fit” Route Placement (New)
+
+When adding a new customer, the system should automatically recommend which day’s route they best fit into.
+
+Process
+
+Geocode the new customer’s address (convert to coordinates via Google Maps or Mapbox API).
+
+Compare their coordinates with existing route stops.
+
+Determine which service day minimizes additional drive time.
+
+Suggest that day to the admin, e.g.:
+
+“Best fit: Thursday Route — near 123 Maple St (adds ~3 minutes travel time)”
+
+Admin can accept or override the suggested day.
+
+Algorithm Summary
+
+for each routeDay in activeRoutes:
+  totalAddedMinutes = calcRouteDelta(routeDay, newCustomerCoords)
+select routeDay with lowest totalAddedMinutes
+
+
+Integration Notes
+
+Use Google Distance Matrix or Mapbox Directions API for travel time estimates.
+
+Store geocoded lat/lng for every customer.
+
+Add a “Find Best Fit” button in the Add Customer view to run this algorithm.
+
+3. UI Components
+
+Service Schedule Section in Add/Edit Customer:
+
+Frequency: dropdown (Weekly, Biweekly)
+
+Day of Week: dropdown (Mon–Sun)
+
+Optional notes and add-ons
+
+Find Best Fit Button: runs address analysis and suggests optimal service day.
+
+Next Visit Display: on Customer Details screen
+(“Next Visit: Wednesday, Nov 6 — between 7 AM and noon”)
+
+4. Data Model Example
+export type Frequency = "WEEKLY" | "BIWEEKLY";
+
+export interface ScheduleRule {
+  customerId: string;
+  frequency: Frequency;
+  byDay: number;          // 0=Sunday ... 6=Saturday
+  dtStartISO: string;     // first service date (ISO format)
+  tz: string;             // "America/Los_Angeles"
+  notes?: string;
+  addons?: string[];
+  paused?: boolean;
+}
+
+export interface RouteStop {
+  customerId: string;
+  address: string;
+  lat: number;
+  lng: number;
+  estimatedDurationMins: number;
+}
+
+export interface RouteDay {
+  dayOfWeek: number;
+  stops: RouteStop[];
+}
+
+✅ Developer To-Do Summary
+
+ Add ScheduleRule and RouteDay models in backend (CloudKit or PostgreSQL).
+
+ Implement recurring job generator for weekly/biweekly logic.
+
+ Integrate Google Maps or Mapbox for address → coordinates and distance calculations.
+
+ Add “Find Best Fit” feature in Add Customer workflow.
+
+ Remove time window fields (default to 7 AM–12 PM).
+
+ Display next upcoming visit for each active customer.
+
+📣 Feature: Night-Before Service Reminder (SMS)
+🎯 Goal
+
+Automatically send customers a text reminder the evening before their scheduled service.
+
+🧩 Functional Requirements
+
+When: Send at 6:00 PM local time, one day before service.
+
+Recipients: Only customers with active, non-paused schedules and SMS opt-in.
+
+Message:
+
+SillyDog Pooper Scooper: Friendly reminder — we’ll service your yard tomorrow between 7 AM and noon. Reply STOP to opt out.
+
+
+Skip Logic:
+
+Skip paused customers.
+
+Skip biweekly off-weeks.
+
+Skip duplicates (only one reminder per day).
+
+Logging: Store message SID, send status, and timestamp.
+
+Quiet Hours: Never send after 8:30 PM local time.
+
+Opt-out Support: Use Twilio’s built-in STOP/START handling.
+
+⚙️ Implementation Details
+
+Backend (Twilio or Node Cron):
+
+Run daily at 6 PM PT.
+
+Fetch tomorrow’s scheduled customers from ScheduleRule table.
+
+For each:
+
+Confirm opt-in (smsOptIn == true).
+
+Send SMS using Twilio Messaging Service SID.
+
+Log result in ReminderLog.
+
+Data Additions:
+
+interface CustomerNotificationPrefs {
+  smsOptIn: boolean;
+  reminderHourLocal?: number; // default 18 (6pm)
+}
+
+interface ReminderLog {
+  customerId: string;
+  serviceDateISO: string;
+  sentAtISO: string;
+  twilioSid?: string;
+  status: "SENT" | "FAILED";
+  errorMessage?: string;
+}
+
+
+Example Message Body:
+
+SillyDog Pooper Scooper reminder: We’re scheduled to service your yard tomorrow (7 AM–12 PM). Please unlock gates & secure pets. Reply STOP to opt out.
+
+✅ Developer To-Do Summary
+
+ Add CustomerNotificationPrefs and ReminderLog collections/tables.
+
+ Create scheduled job (Twilio Function or Node Cron) that runs daily at 6 PM.
+
+ Fetch next-day customers and send SMS reminders.
+
+ Log each send for compliance and tracking.
+
+ Integrate opt-in/out preferences in customer profile UI.
+
+ Include “Send Reminder” toggle for manual resends if needed.
+
+🧠 Optional Enhancements (Future)
+
+Email reminders using the same logic.
+
+Custom reminder timing per customer.
+
+“Service Complete” text automation (already planned).
+
+Route-based batching (e.g., send reminder for Tuesday route as one job).
