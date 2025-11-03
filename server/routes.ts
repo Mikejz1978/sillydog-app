@@ -647,8 +647,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dayOfWeek = today.getDay(); // 0=Sunday ... 6=Saturday
       
       for (const rule of activeRules) {
-        // Check if day of week matches
-        if (rule.byDay !== dayOfWeek) {
+        // Check if day of week matches (byDay is an array of days)
+        if (!rule.byDay || !rule.byDay.includes(dayOfWeek)) {
           continue;
         }
         
@@ -658,11 +658,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         let shouldGenerate = false;
         if (rule.frequency === "weekly") {
-          // Weekly: every 7 days
-          shouldGenerate = daysDiff >= 0 && daysDiff % 7 === 0;
+          // For weekly schedules with multiple days, generate on matching days
+          shouldGenerate = daysDiff >= 0;
         } else if (rule.frequency === "biweekly") {
-          // Biweekly: every 14 days
-          shouldGenerate = daysDiff >= 0 && daysDiff % 14 === 0;
+          // Biweekly: every 14 days, but only on specified days
+          shouldGenerate = daysDiff >= 0 && Math.floor(daysDiff / 7) % 2 === 0;
         }
         
         if (shouldGenerate) {
