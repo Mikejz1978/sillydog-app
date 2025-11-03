@@ -1214,15 +1214,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       
-      // If accepting a booking, automatically create a customer
+      // If accepting a booking, automatically create a customer and delete the booking
       if (updates.status === "accepted") {
         const booking = await storage.getBookingRequest(id);
         if (!booking) {
           return res.status(404).json({ message: "Booking request not found" });
         }
         
+        let customerId = booking.customerId;
+        
         // Only create customer if not already created
-        if (!booking.customerId) {
+        if (!customerId) {
           // Create customer from booking data
           const newCustomer = await storage.createCustomer({
             name: booking.name,
@@ -1239,9 +1241,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             smsOptIn: true,
           });
           
-          // Link the customer to the booking
-          updates.customerId = newCustomer.id;
+          customerId = newCustomer.id;
+          console.log(`✅ Customer created from booking: ${newCustomer.name} (${customerId})`);
         }
+        
+        // Delete the booking request since it's been converted to a customer
+        await storage.deleteBookingRequest(id);
+        console.log(`🗑️ Booking request deleted after acceptance: ${booking.name}`);
+        
+        // Return the customer ID so the frontend knows it was successful
+        return res.json({ 
+          message: "Booking accepted and customer created",
+          customerId,
+          deleted: true
+        });
       }
       
       const updated = await storage.updateBookingRequest(id, updates);

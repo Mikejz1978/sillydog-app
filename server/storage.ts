@@ -92,6 +92,7 @@ export interface IStorage {
   getBookingRequest(id: string): Promise<BookingRequest | undefined>;
   createBookingRequest(request: InsertBookingRequest): Promise<BookingRequest>;
   updateBookingRequest(id: string, updates: Partial<BookingRequest>): Promise<BookingRequest>;
+  deleteBookingRequest(id: string): Promise<void>;
 
   // Notifications
   getAllNotifications(): Promise<Notification[]>;
@@ -331,6 +332,10 @@ export class MemStorage implements IStorage {
     const updated = { ...request, ...updates, updatedAt: new Date() };
     this.bookingRequests.set(id, updated);
     return updated;
+  }
+
+  async deleteBookingRequest(id: string): Promise<void> {
+    this.bookingRequests.delete(id);
   }
 
   // Notifications
@@ -736,6 +741,12 @@ export class DbStorage implements IStorage {
       .returning();
     if (!result[0]) throw new Error("Booking request not found");
     return result[0];
+  }
+
+  async deleteBookingRequest(id: string): Promise<void> {
+    await this.db
+      .delete(schema.bookingRequests)
+      .where(eq(schema.bookingRequests.id, id));
   }
 
   // Notifications
