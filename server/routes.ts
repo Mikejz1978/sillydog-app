@@ -55,15 +55,23 @@ async function sendSMS(to: string, message: string) {
     return;
   }
 
+  // Ensure phone number is in E.164 format (starts with +)
+  let formattedPhone = to.trim();
+  if (!formattedPhone.startsWith('+')) {
+    formattedPhone = '+' + formattedPhone;
+  }
+
   try {
     const result = await twilioClient.messages.create({
       body: message,
       from: twilioPhoneNumber,
-      to: to,
+      to: formattedPhone,
     });
-    console.log(`✅ SMS sent successfully to ${to} - SID: ${result.sid}`);
-  } catch (error) {
-    console.error(`❌ Failed to send SMS to ${to}:`, error);
+    console.log(`✅ SMS sent successfully to ${formattedPhone} - SID: ${result.sid}`);
+  } catch (error: any) {
+    console.error(`❌ Failed to send SMS to ${formattedPhone}:`, error.message);
+    console.error(`   Error code: ${error.code}`);
+    console.error(`   More info: ${error.moreInfo}`);
     throw error;
   }
 }
