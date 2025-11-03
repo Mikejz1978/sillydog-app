@@ -288,6 +288,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== TIMER ROUTES ==========
+  app.post("/api/routes/:id/timer/start", async (req, res) => {
+    try {
+      const route = await storage.updateRoute(req.params.id, {
+        timerStartedAt: new Date().toISOString(),
+      });
+      res.json(route);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/routes/:id/timer/stop", async (req, res) => {
+    try {
+      const route = await storage.getRoute(req.params.id);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+
+      if (!route.timerStartedAt) {
+        return res.status(400).json({ message: "Timer has not been started" });
+      }
+
+      const stoppedAt = new Date();
+      const startedAt = new Date(route.timerStartedAt);
+      const durationMinutes = Math.round((stoppedAt.getTime() - startedAt.getTime()) / 60000);
+
+      // Get customer for pricing calculation
+      const customer = await storage.getCustomer(route.customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Calculate cost based on service type
+      let calculatedCost = 0;
+      if (route.serviceType === "one-time" || route.serviceType === "new-start") {
+        // Timer-based billing at $100/hour
+        if (durationMinutes <= 15) {
+          // Use normal schedule price for under 15 minutes
+          const { calculateServicePrice } = await import("@shared/schema");
+          calculatedCost = calculateServicePrice(customer.servicePlan, customer.numberOfDogs);
+        } else {
+          // $100/hour rate
+          const hours = durationMinutes / 60;
+          calculatedCost = Math.round(hours * 100 * 100) / 100; // Round to 2 decimal places
+        }
+      }
+
+      // Update route with timer stop and calculated cost
+      const updatedRoute = await storage.updateRoute(req.params.id, {
+        timerStoppedAt: stoppedAt.toISOString(),
+        calculatedCost: calculatedCost.toString(),
+      });
+
+      // Update job history with duration and cost
+      const jobHistory = await storage.getAllJobHistory();
+      const job = jobHistory.find(j => j.routeId === route.id);
+      if (job) {
+        await storage.updateJobHistory(job.id, {
+          duration: durationMinutes,
+          calculatedCost: calculatedCost.toString(),
+        });
+      }
+
+      res.json({
+        route: updatedRoute,
+        durationMinutes,
+        calculatedCost,
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   app.delete("/api/routes/:id", async (req, res) => {
     try {
       await storage.deleteRoute(req.params.id);

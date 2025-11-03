@@ -41,6 +41,10 @@ export const routes = pgTable("routes", {
   scheduledTime: text("scheduled_time"), // HH:MM format
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'in_route', 'completed'
   orderIndex: integer("order_index").notNull().default(0),
+  serviceType: text("service_type").notNull().default("regular"), // 'regular', 'one-time', 'new-start'
+  timerStartedAt: timestamp("timer_started_at"),
+  timerStoppedAt: timestamp("timer_stopped_at"),
+  calculatedCost: decimal("calculated_cost", { precision: 10, scale: 2 }),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -84,6 +88,7 @@ export const jobHistory = pgTable("job_history", {
   routeId: varchar("route_id"),
   serviceDate: text("service_date").notNull(), // YYYY-MM-DD format
   duration: integer("duration"), // in minutes
+  calculatedCost: decimal("calculated_cost", { precision: 10, scale: 2 }), // For timer-based billing
   notes: text("notes"),
   photoBefore: text("photo_before"), // base64 encoded image
   photoAfter: text("photo_after"), // base64 encoded image
@@ -126,7 +131,7 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export const scheduleRules = pgTable("schedule_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull(),
-  frequency: text("frequency").notNull(), // 'weekly', 'biweekly'
+  frequency: text("frequency").notNull(), // 'weekly', 'biweekly', 'one-time', 'new-start'
   byDay: integer("by_day").notNull(), // 0=Sunday ... 6=Saturday
   dtStart: text("dt_start").notNull(), // YYYY-MM-DD format - first service date
   windowStart: text("window_start").notNull(), // HH:MM format
@@ -211,4 +216,19 @@ export function calculateServicePrice(servicePlan: string, numberOfDogs: number)
   }
   
   return 25.00; // default fallback
+}
+
+// Helper function to calculate timer-based billing
+// For one-time and new-start services: $100/hour
+// 0-15 min: normal schedule price
+// 30 min: $50, 45 min: $75, 60 min: $100
+export function calculateTimerBasedPrice(durationMinutes: number, servicePlan: string, numberOfDogs: number): number {
+  // If under 15 minutes, charge normal schedule price
+  if (durationMinutes <= 15) {
+    return calculateServicePrice(servicePlan, numberOfDogs);
+  }
+  
+  // Otherwise, charge based on time at $100/hour rate
+  const hours = durationMinutes / 60;
+  return Math.round(hours * 100 * 100) / 100; // Round to 2 decimal places
 }
