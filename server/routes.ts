@@ -1055,16 +1055,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allSchedules = await storage.getAllScheduleRules();
       const allCustomers = await storage.getAllCustomers();
 
-      const customersWithSchedules = allSchedules
-        .filter(s => !s.paused)
-        .map(schedule => {
-          const customer = allCustomers.find(c => c.id === schedule.customerId);
-          return {
+      // Flatten schedules - a customer with multiple days gets multiple entries
+      const customersWithSchedules: Array<{
+        lat: string | null;
+        lng: string | null;
+        dayOfWeek: number;
+      }> = [];
+      
+      for (const schedule of allSchedules.filter(s => !s.paused)) {
+        const customer = allCustomers.find(c => c.id === schedule.customerId);
+        // byDay is an array, so we need to create an entry for each day
+        for (const day of schedule.byDay || []) {
+          customersWithSchedules.push({
             lat: customer?.lat ?? null,
             lng: customer?.lng ?? null,
-            dayOfWeek: schedule.byDay,
-          };
-        });
+            dayOfWeek: day,
+          });
+        }
+      }
 
       const bestFitDays = await findBestFitDay(coords, customersWithSchedules);
 

@@ -18,7 +18,7 @@ This project is a comprehensive web-based business management platform designed 
 
 ### Key Features
 -   **Customer Management**: Comprehensive CRM with service plans, dog counts, gate codes, yard notes, SMS opt-in, and autopay settings.
--   **Route Scheduling**: Daily route planning with manual ordering, status tracking (scheduled → in route → completed), and "Find Best Fit" for optimal service days via geocoding.
+-   **Route Scheduling**: Daily route planning with manual ordering, status tracking (scheduled → in route → completed), and "Find Best Fit" feature that analyzes customer location to recommend optimal service days based on proximity to existing routes.
 -   **Recurring Service Scheduling**: Automated weekly/biweekly scheduling with flexible service types, multi-day support (1-5 days per week). When a recurring schedule is created, routes are automatically generated for the next 60 days and appear immediately in the route list. A daily cron job ensures routes continue generating indefinitely.
 -   **CSV Import**: Functionality to import customers and schedules from CSV (e.g., HouseCall Pro) with duplicate detection.
 -   **Text Messaging Portal**: Two-way SMS communication interface with customer list, conversation view, and message history.

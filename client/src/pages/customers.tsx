@@ -25,6 +25,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 // Schedule Management Dialog Component
 function ScheduleDialog({ customer }: { customer: Customer }) {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [bestFitSuggestions, setBestFitSuggestions] = useState<any[]>([]);
+  const [loadingBestFit, setLoadingBestFit] = useState(false);
   const { toast } = useToast();
 
   const { data: scheduleRules, isLoading: rulesLoading } = useQuery<ScheduleRule[]>({
@@ -83,15 +85,56 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       const response = await apiRequest("POST", "/api/schedule-rules", adjustedData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules", customer.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      const routeCount = data.routesGenerated || 0;
       toast({
         title: "Schedule Created",
-        description: "Recurring schedule has been set up successfully.",
+        description: `Recurring schedule has been set up successfully. ${routeCount} routes generated.`,
       });
       scheduleForm.reset();
+      setBestFitSuggestions([]);
     },
   });
+
+  const handleFindBestFit = async () => {
+    setLoadingBestFit(true);
+    try {
+      const response = await apiRequest("POST", "/api/find-best-fit", {
+        address: customer.address,
+      });
+      const data = await response.json();
+      setBestFitSuggestions(data.suggestions || []);
+      toast({
+        title: "Best Fit Analysis Complete",
+        description: "Recommended days based on your existing routes.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to analyze",
+        description: "Could not determine best fit days. You can still manually select days.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingBestFit(false);
+    }
+  };
+
+  const applyBestFitDays = (topN: number = 3) => {
+    const recommendedDays = bestFitSuggestions
+      .filter(s => s.customerCount > 0) // Only suggest days with existing customers
+      .slice(0, topN)
+      .map(s => s.dayOfWeek);
+    
+    if (recommendedDays.length > 0) {
+      scheduleForm.setValue("byDay", recommendedDays);
+      toast({
+        title: "Days Applied",
+        description: `Selected top ${recommendedDays.length} recommended days.`,
+      });
+    }
+  };
 
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -186,7 +229,52 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                     name="byDay"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Days of Week (Select 1-5)</FormLabel>
+                        <div className="flex items-center justify-between mb-2">
+                          <FormLabel>Days of Week (Select 1-5)</FormLabel>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleFindBestFit}
+                            disabled={loadingBestFit}
+                            data-testid="button-find-best-fit"
+                          >
+                            <Navigation className="w-3 h-3 mr-1" />
+                            {loadingBestFit ? "Analyzing..." : "Find Best Fit"}
+                          </Button>
+                        </div>
+                        
+                        {bestFitSuggestions.length > 0 && (
+                          <div className="mb-3 p-3 bg-muted rounded-md space-y-2">
+                            <div className="text-sm font-medium">Recommended Days:</div>
+                            <div className="flex flex-wrap gap-2">
+                              {bestFitSuggestions.slice(0, 5).map((suggestion, idx) => (
+                                <div
+                                  key={suggestion.dayOfWeek}
+                                  className={`text-xs px-2 py-1 rounded ${
+                                    idx < 3 ? 'bg-primary/20 text-primary font-semibold' : 'bg-muted-foreground/10'
+                                  }`}
+                                >
+                                  {suggestion.dayName}
+                                  {suggestion.customerCount > 0 && (
+                                    <span className="ml-1">({suggestion.customerCount} nearby)</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => applyBestFitDays(3)}
+                              className="w-full"
+                              data-testid="button-apply-best-fit"
+                            >
+                              Apply Top 3 Days
+                            </Button>
+                          </div>
+                        )}
+                        
                         <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                           {dayNames.map((day, index) => (
                             <div key={index} className="flex items-center space-x-2">
