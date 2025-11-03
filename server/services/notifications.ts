@@ -22,6 +22,8 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
     error: undefined as string | undefined,
   };
 
+  let notificationId: string | undefined;
+
   // Create in-app notification
   try {
     const notification: InsertNotification = {
@@ -34,7 +36,8 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
       readAt: null,
     };
 
-    await storage.createNotification(notification);
+    const createdNotification = await storage.createNotification(notification);
+    notificationId = createdNotification.id;
     result.notificationCreated = true;
   } catch (error) {
     console.error("Failed to create in-app notification:", error);
@@ -44,11 +47,11 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
   // Send SMS if Twilio is configured
   if (twilioClient && ADMIN_PHONE) {
     try {
-      const message = `🐾 NEW BOOKING REQUEST from ${booking.name}\n\n` +
-                     `📍 Address: ${booking.address}\n` +
-                     `🐶 Dogs: ${booking.numberOfDogs}\n` +
-                     `📅 Service: ${booking.preferredServicePlan || 'Not specified'}\n` +
-                     `📞 Phone: ${booking.phone}\n\n` +
+      const message = `NEW BOOKING REQUEST from ${booking.name}\n\n` +
+                     `Address: ${booking.address}\n` +
+                     `Dogs: ${booking.numberOfDogs}\n` +
+                     `Service: ${booking.preferredServicePlan || 'Not specified'}\n` +
+                     `Phone: ${booking.phone}\n\n` +
                      `View in admin dashboard to schedule.`;
 
       await twilioClient.messages.create({
@@ -59,17 +62,12 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
 
       result.smsDelivered = true;
 
-      // Update notification to mark SMS as delivered
-      if (result.notificationCreated) {
-        const notifications = await storage.getAllNotifications();
-        const latestNotification = notifications.find(
-          n => n.bookingRequestId === booking.id && n.type === "booking_request"
-        );
-        if (latestNotification) {
-          await storage.createNotification({
-            ...latestNotification,
-            smsDelivered: true,
-          });
+      // Update notification to mark SMS as delivered (not creating a duplicate)
+      if (notificationId) {
+        try {
+          await storage.updateNotificationSMSStatus(notificationId, true);
+        } catch (error) {
+          console.warn("Failed to update notification SMS status:", error);
         }
       }
     } catch (error) {

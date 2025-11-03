@@ -88,6 +88,7 @@ export interface IStorage {
   getUnreadNotifications(): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string): Promise<Notification>;
+  updateNotificationSMSStatus(id: string, smsDelivered: boolean): Promise<Notification>;
 }
 
 export class MemStorage implements IStorage {
@@ -353,6 +354,16 @@ export class MemStorage implements IStorage {
       throw new Error("Notification not found");
     }
     const updated = { ...notification, readAt: new Date() };
+    this.notifications.set(id, updated);
+    return updated;
+  }
+
+  async updateNotificationSMSStatus(id: string, smsDelivered: boolean): Promise<Notification> {
+    const notification = this.notifications.get(id);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+    const updated = { ...notification, smsDelivered };
     this.notifications.set(id, updated);
     return updated;
   }
@@ -699,6 +710,16 @@ export class DbStorage implements IStorage {
     const result = await this.db
       .update(schema.notifications)
       .set({ readAt: new Date() })
+      .where(eq(schema.notifications.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Notification not found");
+    return result[0];
+  }
+
+  async updateNotificationSMSStatus(id: string, smsDelivered: boolean): Promise<Notification> {
+    const result = await this.db
+      .update(schema.notifications)
+      .set({ smsDelivered })
       .where(eq(schema.notifications.id, id))
       .returning();
     if (!result[0]) throw new Error("Notification not found");
