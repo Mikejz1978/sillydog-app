@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertBookingRequestSchema } from "@shared/schema";
@@ -30,6 +30,8 @@ type BookingFormData = z.infer<typeof insertBookingRequestSchema>;
 export default function BookNow() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(insertBookingRequestSchema),
@@ -43,6 +45,56 @@ export default function BookNow() {
       yardNotes: "",
     },
   });
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.log('Google Maps API key not configured - address autocomplete disabled');
+      return;
+    }
+
+    const loadGoogleMapsScript = () => {
+      if (window.google?.maps?.places) {
+        initAutocomplete();
+        return;
+      }
+
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initAutocomplete;
+      document.head.appendChild(script);
+    };
+
+    const initAutocomplete = () => {
+      if (!addressInputRef.current || !window.google?.maps?.places) return;
+
+      autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+      });
+
+      autocompleteRef.current.addListener('place_changed', () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (place?.formatted_address) {
+          form.setValue('address', place.formatted_address);
+        }
+      });
+    };
+
+    loadGoogleMapsScript();
+
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, [form]);
 
   const onSubmit = async (data: BookingFormData) => {
     setIsSubmitting(true);
@@ -201,11 +253,20 @@ export default function BookNow() {
                         <FormLabel>Service Address</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="123 Main St, City, State 12345"
+                            placeholder="Start typing your address..."
                             data-testid="input-address"
                             {...field}
+                            ref={(e) => {
+                              field.ref(e);
+                              (addressInputRef as any).current = e;
+                            }}
                           />
                         </FormControl>
+                        <FormDescription>
+                          {import.meta.env.VITE_GOOGLE_MAPS_API_KEY 
+                            ? "Start typing and select your address from the suggestions" 
+                            : "Enter your complete service address"}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

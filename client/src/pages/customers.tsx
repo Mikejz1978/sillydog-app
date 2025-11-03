@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -442,6 +442,8 @@ export default function Customers() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("active");
   const { toast } = useToast();
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const { data: customers, isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -562,6 +564,66 @@ export default function Customers() {
 
   const [bestFitLoading, setBestFitLoading] = useState(false);
   const [bestFitSuggestions, setBestFitSuggestions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || !dialogOpen) return;
+
+    const loadGoogleMapsScript = () => {
+      if (window.google?.maps?.places) {
+        initAutocomplete();
+        return;
+      }
+
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.places) {
+            clearInterval(checkInterval);
+            initAutocomplete();
+          }
+        }, 100);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initAutocomplete;
+      document.head.appendChild(script);
+    };
+
+    const initAutocomplete = () => {
+      if (!addressInputRef.current || !window.google?.maps?.places) return;
+
+      autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+      });
+
+      autocompleteRef.current.addListener('place_changed', () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (place?.formatted_address) {
+          form.setValue('address', place.formatted_address);
+          
+          if (place.geometry?.location) {
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            form.setValue('lat', lat.toString());
+            form.setValue('lng', lng.toString());
+          }
+        }
+      });
+    };
+
+    loadGoogleMapsScript();
+
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, [form, dialogOpen]);
 
   const findBestFit = async () => {
     const address = form.getValues("address");
@@ -712,7 +774,15 @@ export default function Customers() {
                       <FormLabel>Service Address</FormLabel>
                       <div className="flex gap-2">
                         <FormControl>
-                          <Input placeholder="123 Main St, City, State 12345" data-testid="input-address" {...field} />
+                          <Input 
+                            placeholder={import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? "Start typing your address..." : "123 Main St, City, State 12345"}
+                            data-testid="input-address" 
+                            {...field}
+                            ref={(e) => {
+                              field.ref(e);
+                              (addressInputRef as any).current = e;
+                            }}
+                          />
                         </FormControl>
                         <Button
                           type="button"
