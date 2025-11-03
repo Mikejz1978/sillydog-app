@@ -68,6 +68,9 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: InsertScheduleRule) => {
+      console.log("📅 Schedule form data before submission:", data);
+      console.log("📅 Selected days (byDay):", data.byDay);
+      
       // Validate and adjust dtStart to match the first selected weekday
       const startDate = new Date(data.dtStart);
       const targetDay = data.byDay && data.byDay.length > 0 ? data.byDay[0] : 1;
@@ -81,6 +84,9 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
         ...data,
         dtStart: startDate.toISOString().split("T")[0],
       };
+      
+      console.log("📅 Adjusted data being sent to API:", adjustedData);
+      console.log("📅 byDay in adjusted data:", adjustedData.byDay);
       
       const response = await apiRequest("POST", "/api/schedule-rules", adjustedData);
       return response.json();
@@ -283,14 +289,23 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                                 checked={field.value?.includes(index)}
                                 onCheckedChange={(checked) => {
                                   const currentDays = field.value || [];
+                                  console.log(`📅 Day ${day} (${index}) ${checked ? 'checked' : 'unchecked'}`);
+                                  console.log(`📅 Current days before change:`, currentDays);
+                                  
                                   if (checked) {
                                     // Add day if not already included (max 5 days)
                                     if (currentDays.length < 5 && !currentDays.includes(index)) {
-                                      field.onChange([...currentDays, index].sort());
+                                      const newDays = [...currentDays, index].sort();
+                                      console.log(`📅 New days after adding ${day}:`, newDays);
+                                      field.onChange(newDays);
+                                    } else if (currentDays.length >= 5) {
+                                      console.log(`📅 Cannot add ${day} - maximum 5 days reached`);
                                     }
                                   } else {
                                     // Remove day
-                                    field.onChange(currentDays.filter(d => d !== index));
+                                    const newDays = currentDays.filter(d => d !== index);
+                                    console.log(`📅 New days after removing ${day}:`, newDays);
+                                    field.onChange(newDays);
                                   }
                                 }}
                                 data-testid={`checkbox-day-${index}`}
