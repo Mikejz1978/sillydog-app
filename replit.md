@@ -43,6 +43,17 @@ Streamline daily operations for Michael and staff by providing:
 - **Live Cost Estimation**: Real-time cost display while timer is running
 - **Service Type Selection**: Routes can be marked as regular, one-time, or new-start with appropriate billing method
 
+### Phase 4 - Public Booking & Notification System
+- **Public Booking Page**: Customer-facing /book page allows potential customers to submit service requests without admin login
+- **Rate-Limited Public API**: Public booking endpoint protected with rate limiting (5 requests per 15 minutes per IP) to prevent spam
+- **Dual Notification System**: 
+  - SMS notifications sent to business owner via Twilio when new bookings arrive
+  - In-app notification badge in admin header with real-time polling (30-second intervals)
+- **Booking Management Page**: Admin interface to view, accept, or reject pending booking requests with status tracking
+- **Customer Conversion Flow**: One-click conversion of accepted bookings to customer records with pre-filled data
+- **Notification Tracking**: Database records track SMS delivery status and read state for each notification
+- **IP Address Logging**: Booking requests include IP address for spam prevention and abuse tracking
+
 ## Project Architecture
 
 ### Tech Stack
@@ -60,6 +71,8 @@ Streamline daily operations for Michael and staff by providing:
 4. **Job History**: Customer, route, service date, duration, calculated cost, before/after photos (base64), SMS notification tracking
 5. **Messages**: Customer, direction (inbound/outbound), message text, status, timestamp
 6. **Schedule Rules**: Customer, frequency (weekly/biweekly/one-time/new-start), day of week (0-6), start date, time window (start/end), timezone, notes, addons, paused status
+7. **Booking Requests**: Name, address, phone, email, number of dogs, yard notes, preferred service plan, status (pending/accepted/rejected), customer ID (if converted), admin notes, IP address, timestamps
+8. **Notifications**: Type, title, message, booking request ID, customer ID, SMS delivery status, read timestamp, creation timestamp
 
 ### API Endpoints
 - `GET/POST /api/customers` - Customer CRUD
@@ -73,6 +86,13 @@ Streamline daily operations for Michael and staff by providing:
 - `POST /api/create-payment-intent` - Stripe payment initialization
 - `POST /api/invoices/:id/pay` - Mark invoice paid
 - `GET/POST /api/job-history` - Service history tracking
+- `POST /api/public/booking` - Public booking request submission (rate-limited)
+- `GET /api/booking-requests` - Get all booking requests
+- `GET /api/booking-requests/pending` - Get pending booking requests
+- `PATCH /api/booking-requests/:id` - Update booking request status
+- `GET /api/notifications` - Get all notifications
+- `GET /api/notifications/unread` - Get unread notifications
+- `PATCH /api/notifications/:id/read` - Mark notification as read
 - `POST /api/job-history/:id/photos` - Upload before/after photos
 - `GET /api/messages` - Get all messages or filter by customer
 - `POST /api/messages/send` - Send SMS to customer via Twilio
