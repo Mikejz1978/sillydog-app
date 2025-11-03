@@ -17,6 +17,8 @@ export const customers = pgTable("customers", {
   status: text("status").notNull().default("active"), // 'active', 'inactive'
   billingMethod: text("billing_method").notNull().default("invoice"), // 'card', 'invoice'
   stripeCustomerId: text("stripe_customer_id"),
+  stripePaymentMethodId: text("stripe_payment_method_id"), // Saved payment method for autopay
+  autopayEnabled: boolean("autopay_enabled").notNull().default(false), // Auto-charge on 1st of month
   lat: decimal("lat", { precision: 10, scale: 7 }), // Latitude for geocoding
   lng: decimal("lng", { precision: 10, scale: 7 }), // Longitude for geocoding
   smsOptIn: boolean("sms_opt_in").notNull().default(true), // SMS reminder opt-in

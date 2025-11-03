@@ -11,6 +11,8 @@ import {
   type InsertMessage,
   type ScheduleRule,
   type InsertScheduleRule,
+  type ReminderLog,
+  type InsertReminderLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -56,6 +58,10 @@ export interface IStorage {
   createScheduleRule(rule: InsertScheduleRule): Promise<ScheduleRule>;
   updateScheduleRule(id: string, rule: Partial<InsertScheduleRule>): Promise<ScheduleRule>;
   deleteScheduleRule(id: string): Promise<void>;
+
+  // Reminder Logs
+  createReminderLog(log: InsertReminderLog): Promise<ReminderLog>;
+  getReminderLogsByDate(serviceDate: string): Promise<ReminderLog[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -490,6 +496,22 @@ export class DbStorage implements IStorage {
 
   async deleteScheduleRule(id: string): Promise<void> {
     await this.db.delete(schema.scheduleRules).where(eq(schema.scheduleRules.id, id));
+  }
+
+  // Reminder Logs
+  async createReminderLog(insertLog: InsertReminderLog): Promise<ReminderLog> {
+    const result = await this.db
+      .insert(schema.reminderLogs)
+      .values(insertLog)
+      .returning();
+    return result[0];
+  }
+
+  async getReminderLogsByDate(serviceDate: string): Promise<ReminderLog[]> {
+    return await this.db
+      .select()
+      .from(schema.reminderLogs)
+      .where(eq(schema.reminderLogs.serviceDate, serviceDate));
   }
 }
 

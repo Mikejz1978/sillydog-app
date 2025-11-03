@@ -10,13 +10,16 @@ import {
   insertMessageSchema,
   insertScheduleRuleSchema,
 } from "@shared/schema";
+import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geocoding";
+import { generateMonthlyInvoices } from "./services/billing";
+import { sendNightBeforeReminders } from "./services/reminders";
 
 // Initialize Stripe - from Replit Stripe integration blueprint
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error("Missing required Stripe secret: STRIPE_SECRET_KEY");
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-11-20.acacia",
+  apiVersion: "2025-10-29.clover",
 });
 
 // Twilio setup
@@ -769,6 +772,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skipped: 0, 
         errors: [error instanceof Error ? error.message : "Server error"] 
       });
+    }
+  });
+
+  // ========== GEOCODING ==========
+  app.post("/api/geocode", async (req, res) => {
+    try {
+      const { address } = req.body;
+      
+      if (!address) {
+        return res.status(400).json({ message: "Address is required" });
+      }
+
+      const coords = await geocodeAddress(address);
+      
+      if (!coords) {
+        return res.status(404).json({ message: "Could not geocode address" });
+      }
+
+      res.json(coords);
+    } catch (error) {
+      console.error("Geocode error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== FIND BEST FIT DAY ==========
+  app.post("/api/find-best-fit", async (req, res) => {
+    try {
+      const { address } = req.body;
+      
+      if (!address) {
+        return res.status(400).json({ message: "Address is required" });
+      }
+
+      const coords = await geocodeAddress(address);
+      if (!coords) {
+        return res.status(404).json({ message: "Could not geocode address" });
+      }
+
+      const allSchedules = await storage.getAllScheduleRules();
+      const allCustomers = await storage.getAllCustomers();
+
+      const customersWithSchedules = allSchedules
+        .filter(s => !s.paused)
+        .map(schedule => {
+          const customer = allCustomers.find(c => c.id === schedule.customerId);
+          return {
+            lat: customer?.lat ?? null,
+            lng: customer?.lng ?? null,
+            dayOfWeek: schedule.byDay,
+          };
+        });
+
+      const bestFitDays = await findBestFitDay(coords, customersWithSchedules);
+
+      res.json({
+        coordinates: coords,
+        suggestions: bestFitDays,
+      });
+    } catch (error) {
+      console.error("Best fit error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== MONTHLY BILLING JOB ==========
+  app.post("/api/billing/generate-monthly", async (req, res) => {
+    try {
+      const { month, year } = req.body;
+      
+      if (!month || !year) {
+        return res.status(400).json({ message: "Month and year are required" });
+      }
+
+      const results = await generateMonthlyInvoices(month, year);
+      
+      res.json({
+        message: "Monthly billing completed",
+        results,
+      });
+    } catch (error) {
+      console.error("Monthly billing error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== REMINDER SMS JOB ==========
+  app.post("/api/reminders/send-night-before", async (req, res) => {
+    try {
+      const { serviceDate } = req.body;
+      
+      if (!serviceDate) {
+        return res.status(400).json({ message: "Service date is required" });
+      }
+
+      const results = await sendNightBeforeReminders(serviceDate);
+      
+      res.json({
+        message: "Reminders sent",
+        results,
+      });
+    } catch (error) {
+      console.error("Reminder error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== SAVE PAYMENT METHOD FOR AUTOPAY ==========
+  app.post("/api/customers/:id/payment-method", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { paymentMethodId } = req.body;
+
+      if (!paymentMethodId) {
+        return res.status(400).json({ message: "Payment method ID is required" });
+      }
+
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      let stripeCustomerId = customer.stripeCustomerId;
+
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          name: customer.name,
+          email: customer.email || undefined,
+          phone: customer.phone,
+          address: {
+            line1: customer.address,
+          },
+        });
+        stripeCustomerId = stripeCustomer.id;
+      }
+
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: stripeCustomerId,
+      });
+
+      await stripe.customers.update(stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+
+      const updated = await storage.updateCustomer(id, {
+        stripeCustomerId,
+        stripePaymentMethodId: paymentMethodId,
+        autopayEnabled: true,
+        billingMethod: "card",
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Payment method setup error:", error);
+      res.status(500).json({ message: "Server error" });
     }
   });
 
