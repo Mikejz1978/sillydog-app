@@ -509,34 +509,47 @@ export default function Routes() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? (
-              <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center text-muted-foreground p-8">
-                  <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm font-medium">Google Maps API Key Required</p>
-                  <p className="text-xs mt-2">Add VITE_GOOGLE_MAPS_API_KEY to enable map view</p>
-                  <p className="text-xs mt-1 opacity-70">This will show your route stops and optimize your travel path</p>
+            {(() => {
+              const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+              console.log('Google Maps API Key status:', apiKey ? 'Found!' : 'Missing');
+              
+              if (!apiKey) {
+                return (
+                  <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                    <div className="text-center text-muted-foreground p-8">
+                      <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm font-medium">Google Maps API Key Required</p>
+                      <p className="text-xs mt-2">Add VITE_GOOGLE_MAPS_API_KEY to Secrets, then restart the app</p>
+                      <p className="text-xs mt-1 opacity-70">You may need to stop and start the workflow completely</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              if (sortedRoutes.length === 0) {
+                return (
+                  <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                    <div className="text-center text-muted-foreground p-8">
+                      <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">No routes to display</p>
+                      <p className="text-xs mt-2">Select a date with scheduled routes</p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+                  <iframe
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${encodeURIComponent(customers?.find(c => c.id === sortedRoutes[0]?.customerId)?.address || 'Pahrump, NV')}&destination=${encodeURIComponent(customers?.find(c => c.id === sortedRoutes[sortedRoutes.length - 1]?.customerId)?.address || 'Pahrump, NV')}${sortedRoutes.length > 2 ? `&waypoints=${sortedRoutes.slice(1, -1).map(r => encodeURIComponent(customers?.find(c => c.id === r.customerId)?.address || '')).filter(Boolean).join('|')}` : ''}&mode=driving`}
+                    title="Route Map"
+                  />
                 </div>
-              </div>
-            ) : sortedRoutes.length > 0 ? (
-              <div className="aspect-square bg-muted rounded-lg overflow-hidden">
-                <iframe
-                  className="w-full h-full border-0"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps/embed/v1/directions?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&origin=${encodeURIComponent(customers?.find(c => c.id === sortedRoutes[0]?.customerId)?.address || 'Pahrump, NV')}&destination=${encodeURIComponent(customers?.find(c => c.id === sortedRoutes[sortedRoutes.length - 1]?.customerId)?.address || 'Pahrump, NV')}${sortedRoutes.length > 2 ? `&waypoints=${sortedRoutes.slice(1, -1).map(r => encodeURIComponent(customers?.find(c => c.id === r.customerId)?.address || '')).filter(Boolean).join('|')}` : ''}&mode=driving`}
-                  title="Route Map"
-                />
-              </div>
-            ) : (
-              <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center text-muted-foreground p-8">
-                  <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No routes to display</p>
-                  <p className="text-xs mt-2">Select a date with scheduled routes</p>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
