@@ -59,6 +59,66 @@ async function sendSMS(to: string, message: string) {
   }
 }
 
+// Helper function to generate routes for a schedule rule
+async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<number> {
+  const startDate = new Date(rule.dtStart);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Start generating from today or dtStart, whichever is later
+  const generateFrom = startDate > today ? startDate : today;
+  
+  let routesCreated = 0;
+  
+  // Generate routes for the next 'daysAhead' days
+  for (let i = 0; i < daysAhead; i++) {
+    const targetDate = new Date(generateFrom);
+    targetDate.setDate(generateFrom.getDate() + i);
+    
+    const dayOfWeek = targetDate.getDay(); // 0=Sunday ... 6=Saturday
+    const targetDateStr = targetDate.toISOString().split("T")[0];
+    
+    // Check if day of week matches (byDay is an array of days)
+    if (!rule.byDay || !rule.byDay.includes(dayOfWeek)) {
+      continue;
+    }
+    
+    // Calculate if this date matches the schedule frequency
+    const daysDiff = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let shouldGenerate = false;
+    if (rule.frequency === "weekly") {
+      // For weekly schedules with multiple days, generate on matching days
+      shouldGenerate = daysDiff >= 0;
+    } else if (rule.frequency === "biweekly") {
+      // Biweekly: every 14 days, but only on specified days
+      shouldGenerate = daysDiff >= 0 && Math.floor(daysDiff / 7) % 2 === 0;
+    } else if (rule.frequency === "one-time" || rule.frequency === "new-start") {
+      // Only generate once on the start date
+      shouldGenerate = daysDiff === 0;
+    }
+    
+    if (shouldGenerate) {
+      // Check if route already exists for this customer and date
+      const existingRoutes = await storage.getRoutesByDate(targetDateStr);
+      const alreadyExists = existingRoutes.some(r => r.customerId === rule.customerId);
+      
+      if (!alreadyExists) {
+        await storage.createRoute({
+          date: targetDateStr,
+          customerId: rule.customerId,
+          scheduledTime: rule.windowStart,
+          status: "scheduled",
+          orderIndex: 0,
+        });
+        routesCreated++;
+      }
+    }
+  }
+  
+  return routesCreated;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // ========== ROUTE OPTIMIZATION ==========
   app.post("/api/routes/optimize", async (req, res) => {
@@ -592,7 +652,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validated = insertScheduleRuleSchema.parse(req.body);
       const rule = await storage.createScheduleRule(validated);
-      res.status(201).json(rule);
+      
+      // Auto-generate routes for the next 60 days
+      const routesGenerated = await generateRoutesForSchedule(rule, 60);
+      
+      res.status(201).json({
+        ...rule,
+        routesGenerated,
+      });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
