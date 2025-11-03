@@ -12,6 +12,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import logoImage from "@assets/logo_1762200437346.png";
 
 const menuItems = [
   {
@@ -52,12 +53,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-            </svg>
-          </div>
+        <div className="flex items-center gap-3">
+          <img 
+            src={logoImage} 
+            alt="SillyDog Logo" 
+            className="w-12 h-12 object-contain"
+            data-testid="img-logo"
+          />
           <div>
             <h2 className="font-serif font-semibold text-base leading-tight">SillyDog</h2>
             <p className="text-xs text-muted-foreground">Pooper Scooper</p>

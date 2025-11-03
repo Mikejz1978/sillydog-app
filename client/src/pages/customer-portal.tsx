@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Calendar, DollarSign, CreditCard, MapPin } from "lucide-react";
 import type { Customer, Invoice, Route } from "@shared/schema";
+import logoImage from "@assets/logo_1762200437346.png";
 
 // This is a simplified customer portal for demonstration
 // In production, this would require customer authentication
@@ -37,11 +38,12 @@ export default function CustomerPortal() {
     <div className="min-h-screen bg-gradient-to-br from-[#2196F3]/10 via-background to-[#1DBF73]/10">
       <div className="container max-w-6xl mx-auto p-8 space-y-8">
         <div className="text-center py-12">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-[#2196F3] to-[#1DBF73] flex items-center justify-center mb-4">
-            <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-            </svg>
-          </div>
+          <img 
+            src={logoImage} 
+            alt="SillyDog Logo" 
+            className="w-24 h-24 mx-auto mb-4 object-contain"
+            data-testid="img-portal-logo"
+          />
           <h1 className="text-5xl font-serif font-semibold bg-gradient-to-r from-[#2196F3] to-[#1DBF73] bg-clip-text text-transparent">
             SillyDog Portal
           </h1>
