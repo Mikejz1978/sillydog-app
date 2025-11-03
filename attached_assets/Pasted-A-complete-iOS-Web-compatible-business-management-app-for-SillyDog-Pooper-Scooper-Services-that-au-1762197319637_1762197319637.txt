@@ -1,0 +1,414 @@
+A complete iOS + Web-compatible business management app for SillyDog Pooper Scooper Services that automates client management, billing, scheduling, text communication, and route optimization.
+The app should have two sides:
+
+
+Admin/Employee App – used by Michael and staff in the field
+
+
+Customer Portal – for clients to log in, view services, and pay invoices
+
+
+
+⚙️ Core Features
+1. Customer Management (CRM)
+
+
+Store all client details:
+
+
+Name, Address, Phone, Email
+
+
+Service Plan (weekly, biweekly, one-time, etc.)
+
+
+Number of dogs
+
+
+Gate code / yard notes
+
+
+Start date, status (active/inactive)
+
+
+Billing method (card on file, invoice, etc.)
+
+
+
+
+Option to upload before/after photos.
+
+
+Sync via CloudKit (iCloud) or Firebase backend.
+
+
+2. Scheduling & Route Optimization
+
+
+Daily/weekly route view with Google Maps or MapKit integration.
+
+
+Auto-optimize daily routes by proximity.
+
+
+Ability to drag & reorder stops manually.
+
+
+“Start Route” button → timer begins for first stop.
+
+
+“In Route” → sends automated text to customer.
+
+
+“Complete Service” → sends completion text + marks job done.
+
+
+Map with live location pin while on route.
+
+
+3. Invoicing & Billing
+
+
+Integrate Stripe for payment processing.
+
+
+Customers can store card on file, pay online, or set up autopay.
+
+
+
+
+Automatic invoice generation:
+
+
+Weekly/Biweekly/One-Time billing options.
+
+
+Add-on fees for first-time cleanups or extra dogs.
+
+
+
+
+Tax and discount fields.
+
+
+Push/email invoice when service completes.
+
+
+Payment reminders + receipts.
+
+
+4. Customer Portal
+
+
+Secure login for customers.
+
+
+Dashboard shows:
+
+
+Next service date/time window.
+
+
+Payment status (paid/unpaid).
+
+
+Add or change services (plan type, # of dogs).
+
+
+View invoice history and receipts.
+
+
+Update payment method.
+
+
+Contact button (message or call office).
+
+
+
+
+5. Automated Messaging
+
+
+Integrate Twilio API for SMS notifications:
+
+
+“In Route” text when technician starts driving.
+
+
+“Service Complete” text when done.
+
+
+Payment confirmation / receipt.
+
+
+
+
+Admin can also send custom messages to customers from within the app.
+
+
+6. Timers & Task Tracking
+
+
+“Start” button for first-time or new-start cleanups.
+
+
+Tracks time spent to calculate charge:
+
+
+15 min = $12.50
+
+
+30 min = $25.00
+
+
+45 min = $37.50
+
+
+60 min = $50.00, etc.
+
+
+
+
+
+
+Auto-stops timer when service marked complete.
+
+
+Saves service duration in job history.
+
+
+7. Pricing Chart
+
+
+Built-in rate table:
+
+
+Weekly / Biweekly tiers (1–8 dogs)
+
+
+First-time cleanup rates
+
+
+Extra yard or add-on service fees
+
+
+
+
+Editable from admin panel.
+
+
+8. Admin Dashboard
+
+
+See all active customers, routes, invoices, and payments.
+
+
+Filter by date, employee, or location.
+
+
+Export reports (CSV/PDF).
+
+
+Manage users (add/edit/remove customers and employees).
+
+
+
+📊 Database / Backend
+
+
+Option 1: Apple CloudKit (recommended for iOS-only)
+
+
+Option 2: Firebase or Supabase (for Android + web access)
+
+
+Data models:
+
+
+Customer
+
+
+ServicePlan
+
+
+Invoice
+
+
+Route
+
+
+JobHistory
+
+
+Message
+
+
+
+
+
+💳 Payment Integration
+
+
+Stripe Dashboard for:
+
+
+Service plans as products (Weekly, Biweekly, One-Time)
+
+
+Saved cards + recurring billing
+
+
+Payouts to business account
+
+
+
+
+Stripe API keys:
+
+
+STRIPE_SECRET_KEY
+
+
+VITE_STRIPE_PUBLIC_KEY
+
+
+
+
+Webhooks to mark invoices paid.
+
+
+
+💬 Notifications
+
+
+Push notifications for staff (new job added, payment received).
+
+
+SMS for customers (in-route, complete, invoice sent).
+
+
+Optional email confirmations.
+
+
+
+🧾 Reports
+
+
+Daily/Weekly revenue.
+
+
+Outstanding invoices.
+
+
+Completed jobs per employee.
+
+
+Time spent per job.
+
+
+
+🧠 Future Add-ons
+
+
+GPS tracking per employee.
+
+
+Customer ratings & testimonials.
+
+
+Integrated tipping option.
+
+
+Customer referral system.
+
+
+Integration with QuickBooks Online or Square.
+
+
+
+🎨 Branding / UI
+
+
+Gradient header: Blue → Green (#2196F3 → #1DBF73)
+
+
+Paw-print background (animated or static)
+
+
+Logo: “SillyDog Pooper Scooper”
+
+
+Fonts: Fredoka + Open Sans
+
+
+Fun, friendly UI — bright, clean, rounded cards and buttons.
+
+
+
+🧩 Tech Stack (recommended)
+
+
+Frontend: SwiftUI (for iOS) / React (for web portal)
+
+
+Backend: CloudKit or Firebase
+
+
+Payments: Stripe API
+
+
+Messaging: Twilio
+
+
+Maps/Routes: MapKit or Google Maps API
+
+
+Storage: iCloud or Firebase Storage (for photos & receipts)
+
+
+
+🔐 Security & Accounts
+
+
+User authentication:
+
+
+Admin/staff login with role-based access.
+
+
+Customer login for portal access.
+
+
+
+
+Secure storage for all sensitive data (Keychain / encrypted backend).
+
+
+
+🚀 Deployment
+
+
+Bundle ID: com.sillydog.app
+
+
+iOS 16.0+
+
+
+App Store + TestFlight beta testing
+
+
+Future Android build via React Native or Flutter bridge
+
+
+
+Would you like me to:
+
+
+Format this into a developer-ready PDF spec with your logo and colors (for emailing or posting to Replit devs),
+or
+
+
+Generate the actual app project structure in SwiftUI (main files + CloudKit + Stripe setup starter code)?
+
+
+Either way, I’ll prep it cleanly for handoff or coding.
