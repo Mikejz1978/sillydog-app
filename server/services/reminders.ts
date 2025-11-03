@@ -44,7 +44,7 @@ export async function sendNightBeforeReminders(serviceDate: string): Promise<{
 
       try {
         const message = await twilioClient.messages.create({
-          body: `Hi ${customer.name}! This is a reminder that SillyDog will be servicing your yard tomorrow. We'll text you when we're on the way. Thank you for choosing us!`,
+          body: `Hi ${customer.name}! This is a reminder that SillyDog will be servicing your yard tomorrow (${serviceDate}). Thank you for choosing us!`,
           from: process.env.TWILIO_PHONE_NUMBER,
           to: customer.phone,
         });
