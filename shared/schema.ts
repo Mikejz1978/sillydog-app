@@ -238,6 +238,59 @@ export const insertReminderLogSchema = createInsertSchema(reminderLogs).omit({
 export type ReminderLog = typeof reminderLogs.$inferSelect;
 export type InsertReminderLog = z.infer<typeof insertReminderLogSchema>;
 
+// Booking Requests (public-facing customer submissions)
+export const bookingRequests = pgTable("booking_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email"),
+  numberOfDogs: integer("number_of_dogs").notNull().default(1),
+  yardNotes: text("yard_notes"),
+  preferredServicePlan: text("preferred_service_plan"), // 'weekly', 'biweekly', 'one-time'
+  status: text("status").notNull().default("pending"), // 'pending', 'accepted', 'rejected'
+  customerId: varchar("customer_id"), // Linked customer if converted
+  adminNotes: text("admin_notes"), // Internal notes for staff
+  ipAddress: text("ip_address"), // For spam prevention
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBookingRequestSchema = createInsertSchema(bookingRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  customerId: true,
+  adminNotes: true,
+  status: true,
+}).extend({
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Please enter a valid phone number"),
+});
+
+export type BookingRequest = typeof bookingRequests.$inferSelect;
+export type InsertBookingRequest = z.infer<typeof insertBookingRequestSchema>;
+
+// Notifications (in-app alerts for admins)
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // 'booking_request', 'payment', 'system', etc.
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  bookingRequestId: varchar("booking_request_id"), // Related booking if applicable
+  customerId: varchar("customer_id"), // Related customer if applicable
+  smsDelivered: boolean("sms_delivered").notNull().default(false), // Track if SMS was sent
+  readAt: timestamp("read_at"), // When admin marked as read
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
 // Helper function to calculate service price
 export function calculateServicePrice(servicePlan: string, numberOfDogs: number): number {
   const plan = servicePlan as keyof typeof pricingRates;
