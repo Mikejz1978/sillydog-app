@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { NotificationsBadge } from "@/components/notifications-badge";
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
 import Routes from "@/pages/routes";
@@ -14,6 +15,7 @@ import Reports from "@/pages/reports";
 import Import from "@/pages/import";
 import Settings from "@/pages/settings";
 import CustomerPortal from "@/pages/customer-portal";
+import Bookings from "@/pages/bookings";
 import BookNow from "@/pages/book";
 import NotFound from "@/pages/not-found";
 
@@ -28,6 +30,7 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/import" component={Import} />
       <Route path="/settings" component={Settings} />
+      <Route path="/bookings" component={Bookings} />
       <Route path="/portal" component={CustomerPortal} />
       <Route component={NotFound} />
     </Switch>
@@ -47,8 +50,11 @@ function AdminLayout() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="text-xs text-muted-foreground">
-              Logged in as Admin
+            <div className="flex items-center gap-4">
+              <NotificationsBadge />
+              <div className="text-xs text-muted-foreground">
+                Logged in as Admin
+              </div>
             </div>
           </header>
           <main className="flex-1 overflow-auto">
