@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import Stripe from "stripe";
+import twilio from "twilio";
 import { storage } from "./storage";
 import {
   insertCustomerSchema,
@@ -33,29 +34,37 @@ const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
 let twilioClient: any = null;
 if (twilioAccountSid && twilioAuthToken && twilioPhoneNumber) {
-  // Dynamically import twilio only if credentials are available
-  import("twilio").then((twilio) => {
-    twilioClient = twilio.default(twilioAccountSid, twilioAuthToken);
-  }).catch(() => {
-    console.warn("Twilio not available - SMS notifications disabled");
-  });
+  try {
+    twilioClient = twilio(twilioAccountSid, twilioAuthToken);
+    console.log("✅ Twilio client initialized successfully");
+    console.log(`📱 Using phone number: ${twilioPhoneNumber}`);
+  } catch (error) {
+    console.error("❌ Failed to initialize Twilio:", error);
+  }
+} else {
+  console.warn("⚠️ Twilio credentials not found - SMS notifications disabled");
+  console.warn(`   TWILIO_ACCOUNT_SID: ${twilioAccountSid ? 'SET' : 'MISSING'}`);
+  console.warn(`   TWILIO_AUTH_TOKEN: ${twilioAuthToken ? 'SET' : 'MISSING'}`);
+  console.warn(`   TWILIO_PHONE_NUMBER: ${twilioPhoneNumber ? 'SET' : 'MISSING'}`);
 }
 
 // Helper function to send SMS
 async function sendSMS(to: string, message: string) {
   if (!twilioClient || !twilioPhoneNumber) {
-    console.log(`SMS would be sent to ${to}: ${message}`);
+    console.log(`⚠️ SMS NOT SENT - Twilio not configured. Would send to ${to}: ${message}`);
     return;
   }
 
   try {
-    await twilioClient.messages.create({
+    const result = await twilioClient.messages.create({
       body: message,
       from: twilioPhoneNumber,
       to: to,
     });
+    console.log(`✅ SMS sent successfully to ${to} - SID: ${result.sid}`);
   } catch (error) {
-    console.error("Failed to send SMS:", error);
+    console.error(`❌ Failed to send SMS to ${to}:`, error);
+    throw error;
   }
 }
 
