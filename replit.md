@@ -39,6 +39,9 @@ Streamline daily operations for Michael and staff by providing:
 - **SMS Opt-In Management**: Customer-level SMS preferences with checkbox in customer form
 - **Reminder Logs**: Track all sent reminders to prevent duplicates and monitor delivery status
 - **Timezone-Aware Scheduling**: All cron jobs properly handle America/Chicago timezone using date-fns-tz
+- **Timer-Based Billing for One-Time Services**: Built-in stopwatch timer for one-time and new-start cleanups with automatic billing at $100/hour rate
+- **Live Cost Estimation**: Real-time cost display while timer is running
+- **Service Type Selection**: Routes can be marked as regular, one-time, or new-start with appropriate billing method
 
 ## Project Architecture
 
@@ -51,17 +54,19 @@ Streamline daily operations for Michael and staff by providing:
 - **State Management**: TanStack Query v5 for server state
 
 ### Data Models
-1. **Customers**: Name, address, phone, email, service plan (weekly/biweekly/one-time), number of dogs, gate codes, yard notes, billing method, status
-2. **Routes**: Date, customer, scheduled time, status (scheduled/in_route/completed), order index
+1. **Customers**: Name, address, phone, email, service plan (weekly/biweekly/one-time), number of dogs, gate codes, yard notes, billing method, status, lat/lng coordinates, SMS opt-in, autopay settings
+2. **Routes**: Date, customer, scheduled time, status (scheduled/in_route/completed), order index, service type (regular/one-time/new-start), timer timestamps, calculated cost
 3. **Invoices**: Customer, invoice number, amount, status (unpaid/paid/overdue), due date, Stripe payment intent ID
-4. **Job History**: Customer, route, service date, duration, before/after photos (base64), SMS notification tracking
+4. **Job History**: Customer, route, service date, duration, calculated cost, before/after photos (base64), SMS notification tracking
 5. **Messages**: Customer, direction (inbound/outbound), message text, status, timestamp
-6. **Schedule Rules**: Customer, frequency (weekly/biweekly), day of week (0-6), start date, time window (start/end), timezone, notes, addons, paused status
+6. **Schedule Rules**: Customer, frequency (weekly/biweekly/one-time/new-start), day of week (0-6), start date, time window (start/end), timezone, notes, addons, paused status
 
 ### API Endpoints
 - `GET/POST /api/customers` - Customer CRUD
 - `GET/POST /api/routes` - Route scheduling
 - `PATCH /api/routes/:id/status` - Update route status (triggers SMS)
+- `POST /api/routes/:id/timer/start` - Start service timer for one-time/new-start services
+- `POST /api/routes/:id/timer/stop` - Stop timer and calculate cost based on duration
 - `POST /api/routes/optimize` - Optimize route order
 - `POST /api/routes/generate` - Auto-generate routes from active schedule rules for a given date
 - `GET/POST /api/invoices` - Invoice management
@@ -75,6 +80,10 @@ Streamline daily operations for Michael and staff by providing:
 - `DELETE /api/schedule-rules/:id` - Delete a schedule rule
 - `POST /api/import/customers` - Import customers from CSV
 - `POST /api/import/schedules` - Import schedules from CSV
+- `POST /api/geocode` - Convert address to lat/lng coordinates
+- `POST /api/find-best-fit` - Suggest optimal service day based on proximity
+- `POST /api/billing/generate-monthly` - Trigger monthly invoice generation
+- `POST /api/reminders/send-night-before` - Send night-before SMS reminders
 
 ### Key Features
 1. **Customer Management**: Full CRM with service plans, dog counts, gate codes, yard notes
