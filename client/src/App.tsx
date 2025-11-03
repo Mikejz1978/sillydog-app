@@ -14,6 +14,7 @@ import Reports from "@/pages/reports";
 import Import from "@/pages/import";
 import Settings from "@/pages/settings";
 import CustomerPortal from "@/pages/customer-portal";
+import BookNow from "@/pages/book";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,31 +34,42 @@ function Router() {
   );
 }
 
-function App() {
+function AdminLayout() {
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
 
   return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex items-center justify-between p-4 border-b bg-background">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="text-xs text-muted-foreground">
+              Logged in as Admin
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto">
+            <Router />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SidebarProvider style={style as React.CSSProperties}>
-          <div className="flex h-screen w-full">
-            <AppSidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <header className="flex items-center justify-between p-4 border-b bg-background">
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <div className="text-xs text-muted-foreground">
-                  Logged in as Admin
-                </div>
-              </header>
-              <main className="flex-1 overflow-auto">
-                <Router />
-              </main>
-            </div>
-          </div>
-        </SidebarProvider>
+        <Switch>
+          <Route path="/book" component={BookNow} />
+          <Route>
+            <AdminLayout />
+          </Route>
+        </Switch>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
