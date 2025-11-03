@@ -13,6 +13,10 @@ import {
   type InsertScheduleRule,
   type ReminderLog,
   type InsertReminderLog,
+  type BookingRequest,
+  type InsertBookingRequest,
+  type Notification,
+  type InsertNotification,
   type User,
   type UpsertUser,
 } from "@shared/schema";
@@ -71,6 +75,19 @@ export interface IStorage {
   // Reminder Logs
   createReminderLog(log: InsertReminderLog): Promise<ReminderLog>;
   getReminderLogsByDate(serviceDate: string): Promise<ReminderLog[]>;
+
+  // Booking Requests
+  getAllBookingRequests(): Promise<BookingRequest[]>;
+  getPendingBookingRequests(): Promise<BookingRequest[]>;
+  getBookingRequest(id: string): Promise<BookingRequest | undefined>;
+  createBookingRequest(request: InsertBookingRequest): Promise<BookingRequest>;
+  updateBookingRequest(id: string, updates: Partial<BookingRequest>): Promise<BookingRequest>;
+
+  // Notifications
+  getAllNotifications(): Promise<Notification[]>;
+  getUnreadNotifications(): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string): Promise<Notification>;
 }
 
 export class MemStorage implements IStorage {
@@ -78,12 +95,16 @@ export class MemStorage implements IStorage {
   private routes: Map<string, Route>;
   private invoices: Map<string, Invoice>;
   private jobHistory: Map<string, JobHistory>;
+  private bookingRequests: Map<string, BookingRequest>;
+  private notifications: Map<string, Notification>;
 
   constructor() {
     this.customers = new Map();
     this.routes = new Map();
     this.invoices = new Map();
     this.jobHistory = new Map();
+    this.bookingRequests = new Map();
+    this.notifications = new Map();
   }
 
   // Customers
@@ -260,6 +281,97 @@ export class MemStorage implements IStorage {
     this.jobHistory.set(id, updated);
     return updated;
   }
+
+  // Booking Requests
+  async getAllBookingRequests(): Promise<BookingRequest[]> {
+    return Array.from(this.bookingRequests.values());
+  }
+
+  async getPendingBookingRequests(): Promise<BookingRequest[]> {
+    return Array.from(this.bookingRequests.values()).filter(
+      (request) => request.status === "pending"
+    );
+  }
+
+  async getBookingRequest(id: string): Promise<BookingRequest | undefined> {
+    return this.bookingRequests.get(id);
+  }
+
+  async createBookingRequest(insertRequest: InsertBookingRequest): Promise<BookingRequest> {
+    const id = randomUUID();
+    const request: BookingRequest = {
+      ...insertRequest,
+      id,
+      status: "pending",
+      customerId: null,
+      adminNotes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.bookingRequests.set(id, request);
+    return request;
+  }
+
+  async updateBookingRequest(id: string, updates: Partial<BookingRequest>): Promise<BookingRequest> {
+    const request = this.bookingRequests.get(id);
+    if (!request) {
+      throw new Error("Booking request not found");
+    }
+    const updated = { ...request, ...updates, updatedAt: new Date() };
+    this.bookingRequests.set(id, updated);
+    return updated;
+  }
+
+  // Notifications
+  async getAllNotifications(): Promise<Notification[]> {
+    return Array.from(this.notifications.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+  }
+
+  async getUnreadNotifications(): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter((n) => !n.readAt)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const id = randomUUID();
+    const notification: Notification = {
+      ...insertNotification,
+      id,
+      readAt: null,
+      createdAt: new Date(),
+    };
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  async markNotificationRead(id: string): Promise<Notification> {
+    const notification = this.notifications.get(id);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+    const updated = { ...notification, readAt: new Date() };
+    this.notifications.set(id, updated);
+    return updated;
+  }
+
+  // Messages, Schedule Rules, Reminder Logs, Users not implemented in MemStorage
+  async getAllMessages(): Promise<Message[]> { return []; }
+  async getMessagesByCustomer(_customerId: string): Promise<Message[]> { return []; }
+  async createMessage(_message: InsertMessage): Promise<Message> { throw new Error("Not implemented"); }
+  async getAllScheduleRules(): Promise<ScheduleRule[]> { return []; }
+  async getScheduleRulesByCustomer(_customerId: string): Promise<ScheduleRule[]> { return []; }
+  async createScheduleRule(_rule: InsertScheduleRule): Promise<ScheduleRule> { throw new Error("Not implemented"); }
+  async updateScheduleRule(_id: string, _rule: Partial<InsertScheduleRule>): Promise<ScheduleRule> { throw new Error("Not implemented"); }
+  async deleteScheduleRule(_id: string): Promise<void> { throw new Error("Not implemented"); }
+  async createReminderLog(_log: InsertReminderLog): Promise<ReminderLog> { throw new Error("Not implemented"); }
+  async getReminderLogsByDate(_serviceDate: string): Promise<ReminderLog[]> { return []; }
+  async getUser(_id: string): Promise<User | undefined> { return undefined; }
+  async upsertUser(_user: UpsertUser): Promise<User> { throw new Error("Not implemented"); }
+  async getAllUsers(): Promise<User[]> { return []; }
+  async updateUser(_id: string, _updates: Partial<UpsertUser>): Promise<User> { throw new Error("Not implemented"); }
 }
 
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -521,6 +633,76 @@ export class DbStorage implements IStorage {
       .select()
       .from(schema.reminderLogs)
       .where(eq(schema.reminderLogs.serviceDate, serviceDate));
+  }
+
+  // Booking Requests
+  async getAllBookingRequests(): Promise<BookingRequest[]> {
+    return await this.db.select().from(schema.bookingRequests).orderBy(schema.bookingRequests.createdAt);
+  }
+
+  async getPendingBookingRequests(): Promise<BookingRequest[]> {
+    return await this.db
+      .select()
+      .from(schema.bookingRequests)
+      .where(eq(schema.bookingRequests.status, "pending"))
+      .orderBy(schema.bookingRequests.createdAt);
+  }
+
+  async getBookingRequest(id: string): Promise<BookingRequest | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.bookingRequests)
+      .where(eq(schema.bookingRequests.id, id));
+    return result[0];
+  }
+
+  async createBookingRequest(insertRequest: InsertBookingRequest): Promise<BookingRequest> {
+    const result = await this.db
+      .insert(schema.bookingRequests)
+      .values(insertRequest)
+      .returning();
+    return result[0];
+  }
+
+  async updateBookingRequest(id: string, updates: Partial<BookingRequest>): Promise<BookingRequest> {
+    const result = await this.db
+      .update(schema.bookingRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.bookingRequests.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Booking request not found");
+    return result[0];
+  }
+
+  // Notifications
+  async getAllNotifications(): Promise<Notification[]> {
+    return await this.db.select().from(schema.notifications).orderBy(schema.notifications.createdAt);
+  }
+
+  async getUnreadNotifications(): Promise<Notification[]> {
+    return await this.db
+      .select()
+      .from(schema.notifications)
+      .where(eq(schema.notifications.readAt, null))
+      .orderBy(schema.notifications.createdAt);
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const result = await this.db
+      .insert(schema.notifications)
+      .values(insertNotification)
+      .returning();
+    return result[0];
+  }
+
+  async markNotificationRead(id: string): Promise<Notification> {
+    const result = await this.db
+      .update(schema.notifications)
+      .set({ readAt: new Date() })
+      .where(eq(schema.notifications.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Notification not found");
+    return result[0];
   }
 }
 
