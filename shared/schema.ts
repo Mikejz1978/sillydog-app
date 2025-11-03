@@ -117,6 +117,30 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
+// Schedule Rules (Recurring Scheduling)
+export const scheduleRules = pgTable("schedule_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  frequency: text("frequency").notNull(), // 'weekly', 'biweekly'
+  byDay: integer("by_day").notNull(), // 0=Sunday ... 6=Saturday
+  dtStart: text("dt_start").notNull(), // YYYY-MM-DD format - first service date
+  windowStart: text("window_start").notNull(), // HH:MM format
+  windowEnd: text("window_end").notNull(), // HH:MM format
+  timezone: text("timezone").notNull().default("America/Chicago"),
+  notes: text("notes"),
+  addons: text("addons").array(), // e.g., ['extra-yard', 'odor-spray']
+  paused: boolean("paused").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertScheduleRuleSchema = createInsertSchema(scheduleRules).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ScheduleRule = typeof scheduleRules.$inferSelect;
+export type InsertScheduleRule = z.infer<typeof insertScheduleRuleSchema>;
+
 // Service Plan Pricing
 export const pricingRates = {
   weekly: {

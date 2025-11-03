@@ -9,6 +9,8 @@ import {
   type InsertJobHistory,
   type Message,
   type InsertMessage,
+  type ScheduleRule,
+  type InsertScheduleRule,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -47,6 +49,13 @@ export interface IStorage {
   getAllMessages(): Promise<Message[]>;
   getMessagesByCustomer(customerId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+
+  // Schedule Rules
+  getAllScheduleRules(): Promise<ScheduleRule[]>;
+  getScheduleRulesByCustomer(customerId: string): Promise<ScheduleRule[]>;
+  createScheduleRule(rule: InsertScheduleRule): Promise<ScheduleRule>;
+  updateScheduleRule(id: string, rule: Partial<InsertScheduleRule>): Promise<ScheduleRule>;
+  deleteScheduleRule(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -447,6 +456,40 @@ export class DbStorage implements IStorage {
       .values(insertMessage)
       .returning();
     return result[0];
+  }
+
+  // Schedule Rules
+  async getAllScheduleRules(): Promise<ScheduleRule[]> {
+    return await this.db.select().from(schema.scheduleRules);
+  }
+
+  async getScheduleRulesByCustomer(customerId: string): Promise<ScheduleRule[]> {
+    return await this.db
+      .select()
+      .from(schema.scheduleRules)
+      .where(eq(schema.scheduleRules.customerId, customerId));
+  }
+
+  async createScheduleRule(insertRule: InsertScheduleRule): Promise<ScheduleRule> {
+    const result = await this.db
+      .insert(schema.scheduleRules)
+      .values(insertRule)
+      .returning();
+    return result[0];
+  }
+
+  async updateScheduleRule(id: string, updates: Partial<InsertScheduleRule>): Promise<ScheduleRule> {
+    const result = await this.db
+      .update(schema.scheduleRules)
+      .set(updates)
+      .where(eq(schema.scheduleRules.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Schedule rule not found");
+    return result[0];
+  }
+
+  async deleteScheduleRule(id: string): Promise<void> {
+    await this.db.delete(schema.scheduleRules).where(eq(schema.scheduleRules.id, id));
   }
 }
 

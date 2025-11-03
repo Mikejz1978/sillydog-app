@@ -8,6 +8,7 @@ import {
   insertInvoiceSchema,
   insertJobHistorySchema,
   insertMessageSchema,
+  insertScheduleRuleSchema,
 } from "@shared/schema";
 
 // Initialize Stripe - from Replit Stripe integration blueprint
@@ -447,6 +448,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(message);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ========== SCHEDULE RULES ROUTES ==========
+  app.get("/api/schedule-rules", async (req, res) => {
+    try {
+      const { customerId } = req.query;
+      let rules;
+      if (customerId && typeof customerId === "string") {
+        rules = await storage.getScheduleRulesByCustomer(customerId);
+      } else {
+        rules = await storage.getAllScheduleRules();
+      }
+      res.json(rules);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/schedule-rules", async (req, res) => {
+    try {
+      const validated = insertScheduleRuleSchema.parse(req.body);
+      const rule = await storage.createScheduleRule(validated);
+      res.status(201).json(rule);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/schedule-rules/:id", async (req, res) => {
+    try {
+      const rule = await storage.updateScheduleRule(req.params.id, req.body);
+      res.json(rule);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/schedule-rules/:id", async (req, res) => {
+    try {
+      await storage.deleteScheduleRule(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ========== AUTO-GENERATE ROUTES FROM SCHEDULES ==========
+  app.post("/api/routes/generate", async (req, res) => {
+    try {
+      const { date } = req.body; // YYYY-MM-DD format
+      const targetDate = date || new Date().toISOString().split("T")[0];
+      
+      // Get all active (non-paused) schedule rules
+      const allRules = await storage.getAllScheduleRules();
+      const activeRules = allRules.filter(rule => !rule.paused);
+      
+      const generatedRoutes = [];
+      const today = new Date(targetDate);
+      const dayOfWeek = today.getDay(); // 0=Sunday ... 6=Saturday
+      
+      for (const rule of activeRules) {
+        // Check if day of week matches
+        if (rule.byDay !== dayOfWeek) {
+          continue;
+        }
+        
+        // Calculate if this date matches the schedule
+        const startDate = new Date(rule.dtStart);
+        const daysDiff = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        let shouldGenerate = false;
+        if (rule.frequency === "weekly") {
+          // Weekly: every 7 days
+          shouldGenerate = daysDiff >= 0 && daysDiff % 7 === 0;
+        } else if (rule.frequency === "biweekly") {
+          // Biweekly: every 14 days
+          shouldGenerate = daysDiff >= 0 && daysDiff % 14 === 0;
+        }
+        
+        if (shouldGenerate) {
+          // Check if route already exists for this customer and date
+          const existingRoutes = await storage.getRoutesByDate(targetDate);
+          const alreadyExists = existingRoutes.some(r => r.customerId === rule.customerId);
+          
+          if (!alreadyExists) {
+            const route = await storage.createRoute({
+              date: targetDate,
+              customerId: rule.customerId,
+              scheduledTime: rule.windowStart,
+              status: "scheduled",
+              orderIndex: 0,
+            });
+            generatedRoutes.push(route);
+          }
+        }
+      }
+      
+      res.json({
+        message: `Generated ${generatedRoutes.length} routes for ${targetDate}`,
+        routes: generatedRoutes,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 
