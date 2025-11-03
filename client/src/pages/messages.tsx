@@ -73,17 +73,17 @@ export default function Messages() {
         <p className="text-muted-foreground mt-1">Communicate with your customers via SMS</p>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 min-h-0">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
         {/* Customer List */}
-        <Card className="md:col-span-1">
+        <Card className="md:col-span-1 flex flex-col overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
               Customers
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-16rem)]">
+          <CardContent className="p-0 flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
               {customers?.map((customer) => (
                 <div key={customer.id}>
                   <button
@@ -106,8 +106,8 @@ export default function Messages() {
         </Card>
 
         {/* Conversation View */}
-        <Card className="md:col-span-2 flex flex-col">
-          <CardHeader>
+        <Card className="md:col-span-2 flex flex-col overflow-hidden">
+          <CardHeader className="flex-shrink-0">
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5" />
               {selectedCustomer ? selectedCustomer.name : "Select a customer"}
@@ -116,7 +116,7 @@ export default function Messages() {
               <p className="text-sm text-muted-foreground">{selectedCustomer.phone}</p>
             )}
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+          <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
             {!selectedCustomerId ? (
               <div className="flex-1 flex items-center justify-center text-muted-foreground p-6">
                 <div className="text-center">
@@ -127,7 +127,7 @@ export default function Messages() {
             ) : (
               <>
                 {/* Messages */}
-                <ScrollArea className="flex-1 p-4">
+                <ScrollArea className="flex-1 overflow-auto p-4">
                   {messagesLoading ? (
                     <div className="flex items-center justify-center h-32">
                       <p className="text-muted-foreground">Loading messages...</p>
@@ -163,8 +163,8 @@ export default function Messages() {
                 </ScrollArea>
 
                 {/* Message Input */}
-                <Separator />
-                <form onSubmit={handleSendMessage} className="p-4">
+                <Separator className="flex-shrink-0" />
+                <form onSubmit={handleSendMessage} className="p-4 flex-shrink-0 bg-background">
                   <div className="flex gap-2">
                     <Textarea
                       placeholder="Type your message..."
