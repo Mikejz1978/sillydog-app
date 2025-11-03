@@ -163,8 +163,9 @@ export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export const scheduleRules = pgTable("schedule_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull(),
+  serviceTypeId: varchar("service_type_id"), // Link to service_types table (price book)
   frequency: text("frequency").notNull(), // 'weekly', 'biweekly', 'one-time', 'new-start'
-  byDay: integer("by_day").notNull(), // 0=Sunday ... 6=Saturday
+  byDay: integer("by_day").array().notNull(), // Array of days: [1, 3, 5] for Mon/Wed/Fri
   dtStart: text("dt_start").notNull(), // YYYY-MM-DD format - first service date
   windowStart: text("window_start").notNull(), // HH:MM format
   windowEnd: text("window_end").notNull(), // HH:MM format
@@ -216,6 +217,29 @@ export const pricingRates = {
     8: 120.00,
   },
 };
+
+// Service Types (Price Book)
+export const serviceTypes = pgTable("service_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // e.g., "3x Weekly", "2x Weekly", "Daily", etc.
+  description: text("description"), // e.g., "Three times per week service"
+  frequency: text("frequency").notNull(), // 'weekly', 'biweekly'
+  timesPerWeek: integer("times_per_week").notNull().default(1), // 1-5 times
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(), // Base price for 1 dog
+  pricePerExtraDog: decimal("price_per_extra_dog", { precision: 10, scale: 2 }).notNull(), // Additional cost per dog
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertServiceTypeSchema = createInsertSchema(serviceTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ServiceType = typeof serviceTypes.$inferSelect;
+export type InsertServiceType = z.infer<typeof insertServiceTypeSchema>;
 
 // Reminder Logs
 export const reminderLogs = pgTable("reminder_logs", {
