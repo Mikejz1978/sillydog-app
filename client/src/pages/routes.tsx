@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertRouteSchema, type Customer, type Route, type InsertRoute } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Stopwatch } from "@/components/stopwatch";
 
 export default function Routes() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -116,6 +117,35 @@ export default function Routes() {
     },
   });
 
+  const startTimerMutation = useMutation({
+    mutationFn: async (routeId: string) => {
+      const response = await apiRequest("POST", `/api/routes/${routeId}/timer/start`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      toast({
+        title: "Timer Started",
+        description: "Service timer has been started.",
+      });
+    },
+  });
+
+  const stopTimerMutation = useMutation({
+    mutationFn: async (routeId: string) => {
+      const response = await apiRequest("POST", `/api/routes/${routeId}/timer/stop`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/job-history"] });
+      toast({
+        title: "Timer Stopped",
+        description: `Service took ${data.durationMinutes} minutes. Cost: $${data.calculatedCost.toFixed(2)}`,
+      });
+    },
+  });
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -186,6 +216,7 @@ export default function Routes() {
       scheduledTime: "",
       status: "scheduled",
       orderIndex: routes?.length || 0,
+      serviceType: "regular",
     },
   });
 
@@ -277,6 +308,28 @@ export default function Routes() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="serviceType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Service Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-service-type">
+                            <SelectValue placeholder="Select service type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="regular">Regular Service</SelectItem>
+                          <SelectItem value="one-time">One-Time Service (Timer Billing)</SelectItem>
+                          <SelectItem value="new-start">New Start (Timer Billing)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel">
                     Cancel
@@ -362,6 +415,22 @@ export default function Routes() {
                               Gate: {customer.gateCode}
                             </p>
                           )}
+                          
+                          {/* Timer for one-time and new-start services */}
+                          {(route.serviceType === "one-time" || route.serviceType === "new-start") && route.status === "in_route" && (
+                            <div className="mt-3">
+                              <Stopwatch
+                                startTime={route.timerStartedAt}
+                                onStart={() => startTimerMutation.mutate(route.id)}
+                                onStop={() => stopTimerMutation.mutate(route.id)}
+                                isStarted={!!route.timerStartedAt}
+                                isStopped={!!route.timerStoppedAt}
+                                showCost={true}
+                                calculatedCost={route.calculatedCost}
+                              />
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2 mt-2">
                             {route.status === "scheduled" && (
                               <>

@@ -170,6 +170,8 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                           <SelectContent>
                             <SelectItem value="weekly">Weekly</SelectItem>
                             <SelectItem value="biweekly">Biweekly</SelectItem>
+                            <SelectItem value="one-time">One-Time (Timer Billing)</SelectItem>
+                            <SelectItem value="new-start">New Start (Timer Billing)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
