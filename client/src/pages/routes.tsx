@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -97,6 +97,21 @@ export default function Routes() {
       toast({
         title: "Routes Optimized",
         description: "Routes have been reordered for efficiency.",
+      });
+    },
+  });
+
+  const generateRoutesMutation = useMutation({
+    mutationFn: async (date: string) => {
+      const response = await apiRequest("POST", "/api/routes/generate", { date });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Routes Generated",
+        description: data.message || "Routes have been generated from schedules.",
       });
     },
   });
@@ -287,17 +302,28 @@ export default function Routes() {
             data-testid="input-date-filter"
           />
         </div>
-        {sortedRoutes.length > 1 && (
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => optimizeRoutesMutation.mutate(selectedDate)}
-            disabled={optimizeRoutesMutation.isPending}
-            data-testid="button-optimize-routes"
+            onClick={() => generateRoutesMutation.mutate(selectedDate)}
+            disabled={generateRoutesMutation.isPending}
+            data-testid="button-generate-routes"
           >
-            <Zap className="w-4 h-4 mr-2" />
-            {optimizeRoutesMutation.isPending ? "Optimizing..." : "Optimize Routes"}
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {generateRoutesMutation.isPending ? "Generating..." : "Generate Routes"}
           </Button>
-        )}
+          {sortedRoutes.length > 1 && (
+            <Button
+              variant="outline"
+              onClick={() => optimizeRoutesMutation.mutate(selectedDate)}
+              disabled={optimizeRoutesMutation.isPending}
+              data-testid="button-optimize-routes"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              {optimizeRoutesMutation.isPending ? "Optimizing..." : "Optimize Routes"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
