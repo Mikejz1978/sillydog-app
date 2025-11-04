@@ -472,7 +472,6 @@ export default function Customers() {
         };
       }
       
-      console.log("Creating customer with payload:", payload);
       const response = await apiRequest("POST", "/api/customers", payload);
       return response.json();
     },

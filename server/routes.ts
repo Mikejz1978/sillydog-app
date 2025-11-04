@@ -373,13 +373,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", async (req, res) => {
     try {
       const { schedule, ...customerData } = req.body;
-      console.log("Customer creation request:", { schedule, customerData });
       const validated = insertCustomerSchema.parse(customerData);
       const customer = await storage.createCustomer(validated);
       
       // If schedule data is provided, create schedule rule and generate initial routes
       if (schedule && schedule.byDay && schedule.byDay.length > 0) {
-        console.log("Creating schedule for customer:", customer.id, schedule);
         const scheduleRule = await storage.createScheduleRule({
           customerId: customer.id,
           frequency: schedule.frequency || "weekly",
