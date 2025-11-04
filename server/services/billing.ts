@@ -1,6 +1,5 @@
 import { storage } from "../storage";
 import Stripe from "stripe";
-import { calculateServicePrice } from "@shared/schema";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-10-29.clover",
@@ -23,6 +22,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
     const allCustomers = await storage.getAllCustomers();
     const activeCustomers = allCustomers.filter(c => c.status === "active");
     const scheduleRules = await storage.getAllScheduleRules();
+    const serviceTypes = await storage.getAllServiceTypes();
 
     const invoiceNumber = `INV-${year}${month.padStart(2, '0')}`;
     let invoiceCounter = 1000;
@@ -35,7 +35,26 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
       if (customerSchedules.length === 0) continue;
 
       try {
-        const amount = calculateServicePrice(customer.servicePlan, customer.numberOfDogs);
+        // Get service type for pricing calculation
+        let amount = 0;
+        let serviceTypeName = "Service";
+        
+        if (customer.serviceTypeId) {
+          const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
+          if (serviceType) {
+            // Calculate: basePrice + (pricePerDog * numberOfDogs)
+            amount = parseFloat(serviceType.basePrice) + 
+                     (parseFloat(serviceType.pricePerDog) * customer.numberOfDogs);
+            serviceTypeName = serviceType.name;
+          }
+        }
+        
+        // Skip if no service type or zero amount
+        if (amount === 0) {
+          results.errors.push(`Skipped ${customer.name}: No service type configured`);
+          continue;
+        }
+
         const dueDate = `${year}-${month.padStart(2, '0')}-15`;
 
         const invoice = await storage.createInvoice({
@@ -44,7 +63,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
           amount: amount.toString(),
           status: "unpaid",
           dueDate,
-          description: `${customer.servicePlan.charAt(0).toUpperCase() + customer.servicePlan.slice(1)} service for ${month}/${year}`,
+          description: `${serviceTypeName} for ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''} - ${month}/${year}`,
         });
 
         results.success++;
