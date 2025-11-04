@@ -315,6 +315,29 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
+// Customer Reviews
+export const reviews = pgTable("reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  routeId: varchar("route_id"), // Optional - link to specific service
+  customerName: text("customer_name").notNull(), // Stored for display even if customer deleted
+  rating: integer("rating").notNull(), // 1-5 stars
+  comment: text("comment"),
+  reviewToken: varchar("review_token").notNull().unique(), // Unique token for review link
+  isPublic: boolean("is_public").notNull().default(true), // Display on website
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertReviewSchema = createInsertSchema(reviews).omit({
+  id: true,
+  createdAt: true,
+  submittedAt: true,
+});
+
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
+
 // Helper function to calculate service price
 export function calculateServicePrice(servicePlan: string, numberOfDogs: number): number {
   const plan = servicePlan as keyof typeof pricingRates;

@@ -21,6 +21,8 @@ import {
   type InsertNotification,
   type User,
   type UpsertUser,
+  type Review,
+  type InsertReview,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -100,6 +102,14 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string): Promise<Notification>;
   updateNotificationSMSStatus(id: string, smsDelivered: boolean): Promise<Notification>;
+
+  // Reviews
+  getAllReviews(): Promise<Review[]>;
+  getPublicReviews(): Promise<Review[]>;
+  getReviewByToken(token: string): Promise<Review | undefined>;
+  createReview(review: InsertReview): Promise<Review>;
+  updateReview(id: string, updates: Partial<InsertReview>): Promise<Review>;
+  deleteReview(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -402,7 +412,7 @@ export class MemStorage implements IStorage {
 
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
 
@@ -788,6 +798,54 @@ export class DbStorage implements IStorage {
       .returning();
     if (!result[0]) throw new Error("Notification not found");
     return result[0];
+  }
+
+  // Reviews
+  async getAllReviews(): Promise<Review[]> {
+    return await this.db
+      .select()
+      .from(schema.reviews)
+      .orderBy(desc(schema.reviews.submittedAt));
+  }
+
+  async getPublicReviews(): Promise<Review[]> {
+    return await this.db
+      .select()
+      .from(schema.reviews)
+      .where(eq(schema.reviews.isPublic, true))
+      .orderBy(desc(schema.reviews.submittedAt));
+  }
+
+  async getReviewByToken(token: string): Promise<Review | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.reviews)
+      .where(eq(schema.reviews.reviewToken, token));
+    return result[0];
+  }
+
+  async createReview(insertReview: InsertReview): Promise<Review> {
+    const result = await this.db
+      .insert(schema.reviews)
+      .values(insertReview)
+      .returning();
+    return result[0];
+  }
+
+  async updateReview(id: string, updates: Partial<InsertReview>): Promise<Review> {
+    const result = await this.db
+      .update(schema.reviews)
+      .set(updates)
+      .where(eq(schema.reviews.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Review not found");
+    return result[0];
+  }
+
+  async deleteReview(id: string): Promise<void> {
+    await this.db
+      .delete(schema.reviews)
+      .where(eq(schema.reviews.id, id));
   }
 }
 
