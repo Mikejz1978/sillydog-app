@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { apiRequestWithCsrf, clearCsrfToken } from "@/lib/csrf";
+import { clearCsrfToken } from "@/lib/csrf";
 import type { User } from "@shared/schema";
 
 type AuthUser = Omit<User, "password">;
@@ -35,16 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const response = await apiRequestWithCsrf("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
-      }
-      
+      const response = await apiRequest("POST", "/api/auth/login", { email, password });
       return response.json();
     },
     onSuccess: () => {
@@ -54,15 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequestWithCsrf("/api/auth/logout", {
-        method: "POST",
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Logout failed");
-      }
-      
+      await apiRequest("POST", "/api/auth/logout");
       clearCsrfToken();
     },
     onSuccess: () => {

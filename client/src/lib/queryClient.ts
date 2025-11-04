@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getCsrfToken, clearCsrfToken } from "./csrf";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,12 +13,46 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = {};
+  
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Add CSRF token for state-changing methods
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
+    try {
+      const token = await getCsrfToken();
+      headers["X-CSRF-Token"] = token;
+    } catch (error) {
+      console.error("Failed to get CSRF token:", error);
+      throw error;
+    }
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // If we get a 403 (invalid CSRF token), clear token and retry once
+  if (res.status === 403 && ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
+    clearCsrfToken();
+    const newToken = await getCsrfToken();
+    headers["X-CSRF-Token"] = newToken;
+    
+    const retryRes = await fetch(url, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+    
+    await throwIfResNotOk(retryRes);
+    return retryRes;
+  }
 
   await throwIfResNotOk(res);
   return res;

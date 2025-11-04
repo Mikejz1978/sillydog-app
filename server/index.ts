@@ -7,6 +7,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startScheduledJobs } from "./jobs";
 import { seedServiceTypes } from "./seed-service-types";
 import passport from "./auth";
+import { csrfProtection } from "./middleware/csrf";
 
 const app = express();
 
@@ -51,6 +52,9 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ limit: '10mb', extended: false }));
+
+// Apply CSRF protection globally to all state-changing API requests
+app.use("/api", csrfProtection);
 
 app.use((req, res, next) => {
   const start = Date.now();

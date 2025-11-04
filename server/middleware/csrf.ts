@@ -36,10 +36,19 @@ export function verifyCsrfToken(req: Request, token: string): boolean {
     .update(tokenPart)
     .digest("hex");
   
-  return crypto.timingSafeEqual(
-    Buffer.from(hashPart),
-    Buffer.from(expectedHash)
-  );
+  // Check buffer lengths before timingSafeEqual to prevent errors
+  const hashBuffer = Buffer.from(hashPart);
+  const expectedBuffer = Buffer.from(expectedHash);
+  
+  if (hashBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+  
+  try {
+    return crypto.timingSafeEqual(hashBuffer, expectedBuffer);
+  } catch {
+    return false;
+  }
 }
 
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {

@@ -153,8 +153,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/csrf-token", getCsrfToken);
 
   // ========== AUTHENTICATION ROUTES ==========
-  // Login
-  app.post("/api/auth/login", csrfProtection, (req, res, next) => {
+  // Login (CSRF protection applied globally)
+  app.post("/api/auth/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ message: "Authentication error" });
@@ -171,8 +171,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })(req, res, next);
   });
 
-  // Logout
-  app.post("/api/auth/logout", csrfProtection, (req, res) => {
+  // Logout (CSRF protection applied globally)
+  app.post("/api/auth/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
         return res.status(500).json({ message: "Logout failed" });
