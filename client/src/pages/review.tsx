@@ -18,11 +18,7 @@ export default function ReviewPage() {
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: { reviewToken: string; rating: number; comment: string }) => {
-      return await apiRequest("/api/reviews/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/reviews/submit", data);
     },
     onSuccess: () => {
       setSubmitted(true);

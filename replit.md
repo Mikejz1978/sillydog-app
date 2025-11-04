@@ -17,6 +17,14 @@ This project is a comprehensive web-based business management platform designed 
 -   **State Management**: TanStack Query v5 for server state
 
 ### Key Features
+-   **Authentication & Security**: 
+    -   Multi-user authentication with Passport.js local strategy
+    -   Role-based access control (admin/staff/customer)
+    -   Bcrypt password hashing (10 rounds)
+    -   Production-grade session security: PostgreSQL session store, httpOnly cookies, SameSite protection
+    -   Global CSRF protection with double-submit token pattern on all state-changing requests
+    -   Protected routes with automatic login redirect
+    -   Default admin account: admin@sillydogpoopscoop.com / admin123
 -   **Customer Management**: Comprehensive CRM with service plans, dog counts, gate codes, yard notes, SMS opt-in, and autopay settings. Customers can be archived/reactivated, with filter buttons to view active, archived, or all customers. Search works across all customer statuses.
 -   **Route Scheduling**: Daily route planning with manual ordering, status tracking (scheduled → in route → completed), and "Find Best Fit" feature that analyzes customer location to recommend optimal service days based on proximity to existing routes.
 -   **Recurring Service Scheduling**: Automated weekly/biweekly scheduling with flexible service types, multi-day support (1-5 days per week). When a recurring schedule is created, routes are automatically generated for the next 60 days and appear immediately in the route list. A daily cron job ensures routes continue generating indefinitely.

@@ -13,11 +13,7 @@ export default function ReviewsPage() {
 
   const toggleVisibilityMutation = useMutation({
     mutationFn: async ({ id, isPublic }: { id: string; isPublic: boolean }) => {
-      return await apiRequest(`/api/reviews/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPublic }),
-      });
+      return await apiRequest("PATCH", `/api/reviews/${id}`, { isPublic });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
@@ -26,9 +22,7 @@ export default function ReviewsPage() {
 
   const deleteReviewMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/reviews/${id}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/reviews/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
