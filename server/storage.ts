@@ -805,6 +805,7 @@ export class DbStorage implements IStorage {
     return await this.db
       .select()
       .from(schema.reviews)
+      .where(eq(schema.reviews.status, "submitted"))
       .orderBy(desc(schema.reviews.submittedAt));
   }
 
@@ -812,7 +813,10 @@ export class DbStorage implements IStorage {
     return await this.db
       .select()
       .from(schema.reviews)
-      .where(eq(schema.reviews.isPublic, true))
+      .where(and(
+        eq(schema.reviews.isPublic, true),
+        eq(schema.reviews.status, "submitted")
+      ))
       .orderBy(desc(schema.reviews.submittedAt));
   }
 

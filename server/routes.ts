@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { randomBytes } from "crypto";
 import Stripe from "stripe";
 import twilio from "twilio";
 import { storage } from "./storage";
@@ -19,6 +20,11 @@ import { generateMonthlyInvoices } from "./services/billing";
 import { sendNightBeforeReminders } from "./services/reminders";
 import { notifyAdminOfNewBooking } from "./services/notifications";
 import rateLimit from "express-rate-limit";
+
+// Helper to generate cryptographically secure review token
+function generateSecureToken(): string {
+  return randomBytes(32).toString('hex');
+}
 
 // Initialize Stripe - from Replit Stripe integration blueprint
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -393,9 +399,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             smsCompleteSent: false,
           });
         } else if (status === "completed") {
+          // Create pending review record with secure token
+          const reviewToken = generateSecureToken();
+          const pendingReview = await storage.createReview({
+            customerId: customer.id,
+            routeId: route.id,
+            customerName: customer.name,
+            rating: null,
+            comment: null,
+            reviewToken,
+            isPublic: true,
+            status: "pending",
+          });
+          
           if (customer.smsOptIn && customer.phone) {
-            // Generate unique review token for this service
-            const reviewToken = `${customer.id}-${route.id}-${Date.now()}`;
             const reviewUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'your-app.replit.app'}/review/${reviewToken}`;
             
             await sendSMS(
@@ -1329,39 +1346,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Review token and rating are required" });
       }
 
-      // Check if review already exists
-      const existingReview = await storage.getReviewByToken(reviewToken);
-      if (existingReview) {
+      // Validate rating is between 1-5
+      const parsedRating = parseInt(rating);
+      if (parsedRating < 1 || parsedRating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5 stars" });
+      }
+
+      // Check if review token exists
+      const pendingReview = await storage.getReviewByToken(reviewToken);
+      if (!pendingReview) {
+        return res.status(404).json({ message: "Invalid or expired review link" });
+      }
+
+      // Check if review has already been submitted
+      if (pendingReview.status === "submitted") {
         return res.status(400).json({ message: "Review already submitted for this service" });
       }
 
-      // Get customer info from the token (token format: customerId-routeId-timestamp)
-      const tokenParts = reviewToken.split('-');
-      if (tokenParts.length < 2) {
-        return res.status(400).json({ message: "Invalid review token" });
-      }
-
-      const customerId = tokenParts[0];
-      const customer = await storage.getCustomer(customerId);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
-
-      // Create the review
-      const review = await storage.createReview({
-        customerId,
-        routeId: tokenParts.length > 2 ? tokenParts[1] : null,
-        customerName: customer.name,
-        rating: parseInt(rating),
+      // Update the review with rating and comment
+      const submittedReview = await storage.updateReview(pendingReview.id, {
+        rating: parsedRating,
         comment: comment || null,
-        reviewToken,
-        isPublic: true,
+        status: "submitted",
+        submittedAt: new Date().toISOString(),
       });
 
-      res.status(201).json({ message: "Thank you for your review!", review });
+      res.status(201).json({ 
+        message: "Thank you for your review!", 
+        review: submittedReview 
+      });
     } catch (error) {
       console.error("Submit review error:", error);
-      res.status(500).json({ message: "Unable to submit review" });
+      res.status(500).json({ message: "Unable to submit review. Please try again." });
     }
   });
 

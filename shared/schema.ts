@@ -321,11 +321,12 @@ export const reviews = pgTable("reviews", {
   customerId: varchar("customer_id").notNull(),
   routeId: varchar("route_id"), // Optional - link to specific service
   customerName: text("customer_name").notNull(), // Stored for display even if customer deleted
-  rating: integer("rating").notNull(), // 1-5 stars
+  rating: integer("rating"), // 1-5 stars (null until submitted)
   comment: text("comment"),
-  reviewToken: varchar("review_token").notNull().unique(), // Unique token for review link
+  reviewToken: varchar("review_token").notNull().unique(), // Cryptographically secure random token
   isPublic: boolean("is_public").notNull().default(true), // Display on website
-  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'submitted'
+  submittedAt: timestamp("submitted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
