@@ -1180,11 +1180,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("First row data:", row);
           }
 
-          // Flexible column mapping with case-insensitive matching
-          const name = findColumn(row, ["Customer Name", "Name", "name", "customer_name", "CUSTOMER NAME"]);
-          const phone = findColumn(row, ["Phone", "phone", "Mobile", "mobile", "PHONE", "Phone Number", "phone_number"]);
+          // Flexible column mapping with case-insensitive matching (HouseCall Pro format)
+          const name = findColumn(row, ["Display Name", "Customer Name", "Name", "name", "customer_name", "CUSTOMER NAME"]);
+          const phone = findColumn(row, ["Mobile Number", "Phone", "phone", "Mobile", "mobile", "PHONE", "Phone Number", "phone_number", "Home Number"]);
           const email = findColumn(row, ["Email", "email", "EMAIL", "E-mail", "e-mail"]);
-          const address = findColumn(row, ["Address", "address", "ADDRESS", "Street Address", "street_address", "STREET ADDRESS"]);
+          const address = findColumn(row, ["Address_1 Street Line 1", "Address", "address", "ADDRESS", "Street Address", "street_address", "STREET ADDRESS"]);
           
           if (!name || !phone) {
             skipped++;
