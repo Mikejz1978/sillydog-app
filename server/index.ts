@@ -11,6 +11,9 @@ import { csrfProtection } from "./middleware/csrf";
 
 const app = express();
 
+// Trust proxy for Replit deployments
+app.set('trust proxy', 1);
+
 // Setup PostgreSQL session store
 const PgSession = ConnectPgSimple(session);
 const pgPool = new Pool({
@@ -30,7 +33,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: "lax", // Use 'lax' for same-site requests to work properly
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     },
   })
