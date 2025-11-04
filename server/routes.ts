@@ -12,6 +12,7 @@ import {
   insertScheduleRuleSchema,
   insertServiceTypeSchema,
   insertBookingRequestSchema,
+  insertReviewSchema,
 } from "@shared/schema";
 import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geocoding";
 import { generateMonthlyInvoices } from "./services/billing";
@@ -393,11 +394,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } else if (status === "completed") {
           if (customer.smsOptIn && customer.phone) {
+            // Generate unique review token for this service
+            const reviewToken = `${customer.id}-${route.id}-${Date.now()}`;
+            const reviewUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'your-app.replit.app'}/review/${reviewToken}`;
+            
             await sendSMS(
               customer.phone,
-              `Service complete at ${customer.address}! Your yard is all cleaned up. Thank you for choosing SillyDog!`
+              `Service complete at ${customer.address}! Your yard is all cleaned up. How did we do? Leave us a review: ${reviewUrl}`
             );
-            console.log(`✅ "Service Complete" SMS sent to ${customer.name} at ${customer.phone}`);
+            console.log(`✅ "Service Complete" SMS sent to ${customer.name} with review link`);
           } else {
             console.log(`ℹ️ "Service Complete" SMS NOT sent to ${customer.name} - SMS Opt-In: ${customer.smsOptIn}, Phone: ${customer.phone ? 'Yes' : 'No'}`);
           }
@@ -1310,6 +1315,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(notification);
     } catch (error) {
       console.error("Mark notification read error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== REVIEWS MANAGEMENT ==========
+  // Public endpoint to submit a review (rate-limited)
+  app.post("/api/reviews/submit", async (req, res) => {
+    try {
+      const { reviewToken, rating, comment } = req.body;
+
+      if (!reviewToken || !rating) {
+        return res.status(400).json({ message: "Review token and rating are required" });
+      }
+
+      // Check if review already exists
+      const existingReview = await storage.getReviewByToken(reviewToken);
+      if (existingReview) {
+        return res.status(400).json({ message: "Review already submitted for this service" });
+      }
+
+      // Get customer info from the token (token format: customerId-routeId-timestamp)
+      const tokenParts = reviewToken.split('-');
+      if (tokenParts.length < 2) {
+        return res.status(400).json({ message: "Invalid review token" });
+      }
+
+      const customerId = tokenParts[0];
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Create the review
+      const review = await storage.createReview({
+        customerId,
+        routeId: tokenParts.length > 2 ? tokenParts[1] : null,
+        customerName: customer.name,
+        rating: parseInt(rating),
+        comment: comment || null,
+        reviewToken,
+        isPublic: true,
+      });
+
+      res.status(201).json({ message: "Thank you for your review!", review });
+    } catch (error) {
+      console.error("Submit review error:", error);
+      res.status(500).json({ message: "Unable to submit review" });
+    }
+  });
+
+  // Admin: Get all reviews
+  app.get("/api/reviews", async (_req, res) => {
+    try {
+      const reviews = await storage.getAllReviews();
+      res.json(reviews);
+    } catch (error) {
+      console.error("Get reviews error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Public: Get public reviews (for display on website)
+  app.get("/api/reviews/public", async (_req, res) => {
+    try {
+      const reviews = await storage.getPublicReviews();
+      res.json(reviews);
+    } catch (error) {
+      console.error("Get public reviews error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Admin: Update review visibility
+  app.patch("/api/reviews/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const review = await storage.updateReview(id, updates);
+      res.json(review);
+    } catch (error) {
+      console.error("Update review error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Admin: Delete review
+  app.delete("/api/reviews/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteReview(id);
+      res.json({ message: "Review deleted successfully" });
+    } catch (error) {
+      console.error("Delete review error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });
