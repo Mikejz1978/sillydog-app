@@ -7,6 +7,7 @@ import twilio from "twilio";
 import { storage } from "./storage";
 import passport from "./auth";
 import { requireAuth, requireAdmin, requireStaff } from "./middleware/auth";
+import { csrfProtection, getCsrfToken } from "./middleware/csrf";
 import {
   insertCustomerSchema,
   insertRouteSchema,
@@ -148,9 +149,12 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ========== CSRF TOKEN ENDPOINT ==========
+  app.get("/api/csrf-token", getCsrfToken);
+
   // ========== AUTHENTICATION ROUTES ==========
   // Login
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", csrfProtection, (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ message: "Authentication error" });
@@ -168,7 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Logout
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", csrfProtection, (req, res) => {
     req.logout((err) => {
       if (err) {
         return res.status(500).json({ message: "Logout failed" });
