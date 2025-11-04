@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsBadge } from "@/components/notifications-badge";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { LogOut, User } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
 import Routes from "@/pages/routes";
@@ -20,6 +24,7 @@ import Bookings from "@/pages/bookings";
 import BookNow from "@/pages/book";
 import ReviewPage from "@/pages/review";
 import ReviewsPage from "@/pages/reviews";
+import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -43,9 +48,37 @@ function Router() {
 }
 
 function AdminLayout() {
+  const { user, logout, isLoading, isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setLocation("/login");
+    }
+  }, [isLoading, isAuthenticated, setLocation]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
   };
 
   return (
@@ -57,9 +90,24 @@ function AdminLayout() {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-4">
               <NotificationsBadge />
-              <div className="text-xs text-muted-foreground">
-                Logged in as Admin
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {user.firstName || user.email}
+                </span>
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  {user.role}
+                </span>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="ml-2">Logout</span>
+              </Button>
             </div>
           </header>
           <main className="flex-1 overflow-auto">
@@ -74,16 +122,19 @@ function AdminLayout() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Switch>
-          <Route path="/book" component={BookNow} />
-          <Route path="/review/:token" component={ReviewPage} />
-          <Route>
-            <AdminLayout />
-          </Route>
-        </Switch>
-        <Toaster />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Switch>
+            <Route path="/login" component={Login} />
+            <Route path="/book" component={BookNow} />
+            <Route path="/review/:token" component={ReviewPage} />
+            <Route>
+              <AdminLayout />
+            </Route>
+          </Switch>
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
