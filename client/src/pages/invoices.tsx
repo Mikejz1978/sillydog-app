@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertInvoiceSchema, type Customer, type Invoice, type InsertInvoice, calculateServicePrice } from "@shared/schema";
+import { insertInvoiceSchema, type Customer, type Invoice, type InsertInvoice, type ServiceType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Invoices() {
@@ -20,6 +20,10 @@ export default function Invoices() {
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
+  });
+
+  const { data: serviceTypes } = useQuery<ServiceType[]>({
+    queryKey: ["/api/service-types"],
   });
 
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
@@ -61,10 +65,17 @@ export default function Invoices() {
   const handleCustomerChange = (customerId: string) => {
     form.setValue("customerId", customerId);
     const customer = customers?.find(c => c.id === customerId);
-    if (customer) {
-      const price = calculateServicePrice(customer.servicePlan, customer.numberOfDogs);
-      form.setValue("amount", price.toFixed(2));
-      form.setValue("description", `${customer.servicePlan.charAt(0).toUpperCase() + customer.servicePlan.slice(1).replace('-', ' ')} service - ${customer.numberOfDogs} dog(s)`);
+    if (customer && customer.serviceTypeId) {
+      const serviceType = serviceTypes?.find(st => st.id === customer.serviceTypeId);
+      if (serviceType) {
+        const price = serviceType.basePrice + (serviceType.pricePerDog * customer.numberOfDogs);
+        form.setValue("amount", price.toFixed(2));
+        form.setValue("description", `${serviceType.name} - ${customer.numberOfDogs} dog(s)`);
+      }
+    } else if (customer) {
+      // Fallback for customers without service type
+      form.setValue("amount", "25.00");
+      form.setValue("description", `Service - ${customer.numberOfDogs} dog(s)`);
     }
   };
 

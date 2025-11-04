@@ -19,6 +19,7 @@ import {
   type InsertCustomer,
   type ScheduleRule,
   type InsertScheduleRule,
+  type ServiceType,
 } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -453,20 +454,44 @@ export default function Customers() {
     queryKey: ["/api/schedule-rules"],
   });
 
+  const { data: serviceTypes } = useQuery<ServiceType[]>({
+    queryKey: ["/api/service-types"],
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertCustomer) => {
-      const response = await apiRequest("POST", "/api/customers", data);
+      const payload: any = { ...data };
+      
+      // Include schedule data if days are selected
+      if (scheduleDays.length > 0) {
+        payload.schedule = {
+          byDay: scheduleDays,
+          windowStart: scheduleStartTime,
+          windowEnd: scheduleEndTime,
+          frequency: "weekly",
+        };
+      }
+      
+      console.log("Creating customer with payload:", payload);
+      const response = await apiRequest("POST", "/api/customers", payload);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Customer Added",
-        description: "New customer has been successfully added.",
+        description: scheduleDays.length > 0 
+          ? "Customer and schedule have been created. Routes will be generated automatically."
+          : "New customer has been successfully added.",
       });
       setDialogOpen(false);
       setEditingCustomer(null);
       form.reset();
+      setScheduleDays([]);
+      setScheduleStartTime("08:00");
+      setScheduleEndTime("12:00");
     },
     onError: (error: Error) => {
       toast({
@@ -564,6 +589,9 @@ export default function Customers() {
 
   const [bestFitLoading, setBestFitLoading] = useState(false);
   const [bestFitSuggestions, setBestFitSuggestions] = useState<any[]>([]);
+  const [scheduleDays, setScheduleDays] = useState<number[]>([]);
+  const [scheduleStartTime, setScheduleStartTime] = useState("08:00");
+  const [scheduleEndTime, setScheduleEndTime] = useState("12:00");
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -819,6 +847,100 @@ export default function Customers() {
                     </div>
                   </div>
                 )}
+
+                {/* Service Type Selection */}
+                <FormField
+                  control={form.control}
+                  name="serviceTypeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Service Type (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-service-type">
+                            <SelectValue placeholder="Select service type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {serviceTypes?.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name} - ${type.basePrice}{type.pricePerDog > 0 && ` + $${type.pricePerDog}/dog`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Schedule Configuration - only show when service type is selected */}
+                {form.watch("serviceTypeId") && (
+                  <div className="space-y-4 p-4 border rounded-md bg-muted/30">
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Schedule Configuration (Optional)</h4>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Select service days and time window to auto-create schedule and routes
+                      </p>
+                    </div>
+
+                    {/* Days of Week Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Service Days</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { day: 1, label: "Mon" },
+                          { day: 2, label: "Tue" },
+                          { day: 3, label: "Wed" },
+                          { day: 4, label: "Thu" },
+                          { day: 5, label: "Fri" },
+                          { day: 6, label: "Sat" },
+                          { day: 0, label: "Sun" },
+                        ].map(({ day, label }) => (
+                          <Button
+                            key={day}
+                            type="button"
+                            variant={scheduleDays.includes(day) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setScheduleDays(prev =>
+                                prev.includes(day)
+                                  ? prev.filter(d => d !== day)
+                                  : [...prev, day].sort((a, b) => a - b)
+                              );
+                            }}
+                            data-testid={`button-day-${day}`}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Time Window */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Window Start</label>
+                        <Input
+                          type="time"
+                          value={scheduleStartTime}
+                          onChange={(e) => setScheduleStartTime(e.target.value)}
+                          data-testid="input-schedule-start-time"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Window End</label>
+                        <Input
+                          type="time"
+                          value={scheduleEndTime}
+                          onChange={(e) => setScheduleEndTime(e.target.value)}
+                          data-testid="input-schedule-end-time"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
