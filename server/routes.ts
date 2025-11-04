@@ -1,9 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 import Stripe from "stripe";
 import twilio from "twilio";
 import { storage } from "./storage";
+import passport from "./auth";
+import { requireAuth, requireAdmin, requireStaff } from "./middleware/auth";
 import {
   insertCustomerSchema,
   insertRouteSchema,
@@ -14,6 +17,7 @@ import {
   insertServiceTypeSchema,
   insertBookingRequestSchema,
   insertReviewSchema,
+  insertUserSchema,
 } from "@shared/schema";
 import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geocoding";
 import { generateMonthlyInvoices } from "./services/billing";
@@ -144,6 +148,115 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ========== AUTHENTICATION ROUTES ==========
+  // Login
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Authentication error" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.json({ message: "Login successful", user });
+      });
+    })(req, res, next);
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.json({ message: "Logout successful" });
+    });
+  });
+
+  // Get current user
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated()) {
+      res.json({ user: req.user });
+    } else {
+      res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+
+  // ========== USER MANAGEMENT ROUTES (Admin only) ==========
+  // Get all users
+  app.get("/api/users", requireAdmin, async (_req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Exclude passwords from response
+      const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+      res.json(usersWithoutPasswords);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create new user (Admin only)
+  app.post("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const validated = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validated.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validated.password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        ...validated,
+        password: hashedPassword,
+      });
+
+      // Exclude password from response
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update user (Admin only)
+  app.patch("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const updates: any = { ...req.body };
+      
+      // Hash password if it's being updated
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+
+      const user = await storage.updateUser(req.params.id, updates);
+      
+      // Exclude password from response
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Delete user (Admin only)
+  app.delete("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ========== ROUTE OPTIMIZATION ==========
   app.post("/api/routes/optimize", async (req, res) => {
     try {

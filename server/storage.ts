@@ -23,15 +23,19 @@ import {
   type UpsertUser,
   type Review,
   type InsertReview,
+  type InsertUser,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
-  // User operations (for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
+  deleteUser(id: string): Promise<void>;
 
 
   // Customers
@@ -405,9 +409,12 @@ export class MemStorage implements IStorage {
   async createReminderLog(_log: InsertReminderLog): Promise<ReminderLog> { throw new Error("Not implemented"); }
   async getReminderLogsByDate(_serviceDate: string): Promise<ReminderLog[]> { return []; }
   async getUser(_id: string): Promise<User | undefined> { return undefined; }
+  async getUserByEmail(_email: string): Promise<User | undefined> { return undefined; }
+  async createUser(_user: InsertUser): Promise<User> { throw new Error("Not implemented"); }
   async upsertUser(_user: UpsertUser): Promise<User> { throw new Error("Not implemented"); }
   async getAllUsers(): Promise<User[]> { return []; }
   async updateUser(_id: string, _updates: Partial<UpsertUser>): Promise<User> { throw new Error("Not implemented"); }
+  async deleteUser(_id: string): Promise<void> { throw new Error("Not implemented"); }
 }
 
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -425,6 +432,61 @@ export class DbStorage implements IStorage {
   constructor() {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
     this.db = drizzle(pool, { schema });
+  }
+
+  // Users
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, id));
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email));
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await this.db
+      .insert(schema.users)
+      .values(insertUser)
+      .returning();
+    return result[0];
+  }
+
+  async upsertUser(user: UpsertUser): Promise<User> {
+    const result = await this.db
+      .insert(schema.users)
+      .values(user)
+      .onConflictDoUpdate({
+        target: schema.users.email,
+        set: user,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await this.db.select().from(schema.users);
+  }
+
+  async updateUser(id: string, updates: Partial<UpsertUser>): Promise<User> {
+    const result = await this.db
+      .update(schema.users)
+      .set(updates)
+      .where(eq(schema.users.id, id))
+      .returning();
+    if (!result[0]) throw new Error("User not found");
+    return result[0];
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.db.delete(schema.users).where(eq(schema.users.id, id));
   }
 
   // Customers
