@@ -79,13 +79,8 @@ export default function PriceBook() {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertServiceType) => {
-      const response = await fetch("/api/service-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create service type");
-      return response.json();
+      const res = await apiRequest("POST", "/api/service-types", data);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
@@ -100,13 +95,8 @@ export default function PriceBook() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertServiceType> }) => {
-      const response = await fetch(`/api/service-types/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to update service type");
-      return response.json();
+      const res = await apiRequest("PATCH", `/api/service-types/${id}`, data);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
@@ -121,11 +111,7 @@ export default function PriceBook() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/service-types/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete service type");
-      return;
+      await apiRequest("DELETE", `/api/service-types/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
