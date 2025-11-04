@@ -431,7 +431,26 @@ export default function Routes() {
                             </div>
                           )}
 
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {/* Get Directions button - always visible */}
+                            {customer?.address && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                asChild
+                                data-testid={`button-directions-${route.id}`}
+                              >
+                                <a
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <MapPin className="w-3 h-3 mr-1" />
+                                  Directions
+                                </a>
+                              </Button>
+                            )}
+                            
                             {route.status === "scheduled" && (
                               <>
                                 <Button
