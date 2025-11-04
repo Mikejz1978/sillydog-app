@@ -68,7 +68,7 @@ export default function ReviewsPage() {
   }
 
   const averageRating = reviews.length > 0
-    ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
+    ? (reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length).toFixed(1)
     : "0.0";
 
   const publicReviews = reviews.filter(r => r.isPublic).length;
@@ -133,13 +133,13 @@ export default function ReviewsPage() {
                     <div className="space-y-1">
                       <CardTitle className="text-lg">{review.customerName}</CardTitle>
                       <div className="flex items-center gap-3">
-                        {renderStars(review.rating)}
+                        {renderStars(review.rating || 0)}
                         <Badge variant={review.isPublic ? "default" : "secondary"} data-testid={`badge-visibility-${review.id}`}>
                           {review.isPublic ? "Public" : "Hidden"}
                         </Badge>
                       </div>
                       <CardDescription data-testid={`text-review-date-${review.id}`}>
-                        {formatDate(review.submittedAt)}
+                        {review.submittedAt ? formatDate(review.submittedAt.toString()) : "N/A"}
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">

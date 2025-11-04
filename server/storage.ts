@@ -24,6 +24,8 @@ import {
   type Review,
   type InsertReview,
   type InsertUser,
+  type Settings,
+  type InsertSettings,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -114,6 +116,10 @@ export interface IStorage {
   createReview(review: InsertReview): Promise<Review>;
   updateReview(id: string, updates: Partial<InsertReview>): Promise<Review>;
   deleteReview(id: string): Promise<void>;
+
+  // Settings
+  getSettings(): Promise<Settings>;
+  updateSettings(updates: Partial<InsertSettings>): Promise<Settings>;
 }
 
 export class MemStorage implements IStorage {
@@ -415,6 +421,8 @@ export class MemStorage implements IStorage {
   async getAllUsers(): Promise<User[]> { return []; }
   async updateUser(_id: string, _updates: Partial<UpsertUser>): Promise<User> { throw new Error("Not implemented"); }
   async deleteUser(_id: string): Promise<void> { throw new Error("Not implemented"); }
+  async getSettings(): Promise<Settings> { throw new Error("Not implemented"); }
+  async updateSettings(_updates: Partial<InsertSettings>): Promise<Settings> { throw new Error("Not implemented"); }
 }
 
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -912,6 +920,51 @@ export class DbStorage implements IStorage {
     await this.db
       .delete(schema.reviews)
       .where(eq(schema.reviews.id, id));
+  }
+
+  // Settings
+  async getSettings(): Promise<Settings> {
+    const result = await this.db
+      .select()
+      .from(schema.settings)
+      .where(eq(schema.settings.id, "default"));
+    
+    // If no settings exist, create default
+    if (!result[0]) {
+      const defaultSettings = await this.db
+        .insert(schema.settings)
+        .values({
+          id: "default",
+          businessName: "SillyDog Pooper Scooper Services",
+        })
+        .returning();
+      return defaultSettings[0];
+    }
+    
+    return result[0];
+  }
+
+  async updateSettings(updates: Partial<InsertSettings>): Promise<Settings> {
+    const result = await this.db
+      .update(schema.settings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.settings.id, "default"))
+      .returning();
+    
+    if (!result[0]) {
+      // If no settings exist, create with updates
+      const created = await this.db
+        .insert(schema.settings)
+        .values({
+          id: "default",
+          businessName: updates.businessName || "SillyDog Pooper Scooper Services",
+          ...updates,
+        })
+        .returning();
+      return created[0];
+    }
+    
+    return result[0];
   }
 }
 

@@ -1545,6 +1545,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== SETTINGS ==========
+  // Get current settings
+  app.get("/api/settings", async (_req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Get settings error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Update settings
+  app.patch("/api/settings", async (req, res) => {
+    try {
+      const updates = req.body;
+      const settings = await storage.updateSettings(updates);
+      res.json(settings);
+    } catch (error) {
+      console.error("Update settings error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // ========== SAVE PAYMENT METHOD FOR AUTOPAY ==========
   app.post("/api/customers/:id/payment-method", async (req, res) => {
     try {

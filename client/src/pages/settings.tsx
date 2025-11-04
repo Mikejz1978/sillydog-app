@@ -1,10 +1,84 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard } from "lucide-react";
+import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Settings } from "@shared/schema";
+import { useState, useEffect } from "react";
 
 export default function Settings() {
+  const { toast } = useToast();
+
+  // Load settings
+  const { data: settings, isLoading } = useQuery<Settings>({
+    queryKey: ["/api/settings"],
+  });
+
+  // Form state
+  const [businessName, setBusinessName] = useState("");
+  const [businessPhone, setBusinessPhone] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [serviceRadius, setServiceRadius] = useState("");
+  const [baseZipCode, setBaseZipCode] = useState("");
+
+  // Update form when settings load
+  useEffect(() => {
+    if (settings) {
+      setBusinessName(settings.businessName || "");
+      setBusinessPhone(settings.businessPhone || "");
+      setBusinessEmail(settings.businessEmail || "");
+      setServiceRadius(settings.serviceRadius?.toString() || "");
+      setBaseZipCode(settings.baseZipCode || "");
+    }
+  }, [settings]);
+
+  // Update settings mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (updates: Partial<Settings>) => {
+      return await apiRequest("PATCH", "/api/settings", updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Settings Updated",
+        description: "Your changes have been saved successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update settings. Please try again.",
+      });
+    },
+  });
+
+  const handleSaveBusinessInfo = () => {
+    updateSettingsMutation.mutate({
+      businessName,
+      businessPhone,
+      businessEmail,
+    });
+  };
+
+  const handleSaveServiceArea = () => {
+    updateSettingsMutation.mutate({
+      serviceRadius: serviceRadius ? parseInt(serviceRadius) : null,
+      baseZipCode,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 space-y-6">
       <div>
@@ -26,17 +100,44 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div>
               <Label htmlFor="business-name">Business Name</Label>
-              <Input id="business-name" defaultValue="SillyDog Pooper Scooper Services" className="mt-1" data-testid="input-business-name" />
+              <Input 
+                id="business-name" 
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                className="mt-1" 
+                data-testid="input-business-name" 
+              />
             </div>
             <div>
               <Label htmlFor="phone">Business Phone</Label>
-              <Input id="phone" placeholder="+1234567890" className="mt-1" data-testid="input-business-phone" />
+              <Input 
+                id="phone" 
+                placeholder="+1234567890" 
+                value={businessPhone}
+                onChange={(e) => setBusinessPhone(e.target.value)}
+                className="mt-1" 
+                data-testid="input-business-phone" 
+              />
             </div>
             <div>
               <Label htmlFor="email">Business Email</Label>
-              <Input id="email" type="email" placeholder="contact@sillydog.com" className="mt-1" data-testid="input-business-email" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="contact@sillydog.com" 
+                value={businessEmail}
+                onChange={(e) => setBusinessEmail(e.target.value)}
+                className="mt-1" 
+                data-testid="input-business-email" 
+              />
             </div>
-            <Button className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-save-business">
+            <Button 
+              onClick={handleSaveBusinessInfo}
+              disabled={updateSettingsMutation.isPending}
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" 
+              data-testid="button-save-business"
+            >
+              {updateSettingsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Changes
             </Button>
           </CardContent>
@@ -125,13 +226,34 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div>
               <Label htmlFor="service-radius">Service Radius (miles)</Label>
-              <Input id="service-radius" type="number" defaultValue="15" className="mt-1" data-testid="input-service-radius" />
+              <Input 
+                id="service-radius" 
+                type="number" 
+                value={serviceRadius}
+                onChange={(e) => setServiceRadius(e.target.value)}
+                className="mt-1" 
+                data-testid="input-service-radius" 
+              />
             </div>
             <div>
-              <Label htmlFor="base-location">Base Location (ZIP)</Label>
-              <Input id="base-location" placeholder="12345" className="mt-1" data-testid="input-base-location" />
+              <Label htmlFor="base-zip-code">Base Location (ZIP)</Label>
+              <Input 
+                id="base-zip-code" 
+                placeholder="12345" 
+                value={baseZipCode}
+                onChange={(e) => setBaseZipCode(e.target.value)}
+                className="mt-1" 
+                data-testid="input-base-location" 
+              />
             </div>
-            <Button variant="outline" className="w-full" data-testid="button-save-service-area">
+            <Button 
+              onClick={handleSaveServiceArea}
+              disabled={updateSettingsMutation.isPending}
+              variant="outline" 
+              className="w-full" 
+              data-testid="button-save-service-area"
+            >
+              {updateSettingsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Service Area
             </Button>
           </CardContent>

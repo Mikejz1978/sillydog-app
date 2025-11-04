@@ -359,6 +359,24 @@ export function calculateServicePrice(servicePlan: string, numberOfDogs: number)
   return 25.00; // default fallback
 }
 
+// Business Settings
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default("default"), // Single row with id='default'
+  businessName: text("business_name").notNull().default("SillyDog Pooper Scooper Services"),
+  businessPhone: text("business_phone"),
+  businessEmail: text("business_email"),
+  serviceRadius: integer("service_radius").default(15), // miles
+  baseZipCode: text("base_zip_code"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertSettingsSchema = createInsertSchema(settings).omit({
+  updatedAt: true,
+});
+
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = z.infer<typeof insertSettingsSchema>;
+
 // Helper function to calculate timer-based billing
 // For one-time and new-start services: $100/hour
 // 0-15 min: normal schedule price
