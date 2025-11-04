@@ -50,7 +50,7 @@ export const customers = pgTable("customers", {
   address: text("address").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
-  servicePlan: text("service_plan").notNull(), // 'weekly', 'biweekly', 'one-time'
+  serviceTypeId: varchar("service_type_id"), // Link to service_types (price book) - nullable for flexibility
   numberOfDogs: integer("number_of_dogs").notNull().default(1),
   gateCode: text("gate_code"),
   yardNotes: text("yard_notes"),

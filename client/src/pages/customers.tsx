@@ -552,7 +552,7 @@ export default function Customers() {
       address: "",
       phone: "",
       email: "",
-      servicePlan: "weekly",
+      serviceTypeId: undefined,
       numberOfDogs: 1,
       gateCode: "",
       yardNotes: "",
@@ -822,28 +822,6 @@ export default function Customers() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="servicePlan"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Service Plan</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-service-plan">
-                              <SelectValue placeholder="Select plan" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="weekly">Weekly</SelectItem>
-                            <SelectItem value="biweekly">Biweekly</SelectItem>
-                            <SelectItem value="one-time">One-Time</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
                     name="numberOfDogs"
                     render={({ field }) => (
                       <FormItem>
@@ -1096,10 +1074,6 @@ export default function Customers() {
                       <span className="line-clamp-1">{customer.email}</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <DollarSign className="w-4 h-4 flex-shrink-0" />
-                    <span className="capitalize">{customer.servicePlan.replace('-', ' ')}</span>
-                  </div>
                 </div>
 
                 {customer.yardNotes && (

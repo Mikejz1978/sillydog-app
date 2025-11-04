@@ -596,9 +596,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (route.serviceType === "one-time" || route.serviceType === "new-start") {
         // Timer-based billing at $100/hour
         if (durationMinutes <= 15) {
-          // Use normal schedule price for under 15 minutes
-          const { calculateServicePrice } = await import("@shared/schema");
-          calculatedCost = calculateServicePrice(customer.servicePlan, customer.numberOfDogs);
+          // Default price for under 15 minutes (will be enhanced with service types later)
+          calculatedCost = 50.00; // Default base price
         } else {
           // $100/hour rate
           const hours = durationMinutes / 60;
@@ -1077,7 +1076,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address,
             phone,
             email: email || "",
-            servicePlan: "weekly",
             numberOfDogs: 1,
             gateCode: "",
             yardNotes: "",
@@ -1444,7 +1442,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address: booking.address,
             phone: booking.phone,
             email: booking.email || "",
-            servicePlan: booking.preferredServicePlan || "one-time",
             numberOfDogs: booking.numberOfDogs,
             gateCode: "",
             yardNotes: booking.yardNotes || "",
