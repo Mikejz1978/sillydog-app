@@ -989,12 +989,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Parse CSV headers
-      const headers = lines[0].split(",").map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+      // Parse CSV headers with flexible matching
+      const rawHeaders = lines[0].split(",").map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+      console.log("CSV Headers found:", rawHeaders);
+      
+      // Helper function for case-insensitive header matching
+      const findColumn = (row: Record<string, string>, possibleNames: string[]): string => {
+        for (const name of possibleNames) {
+          // Try exact match first
+          if (row[name]) return row[name];
+          
+          // Try case-insensitive match
+          const lowerName = name.toLowerCase();
+          for (const key of Object.keys(row)) {
+            if (key.toLowerCase() === lowerName) {
+              return row[key];
+            }
+          }
+        }
+        return "";
+      };
       
       let imported = 0;
       let skipped = 0;
+      let skippedMissingData = 0;
+      let skippedDuplicates = 0;
       const errors: string[] = [];
+
+      // Get all existing customers once (optimization)
+      const existingCustomers = await storage.getAllCustomers();
+      console.log(`Found ${existingCustomers.length} existing customers in database`);
+
+      // Track imported identifiers in this batch to prevent duplicates within the CSV
+      const importedPhones = new Set<string>();
+      const importedEmails = new Set<string>();
 
       // Process each row
       for (let i = 1; i < lines.length; i++) {
@@ -1002,29 +1030,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const values = lines[i].split(",").map(v => v.trim().replace(/^"(.*)"$/, '$1'));
           const row: Record<string, string> = {};
           
-          headers.forEach((header, idx) => {
+          rawHeaders.forEach((header, idx) => {
             row[header] = values[idx] || "";
           });
 
-          // Map HouseCall Pro fields to our schema
-          const name = row["Customer Name"] || row["Name"] || row["name"] || "";
-          const phone = row["Phone"] || row["phone"] || row["Mobile"] || "";
-          const email = row["Email"] || row["email"] || "";
-          const address = row["Address"] || row["address"] || row["Street Address"] || "";
+          // Log first row for debugging
+          if (i === 1) {
+            console.log("First row data:", row);
+          }
+
+          // Flexible column mapping with case-insensitive matching
+          const name = findColumn(row, ["Customer Name", "Name", "name", "customer_name", "CUSTOMER NAME"]);
+          const phone = findColumn(row, ["Phone", "phone", "Mobile", "mobile", "PHONE", "Phone Number", "phone_number"]);
+          const email = findColumn(row, ["Email", "email", "EMAIL", "E-mail", "e-mail"]);
+          const address = findColumn(row, ["Address", "address", "ADDRESS", "Street Address", "street_address", "STREET ADDRESS"]);
           
           if (!name || !phone) {
             skipped++;
+            skippedMissingData++;
+            if (i <= 3) {
+              console.log(`Row ${i + 1}: Skipped - Missing name (${name}) or phone (${phone})`);
+            }
             continue;
           }
 
-          // Check for duplicates
-          const existingCustomers = await storage.getAllCustomers();
-          const isDuplicate = existingCustomers.some(c => 
+          // Check for duplicates in existing database
+          const existsInDatabase = existingCustomers.some(c => 
             c.phone === phone || (email && c.email === email)
           );
 
-          if (isDuplicate) {
+          // Check for duplicates within this import batch
+          const existsInBatch = importedPhones.has(phone) || (email && importedEmails.has(email));
+
+          if (existsInDatabase || existsInBatch) {
             skipped++;
+            skippedDuplicates++;
+            if (i <= 3) {
+              console.log(`Row ${i + 1}: Skipped - Duplicate (phone: ${phone}, email: ${email})`);
+            }
             continue;
           }
 
@@ -1042,16 +1085,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "active",
           });
 
+          // Track this customer to prevent duplicates later in the same batch
+          importedPhones.add(phone);
+          if (email) {
+            importedEmails.add(email);
+          }
+
           imported++;
+          if (imported <= 3) {
+            console.log(`Row ${i + 1}: Imported - ${name} (${phone})`);
+          }
         } catch (error) {
           errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`);
+          console.error(`Row ${i + 1} error:`, error);
         }
       }
+
+      console.log(`Import complete: ${imported} imported, ${skipped} skipped (${skippedDuplicates} duplicates, ${skippedMissingData} missing data)`);
 
       res.json({
         success: errors.length === 0,
         imported,
         skipped,
+        skippedDuplicates,
+        skippedMissingData,
         errors: errors.slice(0, 10),
       });
     } catch (error) {
