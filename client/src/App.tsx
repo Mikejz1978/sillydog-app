@@ -19,6 +19,7 @@ import Reports from "@/pages/reports";
 import Import from "@/pages/import";
 import PriceBook from "@/pages/price-book";
 import Settings from "@/pages/settings";
+import Users from "@/pages/users";
 import CustomerPortal from "@/pages/customer-portal";
 import Bookings from "@/pages/bookings";
 import BookNow from "@/pages/book";
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/reviews" component={ReviewsPage} />
       <Route path="/import" component={Import} />
       <Route path="/price-book" component={PriceBook} />
+      <Route path="/users" component={Users} />
       <Route path="/settings" component={Settings} />
       <Route path="/bookings" component={Bookings} />
       <Route path="/portal" component={CustomerPortal} />

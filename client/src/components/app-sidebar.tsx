@@ -1,4 +1,4 @@
-import { Home, Users, MapPin, FileText, Settings, LogOut, BarChart3, MessageSquare, Upload, CalendarCheck, DollarSign, Star } from "lucide-react";
+import { Home, Users, MapPin, FileText, Settings, LogOut, BarChart3, MessageSquare, Upload, CalendarCheck, DollarSign, Star, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -64,6 +64,11 @@ const menuItems = [
     title: "Import",
     url: "/import",
     icon: Upload,
+  },
+  {
+    title: "User Management",
+    url: "/users",
+    icon: Shield,
   },
   {
     title: "Settings",
