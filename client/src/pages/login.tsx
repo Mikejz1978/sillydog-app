@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,9 +21,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { PawPrint } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -36,6 +35,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { isAuthenticated, login: authLogin } = useAuth();
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -45,32 +45,29 @@ export default function Login() {
     },
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginForm) => {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      return response.json();
-    },
-    onSuccess: () => {
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/");
+    }
+  }, [isAuthenticated, setLocation]);
+
+  const onSubmit = async (data: LoginForm) => {
+    setIsLoading(true);
+    try {
+      await authLogin(data.email, data.password);
       toast({
         title: "Login successful",
         description: "Welcome back to SillyDog!",
       });
       // Redirect to dashboard
       setLocation("/");
-    },
-    onError: (error: any) => {
+    } catch (error: any) {
       toast({
         title: "Login failed",
         description: error.message || "Invalid email or password",
         variant: "destructive",
       });
-    },
-  });
-
-  const onSubmit = async (data: LoginForm) => {
-    setIsLoading(true);
-    try {
-      await loginMutation.mutateAsync(data);
     } finally {
       setIsLoading(false);
     }
