@@ -18,6 +18,8 @@ import Settings from "@/pages/settings";
 import CustomerPortal from "@/pages/customer-portal";
 import Bookings from "@/pages/bookings";
 import BookNow from "@/pages/book";
+import ReviewPage from "@/pages/review";
+import ReviewsPage from "@/pages/reviews";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,6 +31,7 @@ function Router() {
       <Route path="/messages" component={Messages} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/reports" component={Reports} />
+      <Route path="/reviews" component={ReviewsPage} />
       <Route path="/import" component={Import} />
       <Route path="/price-book" component={PriceBook} />
       <Route path="/settings" component={Settings} />
@@ -74,6 +77,7 @@ function App() {
       <TooltipProvider>
         <Switch>
           <Route path="/book" component={BookNow} />
+          <Route path="/review/:token" component={ReviewPage} />
           <Route>
             <AdminLayout />
           </Route>
