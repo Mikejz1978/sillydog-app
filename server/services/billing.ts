@@ -42,9 +42,9 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
         if (customer.serviceTypeId) {
           const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
           if (serviceType) {
-            // Calculate: basePrice + (pricePerDog * numberOfDogs)
+            // Calculate: basePrice + (pricePerExtraDog * numberOfDogs)
             amount = parseFloat(serviceType.basePrice) + 
-                     (parseFloat(serviceType.pricePerDog) * customer.numberOfDogs);
+                     (parseFloat(serviceType.pricePerExtraDog) * customer.numberOfDogs);
             serviceTypeName = serviceType.name;
           }
         }

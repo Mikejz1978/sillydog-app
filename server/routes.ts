@@ -747,6 +747,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quick charge customer - creates invoice and charges if autopay enabled
+  app.post("/api/customers/:customerId/charge", async (req, res) => {
+    try {
+      const customerId = req.params.customerId;
+      const customer = await storage.getCustomer(customerId);
+      
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get service type for pricing
+      const serviceTypes = await storage.getAllServiceTypes();
+      let amount = 0;
+      let serviceTypeName = "Service";
+      
+      if (customer.serviceTypeId) {
+        const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
+        if (serviceType) {
+          const basePrice = typeof serviceType.basePrice === 'string' 
+            ? parseFloat(serviceType.basePrice) 
+            : serviceType.basePrice;
+          const pricePerExtraDog = typeof serviceType.pricePerExtraDog === 'string'
+            ? parseFloat(serviceType.pricePerExtraDog)
+            : serviceType.pricePerExtraDog;
+          
+          console.log('Pricing calculation:', {
+            serviceTypeName: serviceType.name,
+            basePrice,
+            pricePerExtraDog,
+            numberOfDogs: customer.numberOfDogs,
+          });
+          
+          amount = basePrice + (pricePerExtraDog * customer.numberOfDogs);
+          serviceTypeName = serviceType.name;
+          
+          console.log('Calculated amount:', amount);
+        }
+      }
+      
+      if (amount === 0 || isNaN(amount)) {
+        return res.status(400).json({ 
+          message: "Customer does not have a service type configured or pricing is invalid. Please set a service type first." 
+        });
+      }
+
+      // Create invoice
+      const invoiceNumber = `INV-${Date.now()}`;
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 7); // Due in 7 days
+      
+      const invoice = await storage.createInvoice({
+        customerId: customer.id,
+        invoiceNumber,
+        amount: amount.toFixed(2), // Ensure proper decimal string format
+        status: "unpaid",
+        dueDate: dueDate.toISOString().split('T')[0],
+        description: `${serviceTypeName} for ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''}`,
+      });
+
+      // If customer has autopay, charge them immediately
+      let charged = false;
+      if (customer.autopayEnabled && customer.stripeCustomerId && customer.stripePaymentMethodId) {
+        try {
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(amount * 100),
+            currency: "usd",
+            customer: customer.stripeCustomerId,
+            payment_method: customer.stripePaymentMethodId,
+            off_session: true,
+            confirm: true,
+            description: `Charge for ${invoice.invoiceNumber}`,
+          });
+
+          if (paymentIntent.status === "succeeded") {
+            await storage.markInvoicePaid(invoice.id, paymentIntent.id);
+            charged = true;
+            
+            // Send payment confirmation SMS (non-blocking)
+            try {
+              await sendSMS(
+                customer.phone,
+                `Payment received! Invoice #${invoice.invoiceNumber} for $${amount.toFixed(2)} has been paid. Thank you!`
+              );
+            } catch (smsError: any) {
+              console.error(`SMS confirmation failed for ${customer.name}:`, smsError.message);
+            }
+          }
+        } catch (chargeError: any) {
+          // If autopay fails, invoice remains unpaid
+          console.error(`Autopay failed for ${customer.name}:`, chargeError.message);
+        }
+      }
+
+      // If not charged, send invoice notification SMS (non-blocking)
+      if (!charged) {
+        try {
+          await sendSMS(
+            customer.phone,
+            `New invoice #${invoice.invoiceNumber} for $${amount.toFixed(2)} is now available. Due date: ${invoice.dueDate}. Thank you!`
+          );
+        } catch (smsError: any) {
+          console.error(`SMS notification failed for ${customer.name}:`, smsError.message);
+        }
+      }
+
+      console.log('Charge endpoint response:', {
+        invoiceId: invoice.id,
+        invoiceAmount: invoice.amount,
+        invoiceAmountType: typeof invoice.amount,
+        charged,
+      });
+
+      res.json({ 
+        invoice, 
+        charged,
+        message: charged 
+          ? `Invoice created and customer charged $${amount.toFixed(2)}` 
+          : `Invoice created for $${amount.toFixed(2)}. Customer will need to pay manually.`
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ========== JOB HISTORY ROUTES ==========
   app.get("/api/job-history", async (req, res) => {
     try {

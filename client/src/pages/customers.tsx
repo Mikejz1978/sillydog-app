@@ -569,6 +569,27 @@ export default function Customers() {
     },
   });
 
+  const chargeMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("POST", `/api/customers/${customerId}/charge`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: data.charged ? "Customer Charged" : "Invoice Created",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<InsertCustomer>({
     resolver: zodResolver(insertCustomerSchema),
     defaultValues: {
@@ -1203,8 +1224,23 @@ export default function Customers() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex items-center gap-2 pt-2 flex-wrap">
                   <ScheduleDialog customer={customer} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`Charge ${customer.name} for their service?\n\nThis will create an invoice and charge them if they have autopay enabled.`)) {
+                        chargeMutation.mutate(customer.id);
+                      }
+                    }}
+                    disabled={chargeMutation.isPending || !customer.serviceTypeId}
+                    className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] text-white border-0"
+                    data-testid={`button-charge-${customer.id}`}
+                  >
+                    <DollarSign className="w-3 h-3 mr-1" />
+                    Charge
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

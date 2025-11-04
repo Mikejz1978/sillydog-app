@@ -68,7 +68,7 @@ export default function Invoices() {
     if (customer && customer.serviceTypeId) {
       const serviceType = serviceTypes?.find(st => st.id === customer.serviceTypeId);
       if (serviceType) {
-        const price = serviceType.basePrice + (serviceType.pricePerDog * customer.numberOfDogs);
+        const price = serviceType.basePrice + (serviceType.pricePerExtraDog * customer.numberOfDogs);
         form.setValue("amount", price.toFixed(2));
         form.setValue("description", `${serviceType.name} - ${customer.numberOfDogs} dog(s)`);
       }
