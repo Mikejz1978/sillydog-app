@@ -9,6 +9,8 @@ interface ImportResult {
   success: boolean;
   imported: number;
   skipped: number;
+  skippedDuplicates?: number;
+  skippedMissingData?: number;
   errors: string[];
 }
 
@@ -166,6 +168,13 @@ export default function Import() {
                     <p className="text-sm mt-1">
                       Imported: {customerResult.imported} | Skipped: {customerResult.skipped}
                     </p>
+                    {(customerResult.skippedDuplicates !== undefined || customerResult.skippedMissingData !== undefined) && (
+                      <p className="text-sm mt-1 text-muted-foreground">
+                        {customerResult.skippedDuplicates ? `${customerResult.skippedDuplicates} duplicates` : ""}
+                        {customerResult.skippedDuplicates && customerResult.skippedMissingData ? " • " : ""}
+                        {customerResult.skippedMissingData ? `${customerResult.skippedMissingData} missing data` : ""}
+                      </p>
+                    )}
                     {customerResult.errors.length > 0 && (
                       <ul className="text-sm mt-2 space-y-1">
                         {customerResult.errors.map((error, idx) => (
@@ -242,6 +251,13 @@ export default function Import() {
                     <p className="text-sm mt-1">
                       Imported: {scheduleResult.imported} | Skipped: {scheduleResult.skipped}
                     </p>
+                    {(scheduleResult.skippedDuplicates !== undefined || scheduleResult.skippedMissingData !== undefined) && (
+                      <p className="text-sm mt-1 text-muted-foreground">
+                        {scheduleResult.skippedDuplicates ? `${scheduleResult.skippedDuplicates} duplicates` : ""}
+                        {scheduleResult.skippedDuplicates && scheduleResult.skippedMissingData ? " • " : ""}
+                        {scheduleResult.skippedMissingData ? `${scheduleResult.skippedMissingData} missing data` : ""}
+                      </p>
+                    )}
                     {scheduleResult.errors.length > 0 && (
                       <ul className="text-sm mt-2 space-y-1">
                         {scheduleResult.errors.map((error, idx) => (
