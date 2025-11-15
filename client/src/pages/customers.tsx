@@ -590,10 +590,17 @@ export default function Customers() {
     },
   });
 
-  const form = useForm<InsertCustomer>({
-    resolver: zodResolver(insertCustomerSchema),
+  // Form with extended schema for separate first/last name fields
+  const formSchema = insertCustomerSchema.omit({ name: true }).extend({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       address: "",
       phone: "",
       email: "",
@@ -744,7 +751,30 @@ export default function Customers() {
           </h1>
           <p className="text-muted-foreground mt-1">Manage your customer database</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            // Dialog closing - reset everything
+            setEditingCustomer(null);
+            form.reset();
+          } else if (!editingCustomer) {
+            // Dialog opening for new customer - ensure form is blank
+            form.reset({
+              firstName: "",
+              lastName: "",
+              address: "",
+              phone: "",
+              email: "",
+              serviceTypeId: undefined,
+              numberOfDogs: 1,
+              gateCode: "",
+              yardNotes: "",
+              status: "active",
+              billingMethod: "invoice",
+              smsOptIn: true,
+            });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-add-customer">
               <Plus className="w-4 h-4 mr-2" />
@@ -760,11 +790,13 @@ export default function Customers() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit((data) => {
-                // Clean up empty string values for numeric fields
-                const cleanedData = {
-                  ...data,
-                  lat: data.lat === "" ? undefined : data.lat,
-                  lng: data.lng === "" ? undefined : data.lng,
+                // Concatenate firstName and lastName into name
+                const { firstName, lastName, ...rest } = data;
+                const cleanedData: InsertCustomer = {
+                  ...rest,
+                  name: `${firstName} ${lastName}`.trim(),
+                  lat: rest.lat === "" ? undefined : rest.lat,
+                  lng: rest.lng === "" ? undefined : rest.lng,
                 };
                 
                 if (editingCustomer) {
@@ -776,17 +808,32 @@ export default function Customers() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Customer Name</FormLabel>
+                        <FormLabel>First Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" data-testid="input-name" {...field} />
+                          <Input placeholder="John" data-testid="input-first-name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Doe" data-testid="input-last-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="phone"
@@ -1245,9 +1292,24 @@ export default function Customers() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      // Populate form with customer data
+                      // Split name into firstName and lastName for editing
+                      const nameParts = customer.name.trim().split(' ');
+                      const firstName = nameParts[0] || "";
+                      const lastName = nameParts.slice(1).join(' ') || "";
+                      
                       form.reset({
-                        ...customer,
+                        firstName,
+                        lastName,
+                        address: customer.address,
+                        phone: customer.phone,
+                        email: customer.email || "",
+                        serviceTypeId: customer.serviceTypeId || undefined,
+                        numberOfDogs: customer.numberOfDogs,
+                        gateCode: customer.gateCode || "",
+                        yardNotes: customer.yardNotes || "",
+                        status: customer.status,
+                        billingMethod: customer.billingMethod,
+                        smsOptIn: customer.smsOptIn,
                         lat: customer.lat?.toString() || "",
                         lng: customer.lng?.toString() || "",
                       });
