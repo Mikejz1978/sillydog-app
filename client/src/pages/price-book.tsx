@@ -130,8 +130,8 @@ export default function PriceBook() {
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     const data: InsertServiceType = {
       ...values,
-      basePrice: values.basePrice.toString(),
-      pricePerExtraDog: values.pricePerExtraDog.toString(),
+      basePrice: values.basePrice.toFixed(2),
+      pricePerExtraDog: values.pricePerExtraDog.toFixed(2),
     };
 
     if (editingService) {
