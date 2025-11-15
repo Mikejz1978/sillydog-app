@@ -787,7 +787,15 @@ export default function Customers() {
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent 
+            className="max-w-2xl max-h-[90vh] overflow-y-auto"
+            onInteractOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('.pac-container')) {
+                e.preventDefault();
+              }
+            }}
+          >
             <DialogHeader>
               <DialogTitle>{editingCustomer ? "Edit Customer" : "Add New Customer"}</DialogTitle>
               <DialogDescription>
