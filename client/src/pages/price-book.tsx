@@ -49,9 +49,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 
-const formSchema = insertServiceTypeSchema.extend({
-  basePrice: z.string().min(1, "Base price is required"),
-  pricePerExtraDog: z.string().min(1, "Price per extra dog is required"),
+const formSchema = insertServiceTypeSchema.omit({
+  basePrice: true,
+  pricePerExtraDog: true,
+}).extend({
+  basePrice: z.coerce.number().min(0.01, "Base price must be at least $0.01"),
+  pricePerExtraDog: z.coerce.number().min(0, "Price per extra dog must be at least $0"),
 });
 
 export default function PriceBook() {
@@ -72,8 +75,8 @@ export default function PriceBook() {
       category: "",
       frequency: "weekly",
       timesPerWeek: 1,
-      basePrice: "",
-      pricePerExtraDog: "",
+      basePrice: 0,
+      pricePerExtraDog: 0,
       active: true,
     },
   });
@@ -83,8 +86,8 @@ export default function PriceBook() {
       const res = await apiRequest("POST", "/api/service-types", data);
       return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
       toast({ title: "Service type created successfully" });
       setIsAddDialogOpen(false);
       form.reset();
@@ -99,8 +102,8 @@ export default function PriceBook() {
       const res = await apiRequest("PATCH", `/api/service-types/${id}`, data);
       return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
       toast({ title: "Service type updated successfully" });
       setEditingService(null);
       form.reset();
@@ -114,8 +117,8 @@ export default function PriceBook() {
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/service-types/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/service-types"] });
       toast({ title: "Service type deleted successfully" });
       setDeletingService(null);
     },
@@ -127,8 +130,8 @@ export default function PriceBook() {
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     const data: InsertServiceType = {
       ...values,
-      basePrice: values.basePrice,
-      pricePerExtraDog: values.pricePerExtraDog,
+      basePrice: values.basePrice.toString(),
+      pricePerExtraDog: values.pricePerExtraDog.toString(),
     };
 
     if (editingService) {
@@ -146,8 +149,8 @@ export default function PriceBook() {
       category: service.category || "",
       frequency: service.frequency,
       timesPerWeek: service.timesPerWeek,
-      basePrice: service.basePrice,
-      pricePerExtraDog: service.pricePerExtraDog,
+      basePrice: parseFloat(service.basePrice),
+      pricePerExtraDog: parseFloat(service.pricePerExtraDog),
       active: service.active,
     });
   };
