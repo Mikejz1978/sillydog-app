@@ -652,6 +652,12 @@ export default function Customers() {
     const initAutocomplete = () => {
       if (!addressInputRef.current || !window.google?.maps?.places) return;
 
+      // Clear any existing autocomplete instance first
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+
       autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
         types: ['address'],
         componentRestrictions: { country: 'us' },
@@ -677,6 +683,7 @@ export default function Customers() {
     return () => {
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
       }
     };
   }, [form, dialogOpen]);
