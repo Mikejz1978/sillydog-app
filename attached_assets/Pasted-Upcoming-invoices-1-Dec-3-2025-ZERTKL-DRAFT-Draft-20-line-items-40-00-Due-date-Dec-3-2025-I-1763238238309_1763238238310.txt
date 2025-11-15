@@ -1,0 +1,118 @@
+Upcoming invoices
+1
+›
+Dec 3, 2025
+•
+ZERTKL-DRAFT
+Draft
+20 line items
+•
+$40.00
+Due date
+Dec 3, 2025
+Invoice date
+Dec 3, 2025
+From
+Replit Inc
+1001 E Hillsdale Blvd
+4th floor
+Foster City, CA 94404
+Bill to
+Silly Dog Pooper Scooer
+2160 Larsen Drive
+Pahrump, NV 89060
+sillydogpoopscoop@gmail.com
+Agent Usage
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+138.519332 × $1.00
+Subtotal
+$139.02
+Pre-purchase applied
+-$40.00
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$98.52
+Total (Nov 3 – Dec 2, 2025)
+$0.50
+Show usage details
+Autoscale Compute Units
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+290,451.565263 × $0.0000032
+Subtotal
+$0.93
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$0.93
+Total (Nov 3 – Dec 2, 2025)
+$0.00
+Show usage details
+Autoscale Deployments
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+12 × $0.033
+Subtotal
+$0.40
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$0.40
+Total (Nov 3 – Dec 2, 2025)
+$0.00
+Show usage details
+Autoscale Requests
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+1,971 × $0.0000012
+Subtotal
+$0.00
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$0.00
+Total (Nov 3 – Dec 2, 2025)
+$0.00
+Show usage details
+Deployments Outbound Data Transfer
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+0.080731 × $0.10
+Subtotal
+$0.01
+Usage discount:
+-1,000 units
+-$0.01
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$0.00
+Total (Nov 3 – Dec 2, 2025)
+$0.00
+Show usage details
+Neon Compute Time
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+3.036944 × $0.16
+Subtotal
+$0.49
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$0.49
+Total (Nov 3 – Dec 2, 2025)
+$0.00
+Show usage details
+Neon Data Storage
+ed37b150-7c7b-4f2a-a43f-cec5ac26ad71
+0.079305 × $1.50
+Subtotal
+$0.12
+Discount:
+100%
+-$0.12
+InvoiceZERTKL-00003 (Nov 3 – 15, 2025)
+-$0.00
+Total (Nov 3 – Dec 2, 2025)
+$0.00
+Show usage details
+Replit Teams Monthly Seat
+1 × $40.00
+$40.00
+Subtotal
+$40.00
+Total (Dec 3, 2025 – Jan 2, 2026)
+$40.00
+Subtotal
+$40.50
+Amount due
+$40.50
+Invoice amounts with usage-based prices are not finalized and may change before the billing period closes.
+Showing 1 to 1 of 1
+POWERED BY
+Terms
+Privacy
