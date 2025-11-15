@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -621,72 +621,70 @@ export default function Customers() {
   const [scheduleStartTime, setScheduleStartTime] = useState("08:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("12:00");
 
+  // Stable initialization function for Google Maps Autocomplete
+  const initializeAutocomplete = useCallback(() => {
+    if (!addressInputRef.current || !window.google?.maps?.places) return;
+
+    // Clear any existing autocomplete instance first
+    if (autocompleteRef.current) {
+      google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      autocompleteRef.current = null;
+    }
+
+    autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' },
+    });
+
+    autocompleteRef.current.addListener('place_changed', () => {
+      const place = autocompleteRef.current?.getPlace();
+      if (place?.formatted_address) {
+        form.setValue('address', place.formatted_address);
+        
+        if (place.geometry?.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          form.setValue('lat', lat.toString());
+          form.setValue('lng', lng.toString());
+        }
+      }
+    });
+  }, [form]);
+
+  // Load Google Maps script once
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !dialogOpen) return;
+    if (!apiKey) return;
 
-    const loadGoogleMapsScript = () => {
-      if (window.google?.maps?.places) {
-        initAutocomplete();
-        return;
-      }
+    // Script already loaded
+    if (window.google?.maps?.places) return;
 
-      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        const checkInterval = setInterval(() => {
-          if (window.google?.maps?.places) {
-            clearInterval(checkInterval);
-            initAutocomplete();
-          }
-        }, 100);
-        return;
-      }
+    // Script is loading
+    if (document.querySelector('script[src*="maps.googleapis.com"]')) return;
 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initAutocomplete;
-      document.head.appendChild(script);
-    };
+    // Load the script
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
 
-    const initAutocomplete = () => {
-      if (!addressInputRef.current || !window.google?.maps?.places) return;
+  // Cleanup autocomplete when dialog closes
+  useEffect(() => {
+    if (!dialogOpen && autocompleteRef.current) {
+      google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      autocompleteRef.current = null;
+    }
+  }, [dialogOpen]);
 
-      // Clear any existing autocomplete instance first
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-        autocompleteRef.current = null;
-      }
-
-      autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
-        types: ['address'],
-        componentRestrictions: { country: 'us' },
-      });
-
-      autocompleteRef.current.addListener('place_changed', () => {
-        const place = autocompleteRef.current?.getPlace();
-        if (place?.formatted_address) {
-          form.setValue('address', place.formatted_address);
-          
-          if (place.geometry?.location) {
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            form.setValue('lat', lat.toString());
-            form.setValue('lng', lng.toString());
-          }
-        }
-      });
-    };
-
-    loadGoogleMapsScript();
-
-    return () => {
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-        autocompleteRef.current = null;
-      }
-    };
-  }, [form, dialogOpen]);
+  // Callback ref that initializes autocomplete when input mounts
+  const handleAddressInputRef = useCallback((node: HTMLInputElement | null) => {
+    addressInputRef.current = node;
+    if (node && dialogOpen && window.google?.maps?.places) {
+      initializeAutocomplete();
+    }
+  }, [dialogOpen, initializeAutocomplete]);
 
   const findBestFit = async () => {
     const address = form.getValues("address");
@@ -894,9 +892,9 @@ export default function Customers() {
                             placeholder={import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? "Start typing your address..." : "123 Main St, City, State 12345"}
                             data-testid="input-address" 
                             {...field}
-                            ref={(e) => {
-                              field.ref(e);
-                              (addressInputRef as any).current = e;
+                            ref={(node) => {
+                              field.ref(node);
+                              handleAddressInputRef(node);
                             }}
                           />
                         </FormControl>
