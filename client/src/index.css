@@ -355,3 +355,9 @@
     inset: -1px;
   }
 }
+
+/* Google Maps Autocomplete z-index fix */
+/* Ensure autocomplete dropdown appears above dialogs */
+.pac-container {
+  z-index: 9999 !important;
+}
