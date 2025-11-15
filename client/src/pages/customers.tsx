@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { 
   insertCustomerSchema, 
   insertScheduleRuleSchema,
@@ -752,31 +753,36 @@ export default function Customers() {
           <p className="text-muted-foreground mt-1">Manage your customer database</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
           if (!open) {
             // Dialog closing - reset everything
             setEditingCustomer(null);
             form.reset();
-          } else if (!editingCustomer) {
-            // Dialog opening for new customer - ensure form is blank
-            form.reset({
-              firstName: "",
-              lastName: "",
-              address: "",
-              phone: "",
-              email: "",
-              serviceTypeId: undefined,
-              numberOfDogs: 1,
-              gateCode: "",
-              yardNotes: "",
-              status: "active",
-              billingMethod: "invoice",
-              smsOptIn: true,
-            });
           }
+          setDialogOpen(open);
         }}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" data-testid="button-add-customer">
+            <Button 
+              className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" 
+              data-testid="button-add-customer"
+              onClick={() => {
+                // Clear editing state and reset form for new customer
+                setEditingCustomer(null);
+                form.reset({
+                  firstName: "",
+                  lastName: "",
+                  address: "",
+                  phone: "",
+                  email: "",
+                  serviceTypeId: undefined,
+                  numberOfDogs: 1,
+                  gateCode: "",
+                  yardNotes: "",
+                  status: "active",
+                  billingMethod: "invoice",
+                  smsOptIn: true,
+                });
+              }}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Customer
             </Button>
