@@ -360,4 +360,15 @@
 /* Ensure autocomplete dropdown appears above dialogs */
 .pac-container {
   z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure autocomplete items are clickable */
+.pac-item {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.pac-item:hover {
+  background-color: #f3f4f6 !important;
 }
