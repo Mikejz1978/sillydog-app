@@ -48,8 +48,9 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
             const pricePerExtraDog = parseFloat(serviceType.pricePerExtraDog);
             timesPerWeek = serviceType.timesPerWeek || 1;
             
-            // Calculate per-visit cost: basePrice + (pricePerExtraDog * numberOfDogs)
-            const perVisitCost = basePrice + (pricePerExtraDog * customer.numberOfDogs);
+            // Calculate per-visit cost: basePrice covers first dog, pricePerExtraDog for additional dogs
+            const extraDogs = Math.max(customer.numberOfDogs - 1, 0);
+            const perVisitCost = basePrice + (pricePerExtraDog * extraDogs);
             
             // Calculate monthly amount: perVisitCost * timesPerWeek * 4 weeks
             // Assuming ~4 weeks per month for consistent billing

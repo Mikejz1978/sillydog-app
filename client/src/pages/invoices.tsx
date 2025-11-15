@@ -68,12 +68,13 @@ export default function Invoices() {
     if (customer && customer.serviceTypeId) {
       const serviceType = serviceTypes?.find(st => st.id === customer.serviceTypeId);
       if (serviceType) {
-        // Calculate per-visit cost
+        // Calculate per-visit cost: basePrice covers first dog, pricePerExtraDog for additional dogs
         const basePrice = typeof serviceType.basePrice === 'string' ? parseFloat(serviceType.basePrice) : serviceType.basePrice;
         const pricePerExtraDog = typeof serviceType.pricePerExtraDog === 'string' ? parseFloat(serviceType.pricePerExtraDog) : serviceType.pricePerExtraDog;
         const timesPerWeek = serviceType.timesPerWeek || 1;
         
-        const perVisitCost = basePrice + (pricePerExtraDog * customer.numberOfDogs);
+        const extraDogs = Math.max(customer.numberOfDogs - 1, 0);
+        const perVisitCost = basePrice + (pricePerExtraDog * extraDogs);
         // Calculate monthly amount: perVisitCost * timesPerWeek * 4 weeks
         const monthlyAmount = perVisitCost * timesPerWeek * 4;
         
