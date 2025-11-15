@@ -69,6 +69,7 @@ export default function PriceBook() {
     defaultValues: {
       name: "",
       description: "",
+      category: "",
       frequency: "weekly",
       timesPerWeek: 1,
       basePrice: "",
@@ -142,6 +143,7 @@ export default function PriceBook() {
     form.reset({
       name: service.name,
       description: service.description || "",
+      category: service.category || "",
       frequency: service.frequency,
       timesPerWeek: service.timesPerWeek,
       basePrice: service.basePrice,
@@ -163,6 +165,16 @@ export default function PriceBook() {
     if (timesPerWeek > 1) return `${timesPerWeek}x per week`;
     return frequency;
   };
+
+  // Group services by category
+  const groupedServices = serviceTypes?.reduce((groups, service) => {
+    const category = service.category || "Uncategorized";
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(service);
+    return groups;
+  }, {} as Record<string, ServiceType[]>) || {};
 
   return (
     <div className="p-6 space-y-6">
@@ -229,6 +241,25 @@ export default function PriceBook() {
                           value={field.value || ""}
                           placeholder="e.g., Keep it spotless with a weekly visit"
                           data-testid="input-service-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          placeholder="e.g., Weekly Plans, 1 Dog Services"
+                          data-testid="input-service-category"
                         />
                       </FormControl>
                       <FormMessage />
@@ -312,7 +343,6 @@ export default function PriceBook() {
                             data-testid="input-base-price"
                           />
                         </FormControl>
-                        <FormDescription>Price for 1 dog</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -333,7 +363,6 @@ export default function PriceBook() {
                             data-testid="input-price-per-dog"
                           />
                         </FormControl>
-                        <FormDescription>Additional charge per dog</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -410,68 +439,75 @@ export default function PriceBook() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {serviceTypes.map((service) => (
-            <Card key={service.id} className="hover-elevate" data-testid={`card-service-${service.id}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-xl">{service.name}</CardTitle>
-                    <CardDescription className="mt-1">{service.description}</CardDescription>
-                  </div>
-                  <Badge variant={service.active ? "default" : "secondary"} data-testid={`badge-status-${service.id}`}>
-                    {service.active ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {getFrequencyLabel(service.frequency, service.timesPerWeek)}
-                  </div>
-                  <div className="flex items-center">
-                    <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <div className="text-sm">
-                      <span className="font-semibold">${service.basePrice}</span>
-                      <span className="text-muted-foreground"> / visit (1 dog)</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground ml-6">
-                    +${service.pricePerExtraDog} per additional dog
-                  </div>
-                </div>
+        <div className="space-y-8">
+          {Object.entries(groupedServices).map(([category, services]) => (
+            <div key={category} className="space-y-4">
+              <h2 className="text-2xl font-semibold text-foreground">{category}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {services.map((service) => (
+                  <Card key={service.id} className="hover-elevate" data-testid={`card-service-${service.id}`}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-xl">{service.name}</CardTitle>
+                          <CardDescription className="mt-1">{service.description}</CardDescription>
+                        </div>
+                        <Badge variant={service.active ? "default" : "secondary"} data-testid={`badge-status-${service.id}`}>
+                          {service.active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          {getFrequencyLabel(service.frequency, service.timesPerWeek)}
+                        </div>
+                        <div className="flex items-center">
+                          <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <div className="text-sm">
+                            <span className="font-semibold">${service.basePrice}</span>
+                            <span className="text-muted-foreground"> / visit (1 dog)</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground ml-6">
+                          +${service.pricePerExtraDog} per additional dog
+                        </div>
+                      </div>
 
-                <div className="pt-4 border-t flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleActive(service)}
-                    disabled={updateMutation.isPending}
-                    className="flex-1"
-                    data-testid={`button-toggle-${service.id}`}
-                  >
-                    {service.active ? "Deactivate" : "Activate"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditDialog(service)}
-                    data-testid={`button-edit-${service.id}`}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDeletingService(service)}
-                    data-testid={`button-delete-${service.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="pt-4 border-t flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleActive(service)}
+                          disabled={updateMutation.isPending}
+                          className="flex-1"
+                          data-testid={`button-toggle-${service.id}`}
+                        >
+                          {service.active ? "Deactivate" : "Activate"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(service)}
+                          data-testid={`button-edit-${service.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeletingService(service)}
+                          data-testid={`button-delete-${service.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

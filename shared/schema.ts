@@ -231,6 +231,7 @@ export const serviceTypes = pgTable("service_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(), // e.g., "3x Weekly", "2x Weekly", "Daily", etc.
   description: text("description"), // e.g., "Three times per week service"
+  category: text("category"), // e.g., "1 Dog Services", "2 Dog Services", "Weekly Plans"
   frequency: text("frequency").notNull(), // 'weekly', 'biweekly'
   timesPerWeek: integer("times_per_week").notNull().default(1), // 1-5 times
   basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(), // Base price for 1 dog
