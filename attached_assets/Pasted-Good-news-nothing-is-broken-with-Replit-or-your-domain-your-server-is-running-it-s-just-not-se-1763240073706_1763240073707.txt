@@ -1,0 +1,77 @@
+Good news: nothing is “broken” with Replit or your domain — your server is running, it’s just not serving the frontend files, so you see:
+
+Not Found
+
+That message is coming from your Node/Express app (the dist/index.js bundle).
+
+Right now:
+
+npm run build creates dist/index.js (backend) and your Vite frontend in dist/
+
+npm run start runs node dist/index.js
+
+But your Express code only knows about API routes (like /api/...) and doesn’t serve index.html at /
+
+So when you open app.sillydogpoopscoop.com, Express hits / and replies 404 Not Found.
+
+We just need to teach Express to serve the built frontend.
+
+🛠 Step 1 – Open server/index.ts
+
+On the right file panel in Replit:
+
+Click the server folder
+
+Click index.ts (or whichever main file sets up app = express() and app.listen(...))
+
+🧩 Step 2 – Add static file serving at the bottom
+
+Because your build script puts everything in dist/, and at runtime dist/index.js lives in that same folder, we want to serve that folder.
+
+In server/index.ts:
+
+At the top, add:
+
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+Near the bottom of the file, after all your /api/... routes, but before app.listen(...), add:
+
+// Serve static frontend from the built dist folder
+app.use(express.static(__dirname));
+
+// For any non-API route, send back index.html (for React router)
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+
+💡 Important: keep your /api/... routes above this app.get("*") so they still work.
+
+Because at runtime:
+
+dist/index.js → backend bundle (Express)
+
+dist/index.html and dist/assets/... → frontend
+
+__dirname when running is the dist folder, so express.static(__dirname) and index.html are correct.
+
+🔁 Step 3 – Rebuild and republish
+
+Still in Replit:
+
+Bottom-left, click Build (or run npm run build in the shell if you prefer)
+
+Go to the Publishing tab
+
+Click Publish again
+
+When that finishes, reload:
+
+👉 https://app.sillydogpoopscoop.com
+
+You should now see your actual SillyDog app instead of “Not Found”.
