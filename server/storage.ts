@@ -55,6 +55,8 @@ export interface IStorage {
   updateRoute(id: string, route: Partial<InsertRoute>): Promise<Route>;
   updateRouteStatus(id: string, status: string): Promise<Route>;
   deleteRoute(id: string): Promise<void>;
+  skipRoute(id: string, userId: string, reason: string, notes?: string): Promise<Route>;
+  unskipRoute(id: string): Promise<Route>;
 
   // Invoices
   getAllInvoices(): Promise<Invoice[]>;
@@ -217,6 +219,42 @@ export class MemStorage implements IStorage {
       ...route,
       status,
       completedAt: status === "completed" ? new Date() : route.completedAt,
+    };
+    this.routes.set(id, updated);
+    return updated;
+  }
+
+  async skipRoute(id: string, userId: string, reason: string, notes?: string): Promise<Route> {
+    const route = this.routes.get(id);
+    if (!route) {
+      throw new Error("Route not found");
+    }
+    const updated = {
+      ...route,
+      status: "skipped",
+      billable: true,
+      skippedAt: new Date(),
+      skippedBy: userId,
+      skipReason: reason,
+      skipNotes: notes || null,
+    };
+    this.routes.set(id, updated);
+    return updated;
+  }
+
+  async unskipRoute(id: string): Promise<Route> {
+    const route = this.routes.get(id);
+    if (!route) {
+      throw new Error("Route not found");
+    }
+    const updated = {
+      ...route,
+      status: "scheduled",
+      billable: true,
+      skippedAt: null,
+      skippedBy: null,
+      skipReason: null,
+      skipNotes: null,
     };
     this.routes.set(id, updated);
     return updated;
@@ -578,6 +616,40 @@ export class DbStorage implements IStorage {
     const result = await this.db
       .update(schema.routes)
       .set(updates)
+      .where(eq(schema.routes.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Route not found");
+    return result[0];
+  }
+
+  async skipRoute(id: string, userId: string, reason: string, notes?: string): Promise<Route> {
+    const result = await this.db
+      .update(schema.routes)
+      .set({
+        status: "skipped",
+        billable: true,
+        skippedAt: new Date(),
+        skippedBy: userId,
+        skipReason: reason,
+        skipNotes: notes || null,
+      })
+      .where(eq(schema.routes.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Route not found");
+    return result[0];
+  }
+
+  async unskipRoute(id: string): Promise<Route> {
+    const result = await this.db
+      .update(schema.routes)
+      .set({
+        status: "scheduled",
+        billable: true,
+        skippedAt: null,
+        skippedBy: null,
+        skipReason: null,
+        skipNotes: null,
+      })
       .where(eq(schema.routes.id, id))
       .returning();
     if (!result[0]) throw new Error("Route not found");

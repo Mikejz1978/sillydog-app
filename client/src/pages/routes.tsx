@@ -1,23 +1,34 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertRouteSchema, type Customer, type Route, type InsertRoute } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Stopwatch } from "@/components/stopwatch";
+import { z } from "zod";
+
+const skipRouteSchema = z.object({
+  reason: z.string().min(1, "Please select a reason"),
+  notes: z.string().optional(),
+});
+
+type SkipRouteFormData = z.infer<typeof skipRouteSchema>;
 
 export default function Routes() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [selectedRouteForSkip, setSelectedRouteForSkip] = useState<Route | null>(null);
   const [selectedRouteForPhotos, setSelectedRouteForPhotos] = useState<Route | null>(null);
   const [photoBefore, setPhotoBefore] = useState<string>("");
   const [photoAfter, setPhotoAfter] = useState<string>("");
@@ -146,6 +157,38 @@ export default function Routes() {
     },
   });
 
+  const skipRouteMutation = useMutation({
+    mutationFn: async ({ routeId, reason, notes }: { routeId: string; reason: string; notes?: string }) => {
+      const response = await apiRequest("POST", `/api/routes/${routeId}/skip`, { reason, notes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Route Skipped",
+        description: "Customer will still be charged for this service.",
+      });
+      setSkipDialogOpen(false);
+      skipForm.reset();
+    },
+  });
+
+  const unskipRouteMutation = useMutation({
+    mutationFn: async (routeId: string) => {
+      const response = await apiRequest("POST", `/api/routes/${routeId}/unskip`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Route Restored",
+        description: "Route has been restored to scheduled.",
+      });
+    },
+  });
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -217,6 +260,14 @@ export default function Routes() {
       status: "scheduled",
       orderIndex: routes?.length || 0,
       serviceType: "regular",
+    },
+  });
+
+  const skipForm = useForm<SkipRouteFormData>({
+    resolver: zodResolver(skipRouteSchema),
+    defaultValues: {
+      reason: "",
+      notes: "",
     },
   });
 
@@ -463,6 +514,18 @@ export default function Routes() {
                                   <Navigation className="w-3 h-3 mr-1" />
                                   Start Route
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedRouteForSkip(route);
+                                    setSkipDialogOpen(true);
+                                  }}
+                                  data-testid={`button-skip-${route.id}`}
+                                >
+                                  <Ban className="w-3 h-3 mr-1" />
+                                  Skip
+                                </Button>
                               </>
                             )}
                             {route.status === "in_route" && (
@@ -491,9 +554,26 @@ export default function Routes() {
                                 </Button>
                               </>
                             )}
+                            {route.status === "skipped" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => unskipRouteMutation.mutate(route.id)}
+                                disabled={unskipRouteMutation.isPending}
+                                data-testid={`button-unskip-${route.id}`}
+                              >
+                                <Undo2 className="w-3 h-3 mr-1" />
+                                Unskip
+                              </Button>
+                            )}
                             {route.status === "completed" && (
                               <div className="text-xs font-medium px-3 py-1 rounded-full bg-green-100 text-green-800">
                                 Completed
+                              </div>
+                            )}
+                            {route.status === "skipped" && (
+                              <div className="text-xs font-medium px-3 py-1 rounded-full bg-orange-100 text-orange-800">
+                                Skipped (Billable)
                               </div>
                             )}
                             <div className={`text-xs font-medium px-3 py-1 rounded-full ${
@@ -501,9 +581,11 @@ export default function Routes() {
                                 ? "bg-blue-100 text-blue-800" 
                                 : route.status === "completed"
                                 ? "bg-green-100 text-green-800"
+                                : route.status === "skipped"
+                                ? "bg-orange-100 text-orange-800"
                                 : "bg-gray-100 text-gray-800"
                             }`}>
-                              {route.status === "in_route" ? "In Route" : route.status === "completed" ? "Done" : "Scheduled"}
+                              {route.status === "in_route" ? "In Route" : route.status === "completed" ? "Done" : route.status === "skipped" ? "Skipped" : "Scheduled"}
                             </div>
                           </div>
                         </div>
@@ -664,6 +746,92 @@ export default function Routes() {
               {uploadPhotosMutation.isPending ? "Uploading..." : "Save Photos"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Skip Route Dialog */}
+      <Dialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Skip Route</DialogTitle>
+            <DialogDescription>
+              Customer will still be charged for this service.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...skipForm}>
+            <form onSubmit={skipForm.handleSubmit((data) => {
+              if (selectedRouteForSkip) {
+                skipRouteMutation.mutate({
+                  routeId: selectedRouteForSkip.id,
+                  reason: data.reason,
+                  notes: data.notes,
+                });
+              }
+            })} className="space-y-4">
+              <FormField
+                control={skipForm.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-skip-reason">
+                          <SelectValue placeholder="Select reason" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="customer_request">Customer Request</SelectItem>
+                        <SelectItem value="weather">Weather</SelectItem>
+                        <SelectItem value="no_access">No Access</SelectItem>
+                        <SelectItem value="vacation">Vacation</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={skipForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Additional details..."
+                        data-testid="textarea-skip-notes"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setSkipDialogOpen(false);
+                    skipForm.reset();
+                  }}
+                  data-testid="button-cancel-skip"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={skipRouteMutation.isPending}
+                  className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
+                  data-testid="button-submit-skip"
+                >
+                  {skipRouteMutation.isPending ? "Skipping..." : "Skip Route"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>

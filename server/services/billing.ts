@@ -38,13 +38,22 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
         // Get service type for pricing calculation
         let amount = 0;
         let serviceTypeName = "Service";
+        let timesPerWeek = 1;
         
         if (customer.serviceTypeId) {
           const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
           if (serviceType) {
-            // Calculate: basePrice + (pricePerExtraDog * numberOfDogs)
-            amount = parseFloat(serviceType.basePrice) + 
-                     (parseFloat(serviceType.pricePerExtraDog) * customer.numberOfDogs);
+            // Get the per-visit price
+            const basePrice = parseFloat(serviceType.basePrice);
+            const pricePerExtraDog = parseFloat(serviceType.pricePerExtraDog);
+            timesPerWeek = serviceType.timesPerWeek || 1;
+            
+            // Calculate per-visit cost: basePrice + (pricePerExtraDog * numberOfDogs)
+            const perVisitCost = basePrice + (pricePerExtraDog * customer.numberOfDogs);
+            
+            // Calculate monthly amount: perVisitCost * timesPerWeek * 4 weeks
+            // Assuming ~4 weeks per month for consistent billing
+            amount = perVisitCost * timesPerWeek * 4;
             serviceTypeName = serviceType.name;
           }
         }
@@ -60,10 +69,10 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
         const invoice = await storage.createInvoice({
           customerId: customer.id,
           invoiceNumber: `${invoiceNumber}-${invoiceCounter++}`,
-          amount: amount.toString(),
+          amount: amount.toFixed(2),
           status: "unpaid",
           dueDate,
-          description: `${serviceTypeName} for ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''} - ${month}/${year}`,
+          description: `${serviceTypeName} (${timesPerWeek}x/week × 4 weeks) - ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''} - ${month}/${year}`,
         });
 
         results.success++;

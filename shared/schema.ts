@@ -79,13 +79,18 @@ export const routes = pgTable("routes", {
   date: text("date").notNull(), // YYYY-MM-DD format
   customerId: varchar("customer_id").notNull(),
   scheduledTime: text("scheduled_time"), // HH:MM format
-  status: text("status").notNull().default("scheduled"), // 'scheduled', 'in_route', 'completed'
+  status: text("status").notNull().default("scheduled"), // 'scheduled', 'in_route', 'completed', 'skipped'
   orderIndex: integer("order_index").notNull().default(0),
   serviceType: text("service_type").notNull().default("regular"), // 'regular', 'one-time', 'new-start'
   timerStartedAt: timestamp("timer_started_at"),
   timerStoppedAt: timestamp("timer_stopped_at"),
   calculatedCost: decimal("calculated_cost", { precision: 10, scale: 2 }),
   completedAt: timestamp("completed_at"),
+  billable: boolean("billable").notNull().default(true), // If false, don't include in invoices
+  skippedAt: timestamp("skipped_at"), // When route was skipped
+  skippedBy: varchar("skipped_by"), // User ID who skipped
+  skipReason: text("skip_reason"), // 'customer_request', 'weather', 'no_access', 'vacation', 'other'
+  skipNotes: text("skip_notes"), // Optional additional notes
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

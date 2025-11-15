@@ -576,6 +576,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Skip route (customer still gets charged)
+  app.post("/api/routes/:id/skip", async (req, res) => {
+    try {
+      const { reason, notes } = req.body;
+      const userId = req.user?.id || "system";
+      
+      if (!reason) {
+        return res.status(400).json({ message: "Skip reason is required" });
+      }
+      
+      const route = await storage.skipRoute(req.params.id, userId, reason, notes);
+      res.json(route);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Unskip route (restore to scheduled)
+  app.post("/api/routes/:id/unskip", async (req, res) => {
+    try {
+      const route = await storage.unskipRoute(req.params.id);
+      res.json(route);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ========== TIMER ROUTES ==========
   app.post("/api/routes/:id/timer/start", async (req, res) => {
     try {
@@ -761,6 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const serviceTypes = await storage.getAllServiceTypes();
       let amount = 0;
       let serviceTypeName = "Service";
+      let timesPerWeek = 1;
       
       if (customer.serviceTypeId) {
         const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
@@ -771,18 +799,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const pricePerExtraDog = typeof serviceType.pricePerExtraDog === 'string'
             ? parseFloat(serviceType.pricePerExtraDog)
             : serviceType.pricePerExtraDog;
+          timesPerWeek = serviceType.timesPerWeek || 1;
+          
+          // Calculate per-visit cost: basePrice + (pricePerExtraDog * numberOfDogs)
+          const perVisitCost = basePrice + (pricePerExtraDog * customer.numberOfDogs);
+          
+          // Calculate monthly amount: perVisitCost * timesPerWeek * 4 weeks
+          amount = perVisitCost * timesPerWeek * 4;
+          serviceTypeName = serviceType.name;
           
           console.log('Pricing calculation:', {
             serviceTypeName: serviceType.name,
             basePrice,
             pricePerExtraDog,
             numberOfDogs: customer.numberOfDogs,
+            timesPerWeek,
+            perVisitCost,
+            monthlyAmount: amount,
           });
-          
-          amount = basePrice + (pricePerExtraDog * customer.numberOfDogs);
-          serviceTypeName = serviceType.name;
-          
-          console.log('Calculated amount:', amount);
         }
       }
       
@@ -803,7 +837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: amount.toFixed(2), // Ensure proper decimal string format
         status: "unpaid",
         dueDate: dueDate.toISOString().split('T')[0],
-        description: `${serviceTypeName} for ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''}`,
+        description: `${serviceTypeName} (${timesPerWeek}x/week × 4 weeks) - ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''}`,
       });
 
       // If customer has autopay, charge them immediately
