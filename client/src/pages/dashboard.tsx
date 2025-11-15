@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, MapPin, FileText, DollarSign } from "lucide-react";
 import type { Customer, Route, Invoice } from "@shared/schema";
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  
   const { data: customers, isLoading: loadingCustomers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
@@ -30,7 +33,8 @@ export default function Dashboard() {
       icon: Users,
       description: "Currently serviced",
       gradient: "from-[#00BCD4] to-[#FF6F00]",
-      testId: "stat-customers"
+      testId: "stat-customers",
+      link: "/customers"
     },
     {
       title: "Today's Routes",
@@ -38,7 +42,8 @@ export default function Dashboard() {
       icon: MapPin,
       description: "Scheduled for today",
       gradient: "from-[#FF6F00] to-[#00BCD4]",
-      testId: "stat-routes"
+      testId: "stat-routes",
+      link: "/routes"
     },
     {
       title: "Unpaid Invoices",
@@ -46,7 +51,8 @@ export default function Dashboard() {
       icon: FileText,
       description: "Awaiting payment",
       gradient: "from-[#00BCD4] to-[#FF6F00]",
-      testId: "stat-invoices"
+      testId: "stat-invoices",
+      link: "/invoices?filter=unpaid"
     },
     {
       title: "Total Revenue",
@@ -54,7 +60,8 @@ export default function Dashboard() {
       icon: DollarSign,
       description: "All-time earnings",
       gradient: "from-[#FF6F00] to-[#00BCD4]",
-      testId: "stat-revenue"
+      testId: "stat-revenue",
+      link: "/invoices?filter=paid"
     },
   ];
 
@@ -79,7 +86,12 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <Card key={stat.title} className="hover-elevate" data-testid={stat.testId}>
+          <Card 
+            key={stat.title} 
+            className="hover-elevate active-elevate-2 cursor-pointer" 
+            data-testid={stat.testId}
+            onClick={() => setLocation(stat.link)}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {stat.title}
