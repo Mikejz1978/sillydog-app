@@ -1567,7 +1567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       
-      // If accepting a booking, automatically create a customer and delete the booking
+      // If accepting a booking, automatically create a customer and mark as completed
       if (updates.status === "accepted") {
         const booking = await storage.getBookingRequest(id);
         if (!booking) {
@@ -1597,15 +1597,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`✅ Customer created from booking: ${newCustomer.name} (${customerId})`);
         }
         
-        // Delete the booking request since it's been converted to a customer
-        await storage.deleteBookingRequest(id);
-        console.log(`🗑️ Booking request deleted after acceptance: ${booking.name}`);
+        // Mark the booking as completed (instead of deleting) and store the customer ID
+        const completed = await storage.updateBookingRequest(id, {
+          status: "completed",
+          customerId: customerId,
+        });
+        console.log(`✅ Booking request marked as completed: ${booking.name}`);
         
-        // Return the customer ID so the frontend knows it was successful
+        // Return the completed booking
         return res.json({ 
           message: "Booking accepted and customer created",
           customerId,
-          deleted: true
+          booking: completed
         });
       }
       

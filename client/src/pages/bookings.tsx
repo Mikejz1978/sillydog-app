@@ -30,7 +30,7 @@ export default function Bookings() {
   });
 
   const pendingBookings = allBookings.filter(b => b.status === "pending");
-  const acceptedBookings = allBookings.filter(b => b.status === "accepted");
+  const completedBookings = allBookings.filter(b => b.status === "completed");
   const rejectedBookings = allBookings.filter(b => b.status === "rejected");
 
   const acceptMutation = useMutation({
@@ -112,7 +112,7 @@ export default function Bookings() {
   const BookingCard = ({ booking }: { booking: BookingRequest }) => {
     const statusColors = {
       pending: "bg-yellow-100 text-yellow-800",
-      accepted: "bg-green-100 text-green-800",
+      completed: "bg-green-100 text-green-800",
       rejected: "bg-red-100 text-red-800",
     };
 
@@ -201,21 +201,9 @@ export default function Bookings() {
             </div>
           )}
 
-          {booking.status === "accepted" && !booking.customerId && (
-            <Button
-              onClick={() => convertToCustomer(booking)}
-              className="w-full"
-              variant="outline"
-              data-testid={`button-convert-${booking.id}`}
-            >
-              <User className="h-4 w-4 mr-2" />
-              Convert to Customer
-            </Button>
-          )}
-
           {booking.customerId && (
             <Badge variant="secondary" className="w-full justify-center">
-              Converted to Customer
+              Customer Created
             </Badge>
           )}
         </CardContent>
@@ -247,8 +235,8 @@ export default function Bookings() {
           <TabsTrigger value="pending" data-testid="tab-pending">
             Pending ({pendingBookings.length})
           </TabsTrigger>
-          <TabsTrigger value="accepted" data-testid="tab-accepted">
-            Accepted ({acceptedBookings.length})
+          <TabsTrigger value="completed" data-testid="tab-completed">
+            Completed ({completedBookings.length})
           </TabsTrigger>
           <TabsTrigger value="rejected" data-testid="tab-rejected">
             Rejected ({rejectedBookings.length})
@@ -271,16 +259,16 @@ export default function Bookings() {
           )}
         </TabsContent>
 
-        <TabsContent value="accepted" className="space-y-4">
-          {acceptedBookings.length === 0 ? (
+        <TabsContent value="completed" className="space-y-4">
+          {completedBookings.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
-                <p className="text-muted-foreground">No accepted booking requests</p>
+                <p className="text-muted-foreground">No completed booking requests</p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4">
-              {acceptedBookings.map(booking => (
+              {completedBookings.map(booking => (
                 <BookingCard key={booking.id} booking={booking} />
               ))}
             </div>
@@ -310,7 +298,7 @@ export default function Bookings() {
           <DialogHeader>
             <DialogTitle>Accept Booking Request?</DialogTitle>
             <DialogDescription>
-              This will mark the booking as accepted. You can then convert it to a customer record.
+              This will automatically create a customer record and mark the booking as completed. The customer will be added to your customer list.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
