@@ -545,10 +545,10 @@ export default function Customers() {
       const response = await apiRequest("POST", "/api/customers", payload);
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Customer Added",
         description: scheduleDays.length > 0 
