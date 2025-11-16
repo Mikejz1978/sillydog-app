@@ -135,11 +135,32 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       // Update customer's preferred days to match the schedule
       try {
         await apiRequest("PATCH", `/api/customers/${customer.id}`, {
-          preferredDays: variables.byDay,
+          name: customer.name,
+          address: customer.address,
+          phone: customer.phone,
+          email: customer.email,
+          serviceTypeId: customer.serviceTypeId,
+          numberOfDogs: customer.numberOfDogs,
+          gateCode: customer.gateCode,
+          yardNotes: customer.yardNotes,
+          status: customer.status,
+          billingMethod: customer.billingMethod,
+          stripeCustomerId: customer.stripeCustomerId,
+          stripePaymentMethodId: customer.stripePaymentMethodId,
+          autopayEnabled: customer.autopayEnabled,
+          lat: customer.lat,
+          lng: customer.lng,
+          smsOptIn: customer.smsOptIn,
+          preferredDays: variables.byDay, // Update with new preferred days
         });
         queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       } catch (error) {
         console.error("Failed to update customer preferred days:", error);
+        toast({
+          title: "Warning",
+          description: "Schedule created but failed to save preferred days.",
+          variant: "destructive",
+        });
       }
       
       queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules", customer.id] });
