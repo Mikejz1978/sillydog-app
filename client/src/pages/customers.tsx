@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +9,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +26,23 @@ import {
   type ServiceType,
 } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+
+// Utility function to check for missing critical customer information
+function getIncompleteFields(customer: Customer): string[] {
+  const missing: string[] = [];
+  
+  if (!customer.name || customer.name.trim() === "") missing.push("Name");
+  if (!customer.address || customer.address.trim() === "") missing.push("Address");
+  if (!customer.email || customer.email.trim() === "") missing.push("Email");
+  if (!customer.phone || customer.phone.trim() === "") missing.push("Phone");
+  if (!customer.serviceTypeId) missing.push("Service Type");
+  
+  return missing;
+}
+
+function hasIncompleteData(customer: Customer): boolean {
+  return getIncompleteFields(customer).length > 0;
+}
 
 // Schedule Management Dialog Component
 function ScheduleDialog({ customer }: { customer: Customer }) {
@@ -442,7 +462,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("active");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "incomplete">("active");
   const { toast } = useToast();
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -729,7 +749,9 @@ export default function Customers() {
       ? true 
       : statusFilter === "active" 
         ? customer.status === "active"
-        : customer.status === "inactive";
+        : statusFilter === "archived"
+          ? customer.status === "inactive"
+          : hasIncompleteData(customer); // incomplete filter
     
     // Apply search filter
     const searchMatch = searchTerm === "" || 
@@ -739,6 +761,9 @@ export default function Customers() {
     
     return statusMatch && searchMatch;
   });
+  
+  // Count customers with incomplete data
+  const incompleteCustomersCount = customers?.filter(hasIncompleteData).length || 0;
 
   if (isLoading) {
     return (
@@ -950,7 +975,7 @@ export default function Customers() {
                         <SelectContent>
                           {serviceTypes?.map((type) => (
                             <SelectItem key={type.id} value={type.id}>
-                              {type.name} - ${type.basePrice}{type.pricePerDog > 0 && ` + $${type.pricePerDog}/dog`}
+                              {type.name} - ${type.basePrice}{type.pricePerExtraDog > 0 && ` + $${type.pricePerExtraDog}/dog`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1177,6 +1202,24 @@ export default function Customers() {
         </Dialog>
       </div>
 
+      {/* Incomplete Data Warning Banner */}
+      {incompleteCustomersCount > 0 && statusFilter !== "incomplete" && (
+        <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/20" data-testid="alert-incomplete-data">
+          <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <AlertTitle className="text-orange-900 dark:text-orange-100">Missing Customer Information</AlertTitle>
+          <AlertDescription className="text-orange-800 dark:text-orange-200">
+            {incompleteCustomersCount} {incompleteCustomersCount === 1 ? "customer is" : "customers are"} missing critical information (name, address, email, phone, or service type).{" "}
+            <button
+              onClick={() => setStatusFilter("incomplete")}
+              className="underline font-medium hover:no-underline"
+              data-testid="link-view-incomplete"
+            >
+              View incomplete customers
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1189,9 +1232,9 @@ export default function Customers() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-muted-foreground">Show:</span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant={statusFilter === "active" ? "default" : "outline"}
               size="sm"
@@ -1208,6 +1251,16 @@ export default function Customers() {
             >
               <Archive className="w-3 h-3 mr-1" />
               Archived ({customers?.filter(c => c.status === "inactive").length || 0})
+            </Button>
+            <Button
+              variant={statusFilter === "incomplete" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("incomplete")}
+              className={statusFilter === "incomplete" ? "" : "border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/20"}
+              data-testid="filter-incomplete"
+            >
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Incomplete ({incompleteCustomersCount})
             </Button>
             <Button
               variant={statusFilter === "all" ? "default" : "outline"}
@@ -1241,12 +1294,37 @@ export default function Customers() {
               nextVisit = formatNextVisit(earliest.date, earliest.windowStart);
             }
 
+            const incompleteFields = getIncompleteFields(customer);
+            const hasIncomplete = incompleteFields.length > 0;
+
             return (
-            <Card key={customer.id} className="hover-elevate" data-testid={`customer-card-${customer.id}`}>
+            <Card key={customer.id} className={`hover-elevate ${hasIncomplete ? "border-orange-300 dark:border-orange-700" : ""}`} data-testid={`customer-card-${customer.id}`}>
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-lg">{customer.name}</h3>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">{customer.name}</h3>
+                      {hasIncomplete && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-700 cursor-help" data-testid={`badge-incomplete-${customer.id}`}>
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Missing Data
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="font-semibold mb-1">Missing Information:</p>
+                              <ul className="list-disc list-inside text-sm">
+                                {incompleteFields.map(field => (
+                                  <li key={field}>{field}</li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                     <div className={`text-xs font-medium px-2 py-1 rounded-full inline-block mt-1 ${
                       customer.status === "active" 
                         ? "bg-green-100 text-green-800" 
@@ -1390,7 +1468,9 @@ export default function Customers() {
                   ? "No archived customers" 
                   : statusFilter === "active"
                     ? "No active customers"
-                    : "No customers found"
+                    : statusFilter === "incomplete"
+                      ? "No customers with incomplete data - great job!"
+                      : "No customers found"
               }
             </p>
           </div>
