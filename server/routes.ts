@@ -67,10 +67,23 @@ async function sendSMS(to: string, message: string) {
     return;
   }
 
-  // Ensure phone number is in E.164 format (starts with +)
-  let formattedPhone = to.trim();
-  if (!formattedPhone.startsWith('+')) {
-    formattedPhone = '+' + formattedPhone;
+  // Format phone number to E.164 format for US numbers (+1XXXXXXXXXX)
+  let cleanDigits = to.trim().replace(/\D/g, ''); // Remove all non-digits
+  
+  // Strict validation: ONLY accept 10 digits OR 11 digits starting with 1
+  let formattedPhone: string;
+  if (cleanDigits.length === 10) {
+    // Valid 10-digit US number → add +1 country code
+    formattedPhone = '+1' + cleanDigits;
+  } else if (cleanDigits.length === 11 && cleanDigits.startsWith('1')) {
+    // Valid 11-digit number with country code → add +
+    formattedPhone = '+' + cleanDigits;
+  } else {
+    // Invalid format - log error and return early (don't break workflows)
+    console.error(`❌ Invalid phone number format: "${to}" (${cleanDigits.length} digits after sanitization)`);
+    console.error(`   Expected: 10 digits (e.g., 7027877722) or 11 digits starting with 1 (e.g., 17027877722)`);
+    console.error(`   SMS NOT SENT. Please update customer record with valid US phone number.`);
+    return; // Return early - don't throw error to avoid breaking invoices/routes
   }
 
   try {
@@ -84,7 +97,8 @@ async function sendSMS(to: string, message: string) {
     console.error(`❌ Failed to send SMS to ${formattedPhone}:`, error.message);
     console.error(`   Error code: ${error.code}`);
     console.error(`   More info: ${error.moreInfo}`);
-    throw error;
+    // Don't rethrow - log error but allow workflow to continue
+    console.error(`   SMS delivery failed but workflow will continue`);
   }
 }
 
@@ -769,6 +783,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json(invoice);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/invoices/:id", async (req, res) => {
+    try {
+      await storage.deleteInvoice(req.params.id);
+      res.json({ message: "Invoice deleted successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

@@ -65,6 +65,7 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice>;
   markInvoicePaid(id: string, paymentIntentId: string): Promise<Invoice>;
+  deleteInvoice(id: string): Promise<void>;
 
   // Job History
   getAllJobHistory(): Promise<JobHistory[]>;
@@ -315,6 +316,13 @@ export class MemStorage implements IStorage {
     };
     this.invoices.set(id, updated);
     return updated;
+  }
+
+  async deleteInvoice(id: string): Promise<void> {
+    if (!this.invoices.has(id)) {
+      throw new Error("Invoice not found");
+    }
+    this.invoices.delete(id);
   }
 
   // Job History
@@ -710,6 +718,14 @@ export class DbStorage implements IStorage {
       .returning();
     if (!result[0]) throw new Error("Invoice not found");
     return result[0];
+  }
+
+  async deleteInvoice(id: string): Promise<void> {
+    const result = await this.db
+      .delete(schema.invoices)
+      .where(eq(schema.invoices.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Invoice not found");
   }
 
   // Job History

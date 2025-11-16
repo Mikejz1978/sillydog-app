@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, DollarSign, Calendar, Download } from "lucide-react";
+import { Plus, Search, DollarSign, Calendar, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +43,19 @@ export default function Invoices() {
       });
       setDialogOpen(false);
       form.reset();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      await apiRequest("DELETE", `/api/invoices/${invoiceId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Invoice Deleted",
+        description: "Invoice has been deleted successfully.",
+      });
     },
   });
 
@@ -329,10 +342,28 @@ export default function Invoices() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold">${parseFloat(invoice.amount).toFixed(2)}</p>
-                      <Button variant="outline" size="sm" className="mt-2" data-testid={`button-download-${invoice.id}`}>
-                        <Download className="w-3 h-3 mr-1" />
-                        Download
-                      </Button>
+                      <div className="flex gap-2 mt-2 justify-end">
+                        <Button variant="outline" size="sm" data-testid={`button-download-${invoice.id}`}>
+                          <Download className="w-3 h-3 mr-1" />
+                          Download
+                        </Button>
+                        {invoice.status !== "paid" && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              if (confirm(`Delete invoice #${invoice.invoiceNumber}?\n\nThis action cannot be undone.`)) {
+                                deleteMutation.mutate(invoice.id);
+                              }
+                            }}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-${invoice.id}`}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
