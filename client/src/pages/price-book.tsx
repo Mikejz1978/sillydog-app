@@ -323,7 +323,7 @@ export default function PriceBook() {
                             <SelectItem value="5">5x per week</SelectItem>
                           </SelectContent>
                         </Select>
-                        <FormDescription>For high-frequency services</FormDescription>
+                        <FormDescription>Used to calculate monthly billing (basePrice × timesPerWeek × 4)</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

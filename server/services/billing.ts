@@ -52,9 +52,17 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
         amount = basePrice * timesPerWeek * 4;
         serviceTypeName = serviceType.name;
         
-        // Skip if zero amount
-        if (amount === 0) {
-          results.errors.push(`Skipped ${customer.name}: Service type has no price`);
+        // Validate calculation
+        if (!basePrice || basePrice <= 0 || isNaN(basePrice)) {
+          results.errors.push(`Skipped ${customer.name}: Invalid base price in service type "${serviceType.name}"`);
+          continue;
+        }
+        if (!timesPerWeek || timesPerWeek <= 0 || isNaN(timesPerWeek)) {
+          results.errors.push(`Skipped ${customer.name}: Invalid times per week in service type "${serviceType.name}"`);
+          continue;
+        }
+        if (isNaN(amount) || amount <= 0) {
+          results.errors.push(`Skipped ${customer.name}: Calculated amount is invalid (basePrice: ${basePrice}, timesPerWeek: ${timesPerWeek})`);
           continue;
         }
 
