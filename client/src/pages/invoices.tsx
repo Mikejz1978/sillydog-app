@@ -19,6 +19,8 @@ export default function Invoices() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const { toast } = useToast();
 
   const { data: customers } = useQuery<Customer[]>({
@@ -306,8 +308,17 @@ export default function Invoices() {
         {filteredInvoices && filteredInvoices.length > 0 ? (
           filteredInvoices.map((invoice) => {
             const customer = customers?.find(c => c.id === invoice.customerId);
+            const serviceType = serviceTypes?.find(st => st.id === customer?.serviceTypeId);
             return (
-              <Card key={invoice.id} className="hover-elevate" data-testid={`invoice-card-${invoice.id}`}>
+              <Card 
+                key={invoice.id} 
+                className="hover-elevate cursor-pointer" 
+                data-testid={`invoice-card-${invoice.id}`}
+                onClick={() => {
+                  setSelectedInvoice(invoice);
+                  setDetailDialogOpen(true);
+                }}
+              >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
@@ -348,7 +359,14 @@ export default function Invoices() {
                     <div className="text-right">
                       <p className="text-2xl font-bold">${parseFloat(invoice.amount).toFixed(2)}</p>
                       <div className="flex gap-2 mt-2 justify-end">
-                        <Button variant="outline" size="sm" data-testid={`button-download-${invoice.id}`}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          data-testid={`button-download-${invoice.id}`}
+                        >
                           <Download className="w-3 h-3 mr-1" />
                           Download
                         </Button>
@@ -356,7 +374,8 @@ export default function Invoices() {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setInvoiceToDelete(invoice);
                               setDeleteDialogOpen(true);
                             }}
@@ -380,6 +399,167 @@ export default function Invoices() {
           </div>
         )}
       </div>
+
+      {/* Invoice Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-invoice-detail">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+            <DialogDescription>
+              Complete information for invoice #{selectedInvoice?.invoiceNumber}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedInvoice && (() => {
+            const customer = customers?.find(c => c.id === selectedInvoice.customerId);
+            const serviceType = serviceTypes?.find(st => st.id === customer?.serviceTypeId);
+            return (
+              <div className="space-y-6">
+                {/* Invoice Header */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold">#{selectedInvoice.invoiceNumber}</h3>
+                    <div className={`inline-block text-xs font-medium px-3 py-1 rounded-full mt-2 ${
+                      selectedInvoice.status === "paid" 
+                        ? "bg-green-100 text-green-800" 
+                        : selectedInvoice.status === "overdue"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}>
+                      {selectedInvoice.status.toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Amount</p>
+                    <p className="text-3xl font-bold text-primary">
+                      ${parseFloat(selectedInvoice.amount).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Customer Information */}
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Customer Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Name</p>
+                      <p className="font-medium">{customer?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Email</p>
+                      <p className="font-medium">{customer?.email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Phone</p>
+                      <p className="font-medium">{customer?.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Address</p>
+                      <p className="font-medium">{customer?.address}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Service Information */}
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Service Details</h4>
+                  {selectedInvoice.description ? (
+                    <p className="text-sm text-muted-foreground mb-3">{selectedInvoice.description}</p>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Service Type</p>
+                      <p className="font-medium">{serviceType?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Number of Dogs</p>
+                      <p className="font-medium">{customer?.numberOfDogs}</p>
+                    </div>
+                    {serviceType && (
+                      <>
+                        <div>
+                          <p className="text-muted-foreground">Frequency</p>
+                          <p className="font-medium">{serviceType.timesPerWeek}x per week</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Base Price</p>
+                          <p className="font-medium">${parseFloat(serviceType.basePrice.toString()).toFixed(2)}</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Invoice Dates */}
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Dates</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Created</p>
+                      <p className="font-medium">
+                        {selectedInvoice.createdAt 
+                          ? new Date(selectedInvoice.createdAt).toLocaleDateString()
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Due Date</p>
+                      <p className="font-medium">{selectedInvoice.dueDate}</p>
+                    </div>
+                    {selectedInvoice.paidAt && (
+                      <div>
+                        <p className="text-muted-foreground">Paid Date</p>
+                        <p className="font-medium">
+                          {new Date(selectedInvoice.paidAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                {selectedInvoice.stripePaymentIntentId && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Payment Information</h4>
+                    <div className="text-sm">
+                      <p className="text-muted-foreground">Stripe Payment ID</p>
+                      <p className="font-mono text-xs">{selectedInvoice.stripePaymentIntentId}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="border-t pt-4 flex gap-2 justify-end">
+                  <Button 
+                    variant="outline" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    data-testid="button-download-invoice"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </Button>
+                  {selectedInvoice.status !== "paid" && (
+                    <Button 
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInvoiceToDelete(selectedInvoice);
+                        setDetailDialogOpen(false);
+                        setDeleteDialogOpen(true);
+                      }}
+                      data-testid="button-delete-invoice"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Invoice
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
