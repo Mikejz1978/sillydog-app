@@ -1015,7 +1015,20 @@ export default function Customers() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Service Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Auto-extract number of dogs from service type name
+                          const selectedType = serviceTypes?.find(t => t.id === value);
+                          if (selectedType) {
+                            const match = selectedType.name.match(/^(\d+)\s+Dog/);
+                            if (match) {
+                              form.setValue("numberOfDogs", parseInt(match[1]));
+                            }
+                          }
+                        }} 
+                        value={field.value || ""}
+                      >
                         <FormControl>
                           <SelectTrigger data-testid="select-service-type">
                             <SelectValue placeholder="Select service type" />
@@ -1029,6 +1042,32 @@ export default function Customers() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Number of Dogs Field */}
+                <FormField
+                  control={form.control}
+                  name="numberOfDogs"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Dogs</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          max="20"
+                          placeholder="1" 
+                          data-testid="input-number-of-dogs"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Auto-filled from service type. For reference only - pricing is based on service type.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
