@@ -1,0 +1,63 @@
+industry,industry_uuid,category,uuid,name,description,price,cost,taxable,unit_of_measure,task_code,online_booking_enabled
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,3 Dogs,olit_ae450c3550834835b9c917052c6f72d7,3 Dogs 1x Week,Pooper Scooper Service Weekly Service 3 Dogs,$15.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,4 Dogs,olit_0d6985d8de6a48c5a5ebf14fc97d1809,4 Dogs 3x A week,Waste Removal 4 Dogs 3 Times a week,$12.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Complex,olit_cc9356c8b3064d12a6fef1bf9849ab27,Complex Priceing,Waste Removal Service (Pooper Scooper),$0.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Spray,olit_fd569baf90d04a65964e06b14b62ce56,Spray,Yard Spray,$5.95,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_755cf123303e4244a957a53074fd0b37,Biweekly 2 Dogs,Pooper Scooper Service Bi weekly 2 Dogs,$25.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,4 Dogs,olit_4cae32ee45c34f90a384a997a865f25c,4 Dogs 1x Week,Pooper Scooper Service Weekly Service 4 Dogs,$16.25,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,5 Dogs,olit_c1bde63ce0624be8ae7b02ddfee8e891,5 Dogs 1x Week,Pooper Scooper Service Weekly Service 5 Dogs,$17.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,2 Dogs,olit_4fad96efc7a842ebbb3af35dcab1e897,2 Dogs 2X a Week,Pooper Scooper Waste Removal 2 Dogs 2 times a week,$12.25,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,3 Dogs,olit_cddab3cd95d74fd3be9f9de7c4127be0,3 Dogs 2x a Week,Waste Removal 3 Dogs 2 Times a week,$12.38,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,2 Dogs,olit_1d0512b1f335473db3007395e30e0ecc,2 Dogs 3x a Week,Waste Removal 2 Dogs 3 Times a Week,$11.15,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,1 Dog,olit_61e45b0dc02d4624960364fb1f52d744,1 Dog 1x Week,Pooper Scooper Service Weekly service 1 Dog,$12.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,1 Dog,olit_c6e0a3f5224c4990acd16a4c144bc758,1 Dog 2x a Week,Pooper Scooper 2 Times a week 1 Dog,$11.62,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,2 Dogs,olit_4b1c4de745d44826949b1053dac83380,2 Dogs 1x Week,Pooper Scooper Service Weekly Service 2 Dog,$13.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_dcc9e08028b04d389710ef39392cc79a,Biweekly 4 Dogs,Pet waste cleanup Biweekly 4 Dogs,$40.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_4518c8594b964934833df9fe148095cc,Biweekly 1 Dog,Biweekly Waste Removal 1 Dog,$20.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_2bda425f931744ae9c92bf103272e767,biweekly 3 dogs,Pooper Scooper Bi Weekly 3 Dogs,$30.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,3 Dogs,olit_7dd813f16efa4d4c8eac895b1611347e,3 Dogs 4x Aweek,Waste Removal 3 Dogs 4 Times a week,$10.69,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,3 Dogs,olit_cdac5b65caa1483bac105df4aa3fc62e,3 Dogs 3x Week,Pooper Scooper Service 3 Times a week Service 3 Dogs,$10.42,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,One Time,olit_ac308668f09541759e9e603aa4eb83dd,Deep initial clean,Pooper Scooper Service,$100.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Discounts,olit_580c47107cf6460e84664851f69e3952,Military,Military discount,$0.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Discounts,olit_16b797463cfe4bbd9f63395f77f04390,Upgrade fee,2 house service fee,$10.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_587a82b618814b1f91976ee1654b4e50,Credit,,$0.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_7f9b68a167f44661909b7e0555802ce4,Sales,,$0.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,5 Dogs,olit_b08d7349f6e543ef9da8ed8862254282,5 Dogs 2x a Week,Pet Waste Removal 5 Dogs 2x a Week,$16.43,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_8eeefb2043174fac9d4d6b6c14f0d2ed,Late Fee,Late fee,$10.00,$0.00,true,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_2a0a158102d645168ac55d3674eec2cc,Off route fee,,$0.00,$0.00,true,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_71269042aa00415dbc6ab65dd0538534,Pet sitting,Check on animal feed and water,$25.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_464c47cc887e4d2db734497467801871,$10 Service,Waster Removal (Pooper Scooper),$10.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_e2946fdd77a54d2f9e17f57c0f274482,Dog Walking,Dog Walking,$12.50,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_fefe0b10db854535bc140d1640bdf31a,Past Due,,$0.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,fees,olit_cbe01a509b78418d8fbc603a9ef018a1,Fuel Surcharge,Fuel Surcharge,$2.00,$0.00,false,,,false
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,1 Dog,olit_da8d67a8c24f4a688b8933165a663fe8,1 Dog 3x a week,Waste removal 1 dog 3x a week,$10.58,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,1 Dog,olit_d94a9b869b4f423180aca082561c3a5d,1 dog 4x a week,waste removal 1 dog 4x a week,$10.06,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,1 Dog,olit_2f3faabf32dc4df28b8658fa08f2a94a,1 dog 5x a week ,waste removal 1 dog 5x a week ,$9.75,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,2 Dogs,olit_093b0aef3962424e96a7f351d17b1f78,2 Dogs 4x a week,Waste removal 2 Dogs 4x a week,$10.38,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,2 Dogs,olit_6fadb1525c3f4762b48dee302b5938cf,2 dogs 5x a week,Waste Removal 2 dogs 5x a week,$10.00,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,3 Dogs,olit_545ba48f91cf43da9a3ee447132f6c02,3 dogs 5x a week,Waste Removal 3 dogs 5x a week,$10.25,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,4 Dogs,olit_7e2f7a99fad14a4ab81df19a22f70839,4 Dogs 2x a Week,Pet Waste Removal 4 Dogs 2x a Week,$14.50,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,4 Dogs,olit_eb63e0ed524d4e06b0c7a1521db61d4e,4 Dogs 4x a week,Pet Waste Removal 4 Dogs 4x a Week,$11.50,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,4 Dogs,olit_7e3417f6595f4c5084c0abc9549462d7,4 Dogs 5x a Week,Pet Waste Removal 4 Dogs 5x a Week,$10.50,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,5 Dogs,olit_384453974f9d4e5baa88b63d673df453,5 Dogs 5x a Week,Pet Waste Removal 5 Dogs 5x a Week,$13.75,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,5 Dogs,olit_612c52bc22044b78ba924edc95261e9a, 5 Dogs 3x a Week,Pet Waste Removal 5 Dogs 3x a Week,$15.25,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,5 Dogs,olit_15124d5555aa4ded9665a60af706f60c,5 Dogs 4x a Week,Pet Waste Removal 5 Dogs 4x a Week,$14.31,$0.00,false,Each,"",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,6 dogs,olit_cdb464d0a88142cfb69cb550afe152dd,6 Dogs 2x a week,6 Dogs 2x a week,$18.25,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,6 dogs,olit_71eebdcda9704a21a3b11afce21f69c4,6 Dogs 1x a Week,6 Dogs 1x a Week,$18.75,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,6 dogs,olit_7b021801204d4fcb821990a5d4f230a6,6 Dogs 3x a Week,6 Dogs 3x A week,$17.00,$17.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,6 dogs,olit_89d7b15d516a49b6b77286b7fbe7389a,6 dogs 4x a week,6 Dogs 4x a Week,$15.88,$15.88,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,6 dogs,olit_49324c5a026b4ef89a2a1e8903e01b7b,6 dogs 5x a Week,6 dogs 5x a Week,$15.25,$15.25,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,7 Dogs,olit_9ba9a967cc8f48e08618b07baef95f60,7 Dogs 1x a Week,7 Dogs 1x a Week,$20.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,7 Dogs,olit_15329111c33d4fac999dbd4cde5c4227,7 Dogs 2x a Week,7 Dogs 2x a Week,$19.25,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,7 Dogs,olit_358ec3f847a14f48b8bd17dea1d0af43,7 Dogs 3x a Week,7 Dogs 3x a Week,$18.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,7 Dogs,olit_f0333f1f90ad4b8c9935cdba8da72a38,7 Dogs 4x a Week,7 Dogs 4x a Week,$17.25,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,7 Dogs,olit_c75c61ec77b84c2a90ea6cf18fce7204,7 Dogs 5x a Week,7 Dogs 5x a Week,$16.75,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,8 Dogs,olit_feff53188c8b4448a0a80274c54f37b5,8 Dogs 1x a Week,8 Dogs 1x a Week,$22.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,8 Dogs,olit_a03a4283c49948bdb27c283e8302e8c7,8 Dogs 2x a Week,8 Dogs 2x a Week,$21.50,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,8 Dogs,olit_7c5303eb7b7041d6a5b704f7f22aa5fa,8 Dogs 3x a Week,8 Dogs 3x a Week,$20.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,8 Dogs,olit_438e3f39691546fbb7863cbe99fe5842,8 Dogs 4x a Week,8 Dogs 4x a Week,$18.75,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,8 Dogs,olit_885cc1ca8089452685ec58b00a6ae0ec,8 Dogs 5x a Week,8 Dogs 5x a Week,$18.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_b3ccd19615054d54b9db65e5d659840d,Biweekly 6 Dogs,Biweekly 6 Dogs,$55.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_18b19f5f9eb84642bfab6cd5db496c80,Biweekly 7 Dogs,Biweekly 7 Dogs,$60.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_50141dd6d4874a57b73f67ef4eefdce7,Biweekly 8 Dogs,Biweekly 8 Dogs,$65.00,$0.00,false,"","",true
+Pets,ind_62478b2ca5ab444aa7bc5d7f63cdc32f,Biweekly,olit_4952b1a2f7cc4e19b082462ff49b40d1,Biweekly 5 Dogs,Biweekly 5 Dogs,$50.00,$0.00,false,"","",true
