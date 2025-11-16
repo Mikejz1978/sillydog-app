@@ -1034,9 +1034,20 @@ export default function Customers() {
                             <SelectValue placeholder="Select service type" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          {serviceTypes?.map((type) => (
-                            <SelectItem key={type.id} value={type.id}>
+                        <SelectContent className="max-h-[300px]">
+                          {serviceTypes
+                            ?.sort((a, b) => {
+                              // Sort by category, then by name
+                              if (a.category < b.category) return -1;
+                              if (a.category > b.category) return 1;
+                              return a.name.localeCompare(b.name);
+                            })
+                            .map((type) => (
+                            <SelectItem 
+                              key={type.id} 
+                              value={type.id}
+                              data-testid={`select-option-${type.name.toLowerCase().replace(/\s+/g, '-')}`}
+                            >
                               {type.name} - ${type.basePrice}/visit
                             </SelectItem>
                           ))}

@@ -28,12 +28,6 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
     let invoiceCounter = 1000;
 
     for (const customer of activeCustomers) {
-      const customerSchedules = scheduleRules.filter(
-        rule => rule.customerId === customer.id && !rule.paused
-      );
-
-      if (customerSchedules.length === 0) continue;
-
       try {
         // Get service type for pricing calculation
         const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
