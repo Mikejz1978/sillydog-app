@@ -31,10 +31,10 @@ This project is a comprehensive web-based business management platform designed 
 -   **CSV Import**: Functionality to import customers and schedules from CSV (e.g., HouseCall Pro) with duplicate detection.
 -   **Text Messaging Portal**: Two-way SMS communication interface with customer list, conversation view, and message history.
 -   **Automated Notifications**: "In Route," "Service Complete," night-before reminders, and booking notifications via SMS.
--   **Invoicing & Billing**: Auto-calculated invoices based on service plans and dog counts, timer-based billing for one-time services, automatic monthly billing, and autopay system.
+-   **Invoicing & Billing**: **Fixed-price per-visit billing system** - 44 service type combinations matching HouseCall Pro (1-8 dogs × 1-5x weekly + biweekly). Each service type has a fixed price per visit. Invoices are generated automatically based on actual completed billable routes. Monthly billing job creates invoices for all active customers with completed routes in the billing period. Autopay system charges customers automatically if enabled.
 -   **Customer Portal**: Allows clients to view service details, upcoming routes, payment history, and outstanding balances.
 -   **Public Booking Page**: Customer-facing interface for new service requests with rate-limiting and admin notification system. When a booking is accepted, a customer is automatically created and added to the customer list.
--   **Service Catalog (Price Book)**: Manages service types with flexible pricing (base price + per-dog pricing).
+-   **Service Catalog (Price Book)**: **44 fixed-price service type combinations** matching HouseCall Pro exactly - no dynamic pricing calculations. Examples: "3 Dogs 2x Week" = $12.38/visit, "Biweekly 5 Dogs" = $50.00/visit.
 -   **Job Documentation**: Photo upload system for before/after photos during service completion.
 -   **Reporting**: Generates reports with CSV exports for revenue, jobs, and invoices.
 
