@@ -50,6 +50,7 @@ export interface IStorage {
   // Routes
   getAllRoutes(): Promise<Route[]>;
   getRoutesByDate(date: string): Promise<Route[]>;
+  getRoutesByCustomerAndDateRange(customerId: string, startDate: string, endDate: string): Promise<Route[]>;
   getRoute(id: string): Promise<Route | undefined>;
   createRoute(route: InsertRoute): Promise<Route>;
   updateRoute(id: string, route: Partial<InsertRoute>): Promise<Route>;
@@ -183,6 +184,12 @@ export class MemStorage implements IStorage {
 
   async getRoutesByDate(date: string): Promise<Route[]> {
     return Array.from(this.routes.values()).filter((route) => route.date === date);
+  }
+
+  async getRoutesByCustomerAndDateRange(customerId: string, startDate: string, endDate: string): Promise<Route[]> {
+    return Array.from(this.routes.values()).filter(
+      (route) => route.customerId === customerId && route.date >= startDate && route.date <= endDate
+    );
   }
 
   async getRoute(id: string): Promise<Route | undefined> {
@@ -473,7 +480,7 @@ export class MemStorage implements IStorage {
 
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, lte } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
 
@@ -588,6 +595,19 @@ export class DbStorage implements IStorage {
       .select()
       .from(schema.routes)
       .where(eq(schema.routes.date, date));
+  }
+
+  async getRoutesByCustomerAndDateRange(customerId: string, startDate: string, endDate: string): Promise<Route[]> {
+    return await this.db
+      .select()
+      .from(schema.routes)
+      .where(
+        and(
+          eq(schema.routes.customerId, customerId),
+          gte(schema.routes.date, startDate),
+          lte(schema.routes.date, endDate)
+        )
+      );
   }
 
   async getRoute(id: string): Promise<Route | undefined> {

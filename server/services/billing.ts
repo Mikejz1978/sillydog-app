@@ -36,33 +36,51 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
 
       try {
         // Get service type for pricing calculation
-        let amount = 0;
-        let serviceTypeName = "Service";
-        let timesPerWeek = 1;
-        
         const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
         if (!serviceType) {
           results.errors.push(`Skipped ${customer.name}: No service type configured`);
           continue;
         }
         
-        // Simplified pricing: basePrice × timesPerWeek × 4 weeks
+        // Validate service type pricing
         const basePrice = parseFloat(serviceType.basePrice);
-        timesPerWeek = serviceType.timesPerWeek || 1;
-        amount = basePrice * timesPerWeek * 4;
-        serviceTypeName = serviceType.name;
-        
-        // Validate calculation
+        const pricePerExtraDog = parseFloat(serviceType.pricePerExtraDog || "0");
         if (!basePrice || basePrice <= 0 || isNaN(basePrice)) {
           results.errors.push(`Skipped ${customer.name}: Invalid base price in service type "${serviceType.name}"`);
           continue;
         }
-        if (!timesPerWeek || timesPerWeek <= 0 || isNaN(timesPerWeek)) {
-          results.errors.push(`Skipped ${customer.name}: Invalid times per week in service type "${serviceType.name}"`);
+        
+        // Get completed routes for this customer in the billing period
+        const startDate = `${year}-${month.padStart(2, '0')}-01`;
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const endDate = `${year}-${month.padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+        
+        const allRoutes = await storage.getRoutesByCustomerAndDateRange(
+          customer.id,
+          startDate,
+          endDate
+        );
+        
+        // Filter to only billable completed routes
+        const completedRoutes = allRoutes.filter(
+          (route) => route.status === "completed" && route.billable
+        );
+        
+        if (completedRoutes.length === 0) {
+          results.errors.push(`Skipped ${customer.name}: No completed routes in ${month}/${year}`);
           continue;
         }
+        
+        // Calculate price per visit: basePrice + (numberOfDogs - 1) × pricePerExtraDog
+        const numberOfDogs = customer.numberOfDogs || 1;
+        const pricePerVisit = basePrice + Math.max(0, numberOfDogs - 1) * pricePerExtraDog;
+        
+        // Total amount = price per visit × number of completed visits
+        const amount = pricePerVisit * completedRoutes.length;
+        const serviceTypeName = serviceType.name;
+        
         if (isNaN(amount) || amount <= 0) {
-          results.errors.push(`Skipped ${customer.name}: Calculated amount is invalid (basePrice: ${basePrice}, timesPerWeek: ${timesPerWeek})`);
+          results.errors.push(`Skipped ${customer.name}: Calculated amount is invalid`);
           continue;
         }
 
@@ -74,7 +92,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
           amount: amount.toFixed(2),
           status: "unpaid",
           dueDate,
-          description: `${serviceTypeName} (${timesPerWeek}x/week × 4 weeks) - ${month}/${year}`,
+          description: `${serviceTypeName} - ${completedRoutes.length} visits × $${pricePerVisit.toFixed(2)} (${numberOfDogs} dog${numberOfDogs > 1 ? 's' : ''}) - ${month}/${year}`,
         });
 
         results.success++;
