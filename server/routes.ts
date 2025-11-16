@@ -1219,6 +1219,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingCustomers = await storage.getAllCustomers();
       console.log(`Found ${existingCustomers.length} existing customers in database`);
 
+      // Get a default service type for imports (use "1 Dog 1x Week" as default)
+      const allServiceTypes = await storage.getAllServiceTypes();
+      const defaultServiceType = allServiceTypes.find(st => st.name === "1 Dog 1x Week") || allServiceTypes[0];
+      
+      if (!defaultServiceType) {
+        return res.status(500).json({
+          success: false,
+          imported: 0,
+          skipped: 0,
+          errors: ["No service types found in database. Please create service types first."]
+        });
+      }
+      
+      console.log(`Using default service type: ${defaultServiceType.name} (ID: ${defaultServiceType.id})`);
+
       // Track imported identifiers in this batch to prevent duplicates within the CSV
       const importedPhones = new Set<string>();
       const importedEmails = new Set<string>();
@@ -1276,6 +1291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             address,
             phone,
             email: email || "",
+            serviceTypeId: defaultServiceType.id,
             numberOfDogs: 1,
             gateCode: "",
             yardNotes: "",
