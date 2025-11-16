@@ -323,7 +323,7 @@ export default function PriceBook() {
                             <SelectItem value="5">5x per week</SelectItem>
                           </SelectContent>
                         </Select>
-                        <FormDescription>Used to calculate monthly billing (basePrice × timesPerWeek × 4)</FormDescription>
+                        <FormDescription>How often this service is performed each week</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -336,7 +336,7 @@ export default function PriceBook() {
                     name="basePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Base Price (1 Dog)</FormLabel>
+                        <FormLabel>Price Per Visit</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
@@ -346,6 +346,9 @@ export default function PriceBook() {
                             data-testid="input-base-price"
                           />
                         </FormControl>
+                        <FormDescription>
+                          Fixed price charged per completed visit
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -356,16 +359,19 @@ export default function PriceBook() {
                     name="pricePerExtraDog"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price Per Extra Dog</FormLabel>
+                        <FormLabel>Price Per Extra Dog (Optional)</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             type="number"
                             step="0.01"
-                            placeholder="1.00"
+                            placeholder="0.00"
                             data-testid="input-price-per-dog"
                           />
                         </FormControl>
+                        <FormDescription>
+                          Leave at $0.00 for fixed pricing
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -470,12 +476,14 @@ export default function PriceBook() {
                           <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
                           <div className="text-sm">
                             <span className="font-semibold">${service.basePrice}</span>
-                            <span className="text-muted-foreground"> / visit (1 dog)</span>
+                            <span className="text-muted-foreground"> / visit</span>
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground ml-6">
-                          +${service.pricePerExtraDog} per additional dog
-                        </div>
+                        {parseFloat(service.pricePerExtraDog) > 0 && (
+                          <div className="text-xs text-muted-foreground ml-6">
+                            +${service.pricePerExtraDog} per additional dog
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-4 border-t flex gap-2">

@@ -470,10 +470,6 @@ export default function Invoices() {
                       <p className="text-muted-foreground">Service Type</p>
                       <p className="font-medium">{serviceType?.name || 'N/A'}</p>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Number of Dogs</p>
-                      <p className="font-medium">{customer?.numberOfDogs}</p>
-                    </div>
                     {serviceType && (
                       <>
                         <div>
@@ -481,7 +477,7 @@ export default function Invoices() {
                           <p className="font-medium">{serviceType.timesPerWeek}x per week</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Base Price</p>
+                          <p className="text-muted-foreground">Price Per Visit</p>
                           <p className="font-medium">${parseFloat(serviceType.basePrice.toString()).toFixed(2)}</p>
                         </div>
                       </>
