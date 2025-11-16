@@ -42,11 +42,10 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
           continue;
         }
         
-        // Validate service type pricing
-        const basePrice = parseFloat(serviceType.basePrice);
-        const pricePerExtraDog = parseFloat(serviceType.pricePerExtraDog || "0");
-        if (!basePrice || basePrice <= 0 || isNaN(basePrice)) {
-          results.errors.push(`Skipped ${customer.name}: Invalid base price in service type "${serviceType.name}"`);
+        // Validate service type pricing (basePrice is the fixed per-visit price)
+        const pricePerVisit = parseFloat(serviceType.basePrice);
+        if (!pricePerVisit || pricePerVisit <= 0 || isNaN(pricePerVisit)) {
+          results.errors.push(`Skipped ${customer.name}: Invalid price in service type "${serviceType.name}"`);
           continue;
         }
         
@@ -71,11 +70,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
           continue;
         }
         
-        // Calculate price per visit: basePrice + (numberOfDogs - 1) × pricePerExtraDog
-        const numberOfDogs = customer.numberOfDogs || 1;
-        const pricePerVisit = basePrice + Math.max(0, numberOfDogs - 1) * pricePerExtraDog;
-        
-        // Total amount = price per visit × number of completed visits
+        // Total amount = fixed price per visit × number of completed visits
         const amount = pricePerVisit * completedRoutes.length;
         const serviceTypeName = serviceType.name;
         
@@ -92,7 +87,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
           amount: amount.toFixed(2),
           status: "unpaid",
           dueDate,
-          description: `${serviceTypeName} - ${completedRoutes.length} visits × $${pricePerVisit.toFixed(2)} (${numberOfDogs} dog${numberOfDogs > 1 ? 's' : ''}) - ${month}/${year}`,
+          description: `${serviceTypeName} - ${completedRoutes.length} visits × $${pricePerVisit.toFixed(2)} - ${month}/${year}`,
         });
 
         results.success++;

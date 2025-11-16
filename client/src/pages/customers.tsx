@@ -1051,46 +1051,26 @@ export default function Customers() {
                 <FormField
                   control={form.control}
                   name="numberOfDogs"
-                  render={({ field }) => {
-                    const selectedServiceTypeId = form.watch("serviceTypeId");
-                    const selectedServiceType = serviceTypes?.find(st => st.id === selectedServiceTypeId);
-                    const numberOfDogs = field.value || 1;
-                    
-                    let pricePerVisit = 0;
-                    if (selectedServiceType) {
-                      const basePrice = parseFloat(selectedServiceType.basePrice);
-                      const pricePerExtraDog = parseFloat(selectedServiceType.pricePerExtraDog || "0");
-                      pricePerVisit = basePrice + Math.max(0, numberOfDogs - 1) * pricePerExtraDog;
-                    }
-                    
-                    return (
-                      <FormItem>
-                        <FormLabel>Number of Dogs</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="1" 
-                            max="20"
-                            placeholder="1" 
-                            data-testid="input-number-of-dogs"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                          />
-                        </FormControl>
-                        {selectedServiceType && (
-                          <p className="text-sm font-medium text-primary mt-2" data-testid="text-price-per-visit">
-                            Price per visit: ${pricePerVisit.toFixed(2)}
-                            {numberOfDogs > 1 && (
-                              <span className="text-xs text-muted-foreground ml-2">
-                                (${selectedServiceType.basePrice} base + ${((numberOfDogs - 1) * parseFloat(selectedServiceType.pricePerExtraDog || "0")).toFixed(2)} for {numberOfDogs - 1} extra dog{numberOfDogs > 2 ? 's' : ''})
-                              </span>
-                            )}
-                          </p>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Dogs</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          max="20"
+                          placeholder="1" 
+                          data-testid="input-number-of-dogs"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Select service type above that matches number of dogs and frequency
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 {/* Schedule Configuration - only show when service type is selected */}
