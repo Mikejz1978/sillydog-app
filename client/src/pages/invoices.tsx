@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +17,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 export default function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const { toast } = useToast();
 
   const { data: customers } = useQuery<Customer[]>({
@@ -56,6 +59,8 @@ export default function Invoices() {
         title: "Invoice Deleted",
         description: "Invoice has been deleted successfully.",
       });
+      setDeleteDialogOpen(false);
+      setInvoiceToDelete(null);
     },
   });
 
@@ -352,9 +357,8 @@ export default function Invoices() {
                             variant="outline" 
                             size="sm" 
                             onClick={() => {
-                              if (confirm(`Delete invoice #${invoice.invoiceNumber}?\n\nThis action cannot be undone.`)) {
-                                deleteMutation.mutate(invoice.id);
-                              }
+                              setInvoiceToDelete(invoice);
+                              setDeleteDialogOpen(true);
                             }}
                             disabled={deleteMutation.isPending}
                             data-testid={`button-delete-${invoice.id}`}
@@ -376,6 +380,32 @@ export default function Invoices() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent data-testid="dialog-delete-invoice">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice #{invoiceToDelete?.invoiceNumber}?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (invoiceToDelete) {
+                  deleteMutation.mutate(invoiceToDelete.id);
+                }
+              }}
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
