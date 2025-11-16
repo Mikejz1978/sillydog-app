@@ -62,6 +62,7 @@ export const customers = pgTable("customers", {
   lat: decimal("lat", { precision: 10, scale: 7 }), // Latitude for geocoding
   lng: decimal("lng", { precision: 10, scale: 7 }), // Longitude for geocoding
   smsOptIn: boolean("sms_opt_in").notNull().default(true), // SMS reminder opt-in
+  preferredDays: integer("preferred_days").array(), // Preferred service days (0=Sun, 1=Mon, etc.) - synced with schedule
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

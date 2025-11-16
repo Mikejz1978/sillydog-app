@@ -77,7 +77,7 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
     defaultValues: {
       customerId: customer.id,
       frequency: "weekly",
-      byDay: [1], // Monday - now an array for multiple days
+      byDay: customer.preferredDays && customer.preferredDays.length > 0 ? customer.preferredDays : [1], // Use customer's preferred days or default to Monday
       dtStart: new Date().toISOString().split("T")[0],
       windowStart: "08:00",
       windowEnd: "12:00",
@@ -87,6 +87,24 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       paused: false,
     },
   });
+
+  // Reset form when dialog opens to use latest customer preferred days
+  useEffect(() => {
+    if (scheduleDialogOpen) {
+      scheduleForm.reset({
+        customerId: customer.id,
+        frequency: "weekly",
+        byDay: customer.preferredDays && customer.preferredDays.length > 0 ? customer.preferredDays : [1],
+        dtStart: new Date().toISOString().split("T")[0],
+        windowStart: "08:00",
+        windowEnd: "12:00",
+        timezone: "America/Chicago",
+        notes: "",
+        addons: [],
+        paused: false,
+      });
+    }
+  }, [scheduleDialogOpen, customer.preferredDays]);
 
   const createScheduleMutation = useMutation({
     mutationFn: async (data: InsertScheduleRule) => {
@@ -113,7 +131,17 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       const response = await apiRequest("POST", "/api/schedule-rules", adjustedData);
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, variables) => {
+      // Update customer's preferred days to match the schedule
+      try {
+        await apiRequest("PATCH", `/api/customers/${customer.id}`, {
+          preferredDays: variables.byDay,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      } catch (error) {
+        console.error("Failed to update customer preferred days:", error);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules", customer.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       const routeCount = data.routesGenerated || 0;
