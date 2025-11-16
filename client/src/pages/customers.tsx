@@ -959,13 +959,13 @@ export default function Customers() {
                   </div>
                 )}
 
-                {/* Service Type Selection */}
+                {/* Service Type Selection - REQUIRED */}
                 <FormField
                   control={form.control}
                   name="serviceTypeId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Service Type (Optional)</FormLabel>
+                      <FormLabel>Service Type</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-service-type">
@@ -975,7 +975,7 @@ export default function Customers() {
                         <SelectContent>
                           {serviceTypes?.map((type) => (
                             <SelectItem key={type.id} value={type.id}>
-                              {type.name} - ${type.basePrice}{type.pricePerExtraDog > 0 && ` + $${type.pricePerExtraDog}/dog`}
+                              {type.name} - ${type.basePrice}/visit
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1052,28 +1052,6 @@ export default function Customers() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="numberOfDogs"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Number of Dogs</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="8"
-                            data-testid="input-dogs"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <FormField
                   control={form.control}
                   name="gateCode"
@@ -1332,9 +1310,6 @@ export default function Customers() {
                     }`}>
                       {customer.status}
                     </div>
-                  </div>
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white font-semibold">
-                    {customer.numberOfDogs}
                   </div>
                 </div>
 

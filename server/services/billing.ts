@@ -40,28 +40,21 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
         let serviceTypeName = "Service";
         let timesPerWeek = 1;
         
-        if (customer.serviceTypeId) {
-          const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
-          if (serviceType) {
-            // Get the per-visit price
-            const basePrice = parseFloat(serviceType.basePrice);
-            const pricePerExtraDog = parseFloat(serviceType.pricePerExtraDog);
-            timesPerWeek = serviceType.timesPerWeek || 1;
-            
-            // Calculate per-visit cost: basePrice covers first dog, pricePerExtraDog for additional dogs
-            const extraDogs = Math.max(customer.numberOfDogs - 1, 0);
-            const perVisitCost = basePrice + (pricePerExtraDog * extraDogs);
-            
-            // Calculate monthly amount: perVisitCost * timesPerWeek * 4 weeks
-            // Assuming ~4 weeks per month for consistent billing
-            amount = perVisitCost * timesPerWeek * 4;
-            serviceTypeName = serviceType.name;
-          }
+        const serviceType = serviceTypes.find(st => st.id === customer.serviceTypeId);
+        if (!serviceType) {
+          results.errors.push(`Skipped ${customer.name}: No service type configured`);
+          continue;
         }
         
-        // Skip if no service type or zero amount
+        // Simplified pricing: basePrice × timesPerWeek × 4 weeks
+        const basePrice = parseFloat(serviceType.basePrice);
+        timesPerWeek = serviceType.timesPerWeek || 1;
+        amount = basePrice * timesPerWeek * 4;
+        serviceTypeName = serviceType.name;
+        
+        // Skip if zero amount
         if (amount === 0) {
-          results.errors.push(`Skipped ${customer.name}: No service type configured`);
+          results.errors.push(`Skipped ${customer.name}: Service type has no price`);
           continue;
         }
 
@@ -73,7 +66,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
           amount: amount.toFixed(2),
           status: "unpaid",
           dueDate,
-          description: `${serviceTypeName} (${timesPerWeek}x/week × 4 weeks) - ${customer.numberOfDogs} dog${customer.numberOfDogs > 1 ? 's' : ''} - ${month}/${year}`,
+          description: `${serviceTypeName} (${timesPerWeek}x/week × 4 weeks) - ${month}/${year}`,
         });
 
         results.success++;

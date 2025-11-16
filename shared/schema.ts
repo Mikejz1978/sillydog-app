@@ -50,8 +50,8 @@ export const customers = pgTable("customers", {
   address: text("address").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
-  serviceTypeId: varchar("service_type_id"), // Link to service_types (price book) - nullable for flexibility
-  numberOfDogs: integer("number_of_dogs").notNull().default(1),
+  serviceTypeId: varchar("service_type_id").notNull(), // Required - determines pricing
+  numberOfDogs: integer("number_of_dogs").notNull().default(1), // Kept for display purposes, not used in billing
   gateCode: text("gate_code"),
   yardNotes: text("yard_notes"),
   status: text("status").notNull().default("active"), // 'active', 'inactive'
