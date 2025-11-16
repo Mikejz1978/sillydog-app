@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2 } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -28,8 +29,10 @@ export default function Routes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRouteForSkip, setSelectedRouteForSkip] = useState<Route | null>(null);
   const [selectedRouteForPhotos, setSelectedRouteForPhotos] = useState<Route | null>(null);
+  const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
   const [photoBefore, setPhotoBefore] = useState<string>("");
   const [photoAfter, setPhotoAfter] = useState<string>("");
   const beforeInputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +188,29 @@ export default function Routes() {
       toast({
         title: "Route Restored",
         description: "Route has been restored to scheduled.",
+      });
+    },
+  });
+
+  const deleteRouteMutation = useMutation({
+    mutationFn: async (routeId: string) => {
+      await apiRequest("DELETE", `/api/routes/${routeId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Route Deleted",
+        description: "Route has been permanently removed from the schedule.",
+      });
+      setDeleteDialogOpen(false);
+      setRouteToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete route. Please try again.",
+        variant: "destructive",
       });
     },
   });
@@ -526,6 +552,18 @@ export default function Routes() {
                                   <Ban className="w-3 h-3 mr-1" />
                                   Skip
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => {
+                                    setRouteToDelete(route);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                  data-testid={`button-delete-${route.id}`}
+                                >
+                                  <Trash2 className="w-3 h-3 mr-1" />
+                                  Delete
+                                </Button>
                               </>
                             )}
                             {route.status === "in_route" && (
@@ -834,6 +872,39 @@ export default function Routes() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={deleteDialogOpen} 
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setRouteToDelete(null); // Clear state when dialog closes
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-delete-route">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Route</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this route for {routeToDelete && customers?.find(c => c.id === routeToDelete.customerId)?.name}?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (routeToDelete) {
+                  deleteRouteMutation.mutate(routeToDelete.id);
+                }
+              }}
+              data-testid="button-confirm-delete"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
