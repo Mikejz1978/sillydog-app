@@ -1502,7 +1502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createScheduleRule({
             customerId: customer.id,
             frequency,
-            byDay: dayOfWeek,
+            byDay: [dayOfWeek],
             dtStart,
             windowStart: scheduledTime,
             windowEnd: "17:00",
@@ -1734,6 +1734,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Only create customer if not already created
         if (!customerId) {
+          // Get default service type (1 Dog 1x Week)
+          const serviceTypes = await storage.getAllServiceTypes();
+          const defaultServiceType = serviceTypes.find(st => st.name === "1 Dog 1x Week");
+          
+          if (!defaultServiceType) {
+            return res.status(500).json({ message: "Default service type not found" });
+          }
+          
           // Create customer from booking data
           const newCustomer = await storage.createCustomer({
             name: booking.name,
@@ -1741,6 +1749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             phone: booking.phone,
             email: booking.email || "",
             numberOfDogs: booking.numberOfDogs,
+            serviceTypeId: defaultServiceType.id,
             gateCode: "",
             yardNotes: booking.yardNotes || "",
             status: "active",
