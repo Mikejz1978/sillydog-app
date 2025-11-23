@@ -132,28 +132,11 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       return response.json();
     },
     onSuccess: async (data, variables) => {
-      // Update customer's preferred days to match the schedule
+      // Update customer's preferred days to match the schedule - only send preferredDays field
       try {
         await apiRequest("PATCH", `/api/customers/${customer.id}`, {
-          name: customer.name,
-          address: customer.address,
-          phone: customer.phone,
-          email: customer.email,
-          serviceTypeId: customer.serviceTypeId,
-          numberOfDogs: customer.numberOfDogs,
-          gateCode: customer.gateCode,
-          yardNotes: customer.yardNotes,
-          status: customer.status,
-          billingMethod: customer.billingMethod,
-          stripeCustomerId: customer.stripeCustomerId,
-          stripePaymentMethodId: customer.stripePaymentMethodId,
-          autopayEnabled: customer.autopayEnabled,
-          lat: customer.lat,
-          lng: customer.lng,
-          smsOptIn: customer.smsOptIn,
-          preferredDays: variables.byDay, // Update with new preferred days
+          preferredDays: variables.byDay || [],
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       } catch (error) {
         console.error("Failed to update customer preferred days:", error);
         toast({
@@ -163,6 +146,7 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
         });
       }
       
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules", customer.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       const routeCount = data.routesGenerated || 0;
@@ -530,7 +514,11 @@ export default function Customers() {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertCustomer) => {
-      const payload: any = { ...data };
+      const payload: any = { 
+        ...data,
+        // Save service days to customer's preferred days (send empty array if none selected)
+        preferredDays: scheduleDays.length > 0 ? scheduleDays : [],
+      };
       
       // Include schedule data if days are selected
       if (scheduleDays.length > 0) {
@@ -549,18 +537,22 @@ export default function Customers() {
       await queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      const hadSchedule = scheduleDays.length > 0;
+      
+      // Reset state BEFORE closing dialog to prevent stale data
+      setScheduleDays([]);
+      setScheduleStartTime("08:00");
+      setScheduleEndTime("12:00");
+      form.reset();
+      setEditingCustomer(null);
+      
       toast({
         title: "Customer Added",
-        description: scheduleDays.length > 0 
+        description: hadSchedule 
           ? "Customer and schedule have been created. Routes will be generated automatically."
           : "New customer has been successfully added.",
       });
       setDialogOpen(false);
-      setEditingCustomer(null);
-      form.reset();
-      setScheduleDays([]);
-      setScheduleStartTime("08:00");
-      setScheduleEndTime("12:00");
     },
     onError: (error: Error) => {
       toast({
@@ -573,18 +565,29 @@ export default function Customers() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCustomer> }) => {
-      const response = await apiRequest("PATCH", `/api/customers/${id}`, data);
+      const payload = {
+        ...data,
+        // Save service days to customer's preferred days (send empty array if none selected)
+        preferredDays: scheduleDays.length > 0 ? scheduleDays : [],
+      };
+      const response = await apiRequest("PATCH", `/api/customers/${id}`, payload);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      
+      // Reset state BEFORE closing dialog to prevent stale data
+      setScheduleDays([]);
+      setScheduleStartTime("08:00");
+      setScheduleEndTime("12:00");
+      form.reset();
+      setEditingCustomer(null);
+      
       toast({
         title: "Customer Updated",
         description: "Customer information has been updated.",
       });
       setDialogOpen(false);
-      setEditingCustomer(null);
-      form.reset();
     },
     onError: (error: Error) => {
       toast({
@@ -689,6 +692,17 @@ export default function Customers() {
   const [scheduleDays, setScheduleDays] = useState<number[]>([]);
   const [scheduleStartTime, setScheduleStartTime] = useState("08:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("12:00");
+
+  // Reset service days whenever dialog opens or editing customer changes
+  useEffect(() => {
+    if (dialogOpen) {
+      if (editingCustomer) {
+        setScheduleDays(editingCustomer.preferredDays || []);
+      } else {
+        setScheduleDays([]);
+      }
+    }
+  }, [dialogOpen, editingCustomer]);
 
   // Stable initialization function for Google Maps Autocomplete
   const initializeAutocomplete = useCallback(() => {
@@ -836,6 +850,9 @@ export default function Customers() {
             // Dialog closing - reset everything
             setEditingCustomer(null);
             form.reset();
+            setScheduleDays([]);
+            setScheduleStartTime("08:00");
+            setScheduleEndTime("12:00");
           }
           setDialogOpen(open);
         }}>
