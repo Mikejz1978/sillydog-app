@@ -441,7 +441,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/customers/:id", async (req, res) => {
     try {
-      const customer = await storage.updateCustomer(req.params.id, req.body);
+      // Validate input data (allow partial updates)
+      const validated = insertCustomerSchema.partial().parse(req.body);
+      const customer = await storage.updateCustomer(req.params.id, validated);
       
       // If customer is being archived/inactivated, pause all their schedules AND remove future routes
       if (req.body.status === 'inactive') {
