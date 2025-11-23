@@ -5,7 +5,7 @@ import { Pool } from "@neondatabase/serverless";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduledJobs } from "./jobs";
-import { migrateServiceTypes } from "./migrate-service-types";
+import { addNewServiceTypes } from "./add-new-service-types";
 import passport from "./auth";
 import { csrfProtection } from "./middleware/csrf";
 
@@ -92,8 +92,8 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   
-  // Run one-time migration to fix service types
-  await migrateServiceTypes();
+  // Safe migration: ADD new service types without deleting old ones
+  await addNewServiceTypes();
   
   startScheduledJobs();
 
