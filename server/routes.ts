@@ -104,6 +104,8 @@ async function sendSMS(to: string, message: string) {
 
 // Helper function to generate routes for a schedule rule
 async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<number> {
+  console.log(`🔄 Generating routes for schedule ${rule.id} - Days: ${JSON.stringify(rule.byDay)}, Frequency: ${rule.frequency}`);
+  
   const startDate = new Date(rule.dtStart);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -112,6 +114,7 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
   const generateFrom = startDate > today ? startDate : today;
   
   let routesCreated = 0;
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
   // Generate routes for the next 'daysAhead' days
   for (let i = 0; i < daysAhead; i++) {
@@ -126,6 +129,8 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
       continue;
     }
     
+    console.log(`   ✓ ${targetDateStr} (${dayNames[dayOfWeek]}) matches schedule days`);
+    
     // Calculate if this date matches the schedule frequency
     const daysDiff = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     
@@ -134,8 +139,29 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
       // For weekly schedules with multiple days, generate on matching days
       shouldGenerate = daysDiff >= 0;
     } else if (rule.frequency === "biweekly") {
-      // Biweekly: every 14 days, but only on specified days
-      shouldGenerate = daysDiff >= 0 && Math.floor(daysDiff / 7) % 2 === 0;
+      // Biweekly: Generate routes every other week
+      // Strategy: Find the Monday of the week containing dtStart (the "anchor week"),
+      // then check if the Monday of targetDate's week is an even number of weeks away
+      // Uses UTC dates to avoid DST issues
+      
+      // Get Monday of the week containing dtStart (anchor week) - use UTC
+      const anchorWeekStart = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+      const anchorDayOfWeek = anchorWeekStart.getUTCDay();
+      const daysToMonday = anchorDayOfWeek === 0 ? -6 : -(anchorDayOfWeek - 1);
+      anchorWeekStart.setUTCDate(anchorWeekStart.getUTCDate() + daysToMonday);
+      
+      // Get Monday of the week containing targetDate - use UTC
+      const targetWeekStart = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate()));
+      const targetDayOfWeek = targetWeekStart.getUTCDay();
+      const daysToMondayTarget = targetDayOfWeek === 0 ? -6 : -(targetDayOfWeek - 1);
+      targetWeekStart.setUTCDate(targetWeekStart.getUTCDate() + daysToMondayTarget);
+      
+      // Calculate weeks between the two Mondays using UTC (DST-safe)
+      const daysBetweenWeeks = Math.round((targetWeekStart.getTime() - anchorWeekStart.getTime()) / (1000 * 60 * 60 * 24));
+      const weeksBetween = Math.floor(daysBetweenWeeks / 7);
+      
+      // Generate routes on even biweekly cycles (0, 2, 4...) - all days in the same week share the same cycle
+      shouldGenerate = daysDiff >= 0 && weeksBetween % 2 === 0;
     } else if (rule.frequency === "one-time" || rule.frequency === "new-start") {
       // Only generate once on the start date
       shouldGenerate = daysDiff === 0;
@@ -416,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const customer = await storage.updateCustomer(req.params.id, req.body);
       
-      // If customer is being archived/inactivated, pause all their schedules
+      // If customer is being archived/inactivated, pause all their schedules AND remove future routes
       if (req.body.status === 'inactive') {
         const schedules = await storage.getScheduleRulesByCustomer(req.params.id);
         await Promise.all(
@@ -424,9 +450,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             storage.updateScheduleRule(schedule.id, { paused: true })
           )
         );
+        
+        // Delete all future scheduled routes for this customer (efficient query, not full table scan)
+        const today = new Date().toISOString().split("T")[0];
+        const deletedCount = await storage.deleteFutureScheduledRoutes(req.params.id, today);
+        
+        console.log(`🗑️ Archived customer ${customer.name}: Paused ${schedules.length} schedules and removed ${deletedCount} future routes`);
       }
       
-      // If customer is being reactivated, unpause all their schedules
+      // If customer is being reactivated, unpause all their schedules AND regenerate routes
       if (req.body.status === 'active') {
         const schedules = await storage.getScheduleRulesByCustomer(req.params.id);
         await Promise.all(
@@ -434,6 +466,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             storage.updateScheduleRule(schedule.id, { paused: false })
           )
         );
+        
+        // Regenerate routes for the next 60 days for all unpaused schedules
+        let totalRoutes = 0;
+        for (const schedule of schedules) {
+          if (!schedule.paused) {
+            const routesGenerated = await generateRoutesForSchedule(schedule, 60);
+            totalRoutes += routesGenerated;
+          }
+        }
+        
+        console.log(`✅ Reactivated customer ${customer.name}: Unpaused ${schedules.length} schedules and generated ${totalRoutes} new routes`);
       }
       
       res.json(customer);
@@ -450,17 +493,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         schedules.map(schedule => storage.deleteScheduleRule(schedule.id))
       );
       
-      // Delete future routes that haven't been started yet
-      const allRoutes = await storage.getAllRoutes();
+      // Delete future scheduled routes (efficient query)
       const today = new Date().toISOString().split("T")[0];
-      const futureRoutes = allRoutes.filter(
-        route => route.customerId === req.params.id && 
-                 route.date >= today && 
-                 route.status === 'scheduled'
-      );
-      await Promise.all(
-        futureRoutes.map(route => storage.deleteRoute(route.id))
-      );
+      await storage.deleteFutureScheduledRoutes(req.params.id, today);
       
       // Finally delete the customer
       await storage.deleteCustomer(req.params.id);
@@ -1015,17 +1050,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/schedule-rules", async (req, res) => {
     try {
+      console.log("📅 Creating schedule rule with data:", req.body);
+      console.log("📅 Days selected (byDay):", req.body.byDay);
+      
       const validated = insertScheduleRuleSchema.parse(req.body);
       const rule = await storage.createScheduleRule(validated);
       
+      console.log("✅ Schedule rule created:", rule.id);
+      console.log("📅 Schedule rule byDay saved as:", rule.byDay);
+      
       // Auto-generate routes for the next 60 days
       const routesGenerated = await generateRoutesForSchedule(rule, 60);
+      
+      console.log(`✅ Generated ${routesGenerated} routes for schedule ${rule.id}`);
       
       res.status(201).json({
         ...rule,
         routesGenerated,
       });
     } catch (error: any) {
+      console.error("❌ Error creating schedule rule:", error);
       res.status(400).json({ message: error.message });
     }
   });

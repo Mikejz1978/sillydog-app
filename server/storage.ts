@@ -56,6 +56,7 @@ export interface IStorage {
   updateRoute(id: string, route: Partial<InsertRoute>): Promise<Route>;
   updateRouteStatus(id: string, status: string): Promise<Route>;
   deleteRoute(id: string): Promise<void>;
+  deleteFutureScheduledRoutes(customerId: string, fromDate: string): Promise<number>;
   skipRoute(id: string, userId: string, reason: string, notes?: string): Promise<Route>;
   unskipRoute(id: string): Promise<Route>;
 
@@ -270,6 +271,24 @@ export class MemStorage implements IStorage {
 
   async deleteRoute(id: string): Promise<void> {
     this.routes.delete(id);
+  }
+
+  async deleteFutureScheduledRoutes(customerId: string, fromDate: string): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    // Use the later of fromDate or tomorrow to preserve same-day in-progress stops
+    const effectiveFromDate = fromDate > today ? fromDate : new Date(new Date(today).setDate(new Date(today).getDate() + 1)).toISOString().split("T")[0];
+    
+    const routesToDelete = Array.from(this.routes.values()).filter(
+      route => route.customerId === customerId && 
+               route.date >= effectiveFromDate && 
+               route.status === 'scheduled'
+    );
+    
+    for (const route of routesToDelete) {
+      this.routes.delete(route.id);
+    }
+    
+    return routesToDelete.length;
   }
 
   // Invoices
@@ -686,6 +705,26 @@ export class DbStorage implements IStorage {
 
   async deleteRoute(id: string): Promise<void> {
     await this.db.delete(schema.routes).where(eq(schema.routes.id, id));
+  }
+
+  async deleteFutureScheduledRoutes(customerId: string, fromDate: string): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    // Use the later of fromDate or tomorrow to preserve same-day in-progress stops
+    const tomorrow = new Date(new Date(today).setDate(new Date(today).getDate() + 1)).toISOString().split("T")[0];
+    const effectiveFromDate = fromDate > today ? fromDate : tomorrow;
+    
+    const result = await this.db
+      .delete(schema.routes)
+      .where(
+        and(
+          eq(schema.routes.customerId, customerId),
+          gte(schema.routes.date, effectiveFromDate),
+          eq(schema.routes.status, 'scheduled')
+        )
+      )
+      .returning();
+    
+    return result.length;
   }
 
   // Invoices
