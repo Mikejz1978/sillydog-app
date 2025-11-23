@@ -106,7 +106,12 @@ async function sendSMS(to: string, message: string) {
 async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<number> {
   console.log(`🔄 Generating routes for schedule ${rule.id} - Days: ${JSON.stringify(rule.byDay)}, Frequency: ${rule.frequency}`);
   
-  const startDate = new Date(rule.dtStart);
+  // Parse dtStart as local date (handles both "YYYY-MM-DD" and ISO timestamp formats)
+  // Use UTC accessors to preserve the calendar date, then convert to local midnight
+  const parsedDate = new Date(rule.dtStart);
+  const startDate = new Date(parsedDate.getUTCFullYear(), parsedDate.getUTCMonth(), parsedDate.getUTCDate());
+  startDate.setHours(0, 0, 0, 0);
+  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   

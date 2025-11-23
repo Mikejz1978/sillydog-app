@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2 } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -487,11 +488,28 @@ export default function Routes() {
                               Scheduled: {route.scheduledTime}
                             </p>
                           )}
-                          {customer?.gateCode && (
-                            <p className="text-xs font-medium mt-1 px-2 py-1 bg-muted rounded inline-block">
-                              Gate: {customer.gateCode}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap mt-1">
+                            {customer?.gateCode && (
+                              <p className="text-xs font-medium px-2 py-1 bg-muted rounded inline-block">
+                                Gate: {customer.gateCode}
+                              </p>
+                            )}
+                            {customer?.yardNotes && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="text-xs font-medium px-2 py-1 bg-accent/20 rounded inline-flex items-center gap-1 cursor-help">
+                                      <StickyNote className="w-3 h-3" />
+                                      <span className="max-w-[150px] truncate">{customer.yardNotes}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-sm">
+                                    <p className="text-sm">{customer.yardNotes}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                           
                           {/* Timer for one-time and new-start services */}
                           {(route.serviceType === "one-time" || route.serviceType === "new-start") && route.status === "in_route" && (
