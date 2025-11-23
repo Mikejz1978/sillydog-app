@@ -686,17 +686,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      // Calculate cost based on service type
+      // Get customer's service type to check if hourly pricing applies
       let calculatedCost = 0;
-      if (route.serviceType === "one-time" || route.serviceType === "new-start") {
-        // Timer-based billing at $100/hour
+      const serviceType = await storage.getServiceType(customer.serviceTypeId);
+      
+      if (serviceType && serviceType.isHourly) {
+        // Hourly pricing calculation based on timed duration
+        // 15 minutes = regular service price (basePrice)
+        // 30 minutes = $50
+        // 45 minutes = $75
+        // 1 hour = $100
+        // >1 hour = $100/hour prorated
         if (durationMinutes <= 15) {
-          // Default price for under 15 minutes (will be enhanced with service types later)
-          calculatedCost = 50.00; // Default base price
+          calculatedCost = parseFloat(serviceType.basePrice);
+        } else if (durationMinutes <= 30) {
+          calculatedCost = 50.00;
+        } else if (durationMinutes <= 45) {
+          calculatedCost = 75.00;
+        } else if (durationMinutes <= 60) {
+          calculatedCost = 100.00;
         } else {
-          // $100/hour rate
+          // For jobs longer than 60 minutes, bill in hourly increments
+          // 61-119 min = $200, 120-179 min = $300, etc.
+          const hours = Math.ceil(durationMinutes / 60);
+          calculatedCost = hours * 100;
+        }
+      } else if (route.serviceType === "one-time" || route.serviceType === "new-start") {
+        // Legacy timer-based billing for backward compatibility
+        if (durationMinutes <= 15) {
+          calculatedCost = 50.00;
+        } else {
           const hours = durationMinutes / 60;
-          calculatedCost = Math.round(hours * 100 * 100) / 100; // Round to 2 decimal places
+          calculatedCost = Math.round(hours * 100 * 100) / 100;
         }
       }
 

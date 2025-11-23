@@ -52,9 +52,11 @@ import { Switch } from "@/components/ui/switch";
 const formSchema = insertServiceTypeSchema.omit({
   basePrice: true,
   pricePerExtraDog: true,
+  isHourly: true,
 }).extend({
   basePrice: z.coerce.number().min(0.01, "Base price must be at least $0.01"),
   pricePerExtraDog: z.coerce.number().min(0, "Price per extra dog must be at least $0"),
+  isHourly: z.boolean().default(false),
 });
 
 export default function PriceBook() {
@@ -78,6 +80,7 @@ export default function PriceBook() {
       basePrice: 0,
       pricePerExtraDog: 0,
       active: true,
+      isHourly: false,
     },
   });
 
@@ -152,6 +155,7 @@ export default function PriceBook() {
       basePrice: parseFloat(service.basePrice),
       pricePerExtraDog: parseFloat(service.pricePerExtraDog),
       active: service.active,
+      isHourly: service.isHourly || false,
     });
   };
 
@@ -470,19 +474,35 @@ export default function PriceBook() {
                       <div className="space-y-2">
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4 mr-2" />
-                          {getFrequencyLabel(service.frequency, service.timesPerWeek)}
+                          {service.isHourly ? "Hourly" : getFrequencyLabel(service.frequency, service.timesPerWeek)}
                         </div>
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <div className="text-sm">
-                            <span className="font-semibold">${service.basePrice}</span>
-                            <span className="text-muted-foreground"> / visit</span>
+                        {service.isHourly ? (
+                          <div className="text-sm space-y-1">
+                            <div className="font-semibold text-foreground">Hourly Rate Structure:</div>
+                            <div className="text-xs space-y-0.5 ml-6">
+                              <div>• 0-15 min = ${service.basePrice}</div>
+                              <div>• 16-30 min = $50.00</div>
+                              <div>• 31-45 min = $75.00</div>
+                              <div>• 46-60 min = $100.00</div>
+                              <div>• 61-120 min = $200.00</div>
+                              <div>• 121+ min = $100 per hour</div>
+                            </div>
                           </div>
-                        </div>
-                        {parseFloat(service.pricePerExtraDog) > 0 && (
-                          <div className="text-xs text-muted-foreground ml-6">
-                            +${service.pricePerExtraDog} per additional dog
-                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center">
+                              <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
+                              <div className="text-sm">
+                                <span className="font-semibold">${service.basePrice}</span>
+                                <span className="text-muted-foreground"> / visit</span>
+                              </div>
+                            </div>
+                            {parseFloat(service.pricePerExtraDog) > 0 && (
+                              <div className="text-xs text-muted-foreground ml-6">
+                                +${service.pricePerExtraDog} per additional dog
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
 

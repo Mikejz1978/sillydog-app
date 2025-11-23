@@ -12,15 +12,19 @@ export async function addNewServiceTypes() {
     
     // Check if we already have the new service types
     const hasNewTypes = existing.some(st => st.name === "1 Dog 1x Week");
-    if (hasNewTypes) {
-      console.log("✅ New service types already exist, skipping migration");
+    const hasHourlyType = existing.some(st => st.name === "Initial / First-Time Service");
+    if (hasNewTypes && hasHourlyType) {
+      console.log("✅ All service types already exist, skipping migration");
       return;
     }
 
     console.log(`Found ${existing.length} existing service types (keeping them for now)`);
 
-    // Create the 44 new fixed-price service types WITHOUT deleting old ones
+    // Create service types
     const newServiceTypes = [
+      // Initial / First-Time Service (Hourly) - uses "one-time" frequency to avoid breaking existing schedule logic
+      { name: "Initial / First-Time Service", description: "Hourly service for initial cleanup (15 min = regular price, 30 min = $50, 45 min = $75, 60+ min = $100/hour)", frequency: "one-time", timesPerWeek: 1, basePrice: "12.50", pricePerExtraDog: "0.00", category: "Hourly", active: true, isHourly: true },
+      
       // 1 Dog
       { name: "1 Dog 1x Week", description: "Once weekly service for 1 dog", frequency: "weekly", timesPerWeek: 1, basePrice: "12.50", pricePerExtraDog: "0.00", category: "1 Dog", active: true },
       
@@ -84,15 +88,25 @@ export async function addNewServiceTypes() {
       { name: "Biweekly 8 Dogs", description: "Biweekly service for 8 dogs", frequency: "biweekly", timesPerWeek: 1, basePrice: "65.00", pricePerExtraDog: "0.00", category: "Biweekly", active: true },
     ];
 
-    // Create all 44 new service types
+    // Create all new service types
     let created = 0;
     for (const serviceType of newServiceTypes) {
+      // Skip if this type already exists
+      const alreadyExists = existing.some(st => st.name === serviceType.name);
+      if (alreadyExists) {
+        continue;
+      }
+      
       await storage.createServiceType(serviceType);
       created++;
-      console.log(`Created ${created}/44: ${serviceType.name} - $${serviceType.basePrice}/visit`);
+      if (serviceType.isHourly) {
+        console.log(`Created ${created}: ${serviceType.name} - Hourly pricing`);
+      } else {
+        console.log(`Created ${created}: ${serviceType.name} - $${serviceType.basePrice}/visit`);
+      }
     }
 
-    console.log(`✅ Added ${created} new fixed-price service types`);
+    console.log(`✅ Added ${created} new service types`);
     console.log("⚠️  Old service types still exist - you can now update customers to use the new ones");
   } catch (error) {
     console.error("❌ Error adding service types:", error);

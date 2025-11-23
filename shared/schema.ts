@@ -241,10 +241,11 @@ export const serviceTypes = pgTable("service_types", {
   name: text("name").notNull(), // e.g., "3x Weekly", "2x Weekly", "Daily", etc.
   description: text("description"), // e.g., "Three times per week service"
   category: text("category"), // e.g., "1 Dog Services", "2 Dog Services", "Weekly Plans"
-  frequency: text("frequency").notNull(), // 'weekly', 'biweekly'
+  frequency: text("frequency").notNull(), // 'weekly', 'biweekly', 'hourly'
   timesPerWeek: integer("times_per_week").notNull().default(1), // 1-5 times
-  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(), // Base price for 1 dog
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(), // Base price for 1 dog OR hourly rate
   pricePerExtraDog: decimal("price_per_extra_dog", { precision: 10, scale: 2 }).notNull(), // Additional cost per dog
+  isHourly: boolean("is_hourly").notNull().default(false), // True if this is an hourly service
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -254,6 +255,8 @@ export const insertServiceTypeSchema = createInsertSchema(serviceTypes).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  isHourly: z.boolean().default(false),
 });
 
 export type ServiceType = typeof serviceTypes.$inferSelect;
