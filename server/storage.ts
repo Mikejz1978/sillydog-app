@@ -51,12 +51,14 @@ export interface IStorage {
   getAllRoutes(): Promise<Route[]>;
   getRoutesByDate(date: string): Promise<Route[]>;
   getRoutesByCustomerAndDateRange(customerId: string, startDate: string, endDate: string): Promise<Route[]>;
+  getRoutesByScheduleRuleId(scheduleRuleId: string): Promise<Route[]>;
   getRoute(id: string): Promise<Route | undefined>;
   createRoute(route: InsertRoute): Promise<Route>;
   updateRoute(id: string, route: Partial<InsertRoute>): Promise<Route>;
   updateRouteStatus(id: string, status: string): Promise<Route>;
   deleteRoute(id: string): Promise<void>;
   deleteFutureScheduledRoutes(customerId: string, fromDate: string): Promise<number>;
+  deleteFutureScheduledRoutesByScheduleRuleId(scheduleRuleId: string): Promise<number>;
   skipRoute(id: string, userId: string, reason: string, notes?: string): Promise<Route>;
   unskipRoute(id: string): Promise<Route>;
 
@@ -193,6 +195,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getRoutesByScheduleRuleId(scheduleRuleId: string): Promise<Route[]> {
+    return Array.from(this.routes.values()).filter(
+      (route) => route.scheduleRuleId === scheduleRuleId
+    );
+  }
+
   async getRoute(id: string): Promise<Route | undefined> {
     return this.routes.get(id);
   }
@@ -281,6 +289,22 @@ export class MemStorage implements IStorage {
     const routesToDelete = Array.from(this.routes.values()).filter(
       route => route.customerId === customerId && 
                route.date >= effectiveFromDate && 
+               route.status === 'scheduled'
+    );
+    
+    for (const route of routesToDelete) {
+      this.routes.delete(route.id);
+    }
+    
+    return routesToDelete.length;
+  }
+
+  async deleteFutureScheduledRoutesByScheduleRuleId(scheduleRuleId: string): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    
+    const routesToDelete = Array.from(this.routes.values()).filter(
+      route => route.scheduleRuleId === scheduleRuleId && 
+               route.date > today && 
                route.status === 'scheduled'
     );
     
@@ -499,7 +523,7 @@ export class MemStorage implements IStorage {
 
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, gt } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
 
@@ -629,6 +653,13 @@ export class DbStorage implements IStorage {
       );
   }
 
+  async getRoutesByScheduleRuleId(scheduleRuleId: string): Promise<Route[]> {
+    return await this.db
+      .select()
+      .from(schema.routes)
+      .where(eq(schema.routes.scheduleRuleId, scheduleRuleId));
+  }
+
   async getRoute(id: string): Promise<Route | undefined> {
     const result = await this.db
       .select()
@@ -719,6 +750,23 @@ export class DbStorage implements IStorage {
         and(
           eq(schema.routes.customerId, customerId),
           gte(schema.routes.date, effectiveFromDate),
+          eq(schema.routes.status, 'scheduled')
+        )
+      )
+      .returning();
+    
+    return result.length;
+  }
+
+  async deleteFutureScheduledRoutesByScheduleRuleId(scheduleRuleId: string): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    
+    const result = await this.db
+      .delete(schema.routes)
+      .where(
+        and(
+          eq(schema.routes.scheduleRuleId, scheduleRuleId),
+          gt(schema.routes.date, today),
           eq(schema.routes.status, 'scheduled')
         )
       )

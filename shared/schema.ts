@@ -79,6 +79,7 @@ export const routes = pgTable("routes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   date: text("date").notNull(), // YYYY-MM-DD format
   customerId: varchar("customer_id").notNull(),
+  scheduleRuleId: varchar("schedule_rule_id").references(() => scheduleRules.id, { onDelete: "set null" }), // Links route to the schedule that created it (null for manual routes)
   scheduledTime: text("scheduled_time"), // HH:MM format
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'in_route', 'completed', 'skipped'
   orderIndex: integer("order_index").notNull().default(0),
@@ -93,7 +94,9 @@ export const routes = pgTable("routes", {
   skipReason: text("skip_reason"), // 'customer_request', 'weather', 'no_access', 'vacation', 'other'
   skipNotes: text("skip_notes"), // Optional additional notes
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  scheduleRuleIdx: index("routes_schedule_rule_idx").on(table.scheduleRuleId),
+}));
 
 export const insertRouteSchema = createInsertSchema(routes).omit({
   id: true,

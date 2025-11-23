@@ -65,9 +65,10 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedule-rules", customer.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Schedule Removed",
-        description: "The schedule has been deleted.",
+        description: "The schedule has been deleted and all future routes have been removed.",
       });
     },
   });

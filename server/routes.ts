@@ -176,6 +176,7 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
         await storage.createRoute({
           date: targetDateStr,
           customerId: rule.customerId,
+          scheduleRuleId: rule.id, // Link route to the schedule that created it
           scheduledTime: rule.windowStart,
           status: "scheduled",
           orderIndex: 0,
@@ -1085,7 +1086,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/schedule-rules/:id", async (req, res) => {
     try {
-      await storage.deleteScheduleRule(req.params.id);
+      const scheduleRuleId = req.params.id;
+      
+      // Delete future scheduled routes that were created by this schedule
+      // Uses indexed query with proper date comparison via storage layer
+      await storage.deleteFutureScheduledRoutesByScheduleRuleId(scheduleRuleId);
+      
+      // Delete the schedule rule
+      await storage.deleteScheduleRule(scheduleRuleId);
+      
       res.status(204).send();
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -1190,6 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const route = await storage.createRoute({
               date: targetDate,
               customerId: rule.customerId,
+              scheduleRuleId: rule.id, // Link route to the schedule that created it
               scheduledTime: rule.windowStart,
               status: "scheduled",
               orderIndex: 0,
