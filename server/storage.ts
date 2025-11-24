@@ -521,8 +521,10 @@ export class MemStorage implements IStorage {
   async updateSettings(_updates: Partial<InsertSettings>): Promise<Settings> { throw new Error("Not implemented"); }
 }
 
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
+import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
+import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
+import { Pool as PgPool } from "pg";
 import { eq, and, desc, gte, lte, gt } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
@@ -534,8 +536,20 @@ export class DbStorage implements IStorage {
   private db;
 
   constructor() {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-    this.db = drizzle(pool, { schema });
+    const isRender = process.env.RENDER === 'true';
+    
+    if (isRender) {
+      // Use standard pg Pool for Render
+      const pool = new PgPool({ 
+        connectionString: process.env.DATABASE_URL!,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      });
+      this.db = drizzlePg(pool, { schema });
+    } else {
+      // Use Neon serverless Pool for Replit
+      const pool = new NeonPool({ connectionString: process.env.DATABASE_URL! });
+      this.db = drizzleNeon(pool, { schema });
+    }
   }
 
   // Users
