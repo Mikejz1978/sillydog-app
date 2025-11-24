@@ -1,7 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
-import { Pool } from "@neondatabase/serverless";
+import { Pool as NeonPool } from "@neondatabase/serverless";
+import { Pool as PgPool } from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startScheduledJobs } from "./jobs";
@@ -11,14 +12,21 @@ import { csrfProtection } from "./middleware/csrf";
 
 const app = express();
 
-// Trust proxy for Replit deployments
+// Trust proxy for Replit and Render deployments
 app.set('trust proxy', 1);
 
 // Setup PostgreSQL session store
+// Use standard pg Pool for Render, Neon serverless Pool for Replit
 const PgSession = ConnectPgSimple(session);
-const pgPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+const isRender = process.env.RENDER === 'true';
+const pgPool = isRender 
+  ? new PgPool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    })
+  : new NeonPool({
+      connectionString: process.env.DATABASE_URL,
+    });
 
 // Session configuration
 app.use(
