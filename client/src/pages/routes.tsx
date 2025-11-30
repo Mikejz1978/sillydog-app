@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2, StickyNote, GripVertical } from "lucide-react";
+import { RouteMap } from "@/components/route-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -759,7 +760,6 @@ export default function Routes() {
           <CardContent>
             {(() => {
               const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-              console.log('Google Maps API Key status:', apiKey ? 'Found!' : 'Missing');
               
               if (!apiKey) {
                 return (
@@ -768,7 +768,6 @@ export default function Routes() {
                       <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p className="text-sm font-medium">Google Maps API Key Required</p>
                       <p className="text-xs mt-2">Add VITE_GOOGLE_MAPS_API_KEY to Secrets, then restart the app</p>
-                      <p className="text-xs mt-1 opacity-70">You may need to stop and start the workflow completely</p>
                     </div>
                   </div>
                 );
@@ -787,15 +786,11 @@ export default function Routes() {
               }
               
               return (
-                <div className="aspect-square bg-muted rounded-lg overflow-hidden">
-                  <iframe
-                    className="w-full h-full border-0"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${encodeURIComponent(customers?.find(c => c.id === sortedRoutes[0]?.customerId)?.address || 'Pahrump, NV')}&destination=${encodeURIComponent(customers?.find(c => c.id === sortedRoutes[sortedRoutes.length - 1]?.customerId)?.address || 'Pahrump, NV')}${sortedRoutes.length > 2 ? `&waypoints=${sortedRoutes.slice(1, -1).map(r => encodeURIComponent(customers?.find(c => c.id === r.customerId)?.address || '')).filter(Boolean).join('|')}` : ''}&mode=driving`}
-                    title="Route Map"
-                  />
-                </div>
+                <RouteMap 
+                  routes={sortedRoutes} 
+                  customers={customers || []} 
+                  apiKey={apiKey} 
+                />
               );
             })()}
           </CardContent>

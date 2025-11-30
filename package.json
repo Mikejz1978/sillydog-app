@@ -47,6 +47,7 @@
     "@tanstack/react-query": "^5.60.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/csurf": "^1.11.5",
+    "@types/google.maps": "^3.58.1",
     "@types/memoizee": "^0.4.12",
     "@types/twilio": "^3.19.2",
     "bcryptjs": "^3.0.3",
