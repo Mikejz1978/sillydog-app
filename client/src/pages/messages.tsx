@@ -1,24 +1,60 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { MessageSquare, Send, User } from "lucide-react";
+import { MessageSquare, Send, User, PenSquare, Search } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Customer, Message } from "@shared/schema";
 import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function Messages() {
   const { toast } = useToast();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [composeDialogOpen, setComposeDialogOpen] = useState(false);
+  const [composeSearchQuery, setComposeSearchQuery] = useState("");
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
+
+  // Sort customers alphabetically and filter by search
+  const sortedCustomers = useMemo(() => {
+    if (!customers) return [];
+    return [...customers]
+      .filter(c => c.status === 'active')
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(c => 
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.phone.includes(searchQuery)
+      );
+  }, [customers, searchQuery]);
+
+  // Filter customers for compose dialog
+  const composeFilteredCustomers = useMemo(() => {
+    if (!customers) return [];
+    return [...customers]
+      .filter(c => c.status === 'active')
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(c => 
+        c.name.toLowerCase().includes(composeSearchQuery.toLowerCase()) ||
+        c.phone.includes(composeSearchQuery)
+      );
+  }, [customers, composeSearchQuery]);
 
   const { data: messages, isLoading: messagesLoading } = useQuery<Message[]>({
     queryKey: ["/api/messages", selectedCustomerId],
@@ -66,41 +102,113 @@ export default function Messages() {
 
   return (
     <div className="h-full flex flex-col p-6">
-      <div className="mb-6">
-        <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent">
-          Messages
-        </h1>
-        <p className="text-muted-foreground mt-1">Communicate with your customers via SMS</p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-serif font-semibold bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] bg-clip-text text-transparent">
+            Messages
+          </h1>
+          <p className="text-muted-foreground mt-1">Communicate with your customers via SMS</p>
+        </div>
+        
+        {/* Compose New Message Button */}
+        <Dialog open={composeDialogOpen} onOpenChange={setComposeDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-compose-message">
+              <PenSquare className="w-4 h-4 mr-2" />
+              Compose Message
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Compose New Message</DialogTitle>
+              <DialogDescription>
+                Select a customer to start a conversation
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search customers..."
+                  value={composeSearchQuery}
+                  onChange={(e) => setComposeSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-compose-search"
+                />
+              </div>
+              <ScrollArea className="h-64">
+                {composeFilteredCustomers.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">No customers found</p>
+                ) : (
+                  composeFilteredCustomers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      onClick={() => {
+                        setSelectedCustomerId(customer.id);
+                        setComposeDialogOpen(false);
+                        setComposeSearchQuery("");
+                      }}
+                      className="w-full text-left p-3 hover-elevate rounded-md flex items-center gap-3"
+                      data-testid={`compose-customer-${customer.id}`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white text-sm font-medium">
+                        {customer.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-medium">{customer.name}</div>
+                        <div className="text-sm text-muted-foreground">{customer.phone}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </ScrollArea>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
         {/* Customer List */}
         <Card className="md:col-span-1 flex flex-col overflow-hidden">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
               Customers
             </CardTitle>
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-customer-search"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-hidden">
             <ScrollArea className="h-full">
-              {customers?.map((customer) => (
-                <div key={customer.id}>
-                  <button
-                    onClick={() => setSelectedCustomerId(customer.id)}
-                    className={`w-full text-left p-4 hover-elevate active-elevate-2 transition-colors ${
-                      selectedCustomerId === customer.id
-                        ? "bg-gradient-to-r from-[#00BCD4]/10 to-[#FF6F00]/10"
-                        : ""
-                    }`}
-                    data-testid={`button-customer-${customer.id}`}
-                  >
-                    <div className="font-medium">{customer.name}</div>
-                    <div className="text-sm text-muted-foreground">{customer.phone}</div>
-                  </button>
-                  <Separator />
-                </div>
-              ))}
+              {sortedCustomers.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">No customers found</p>
+              ) : (
+                sortedCustomers.map((customer) => (
+                  <div key={customer.id}>
+                    <button
+                      onClick={() => setSelectedCustomerId(customer.id)}
+                      className={`w-full text-left p-4 hover-elevate active-elevate-2 transition-colors ${
+                        selectedCustomerId === customer.id
+                          ? "bg-gradient-to-r from-[#00BCD4]/10 to-[#FF6F00]/10"
+                          : ""
+                      }`}
+                      data-testid={`button-customer-${customer.id}`}
+                    >
+                      <div className="font-medium">{customer.name}</div>
+                      <div className="text-sm text-muted-foreground">{customer.phone}</div>
+                    </button>
+                    <Separator />
+                  </div>
+                ))
+              )}
             </ScrollArea>
           </CardContent>
         </Card>
