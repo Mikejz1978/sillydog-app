@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Users, Calendar, CheckCircle, XCircle } from "lucide-react";
+import { Upload, FileText, Users, Calendar, CheckCircle, XCircle, FileJson } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -16,9 +16,11 @@ interface ImportResult {
 
 export default function Import() {
   const [customersFile, setCustomersFile] = useState<File | null>(null);
+  const [jsonFile, setJsonFile] = useState<File | null>(null);
   const [schedulesFile, setSchedulesFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [customerResult, setCustomerResult] = useState<ImportResult | null>(null);
+  const [jsonResult, setJsonResult] = useState<ImportResult | null>(null);
   const [scheduleResult, setScheduleResult] = useState<ImportResult | null>(null);
   const { toast } = useToast();
 
@@ -51,6 +53,43 @@ export default function Import() {
       toast({
         title: "Import Failed",
         description: "Failed to process CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleJsonImport = async () => {
+    if (!jsonFile) return;
+
+    setImporting(true);
+    setJsonResult(null);
+
+    try {
+      const text = await jsonFile.text();
+      const jsonData = JSON.parse(text);
+      const response = await apiRequest("POST", "/api/import/customers-json", { customers: jsonData });
+      const result = await response.json();
+      
+      setJsonResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "JSON Import Complete",
+          description: `Imported ${result.imported} customers, skipped ${result.skipped}`,
+        });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: result.errors?.[0] || "An error occurred",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to process JSON file",
         variant: "destructive",
       });
     } finally {
@@ -105,12 +144,89 @@ export default function Import() {
         </p>
       </div>
 
+      {/* JSON Import - Most Important */}
+      <Card className="border-primary/50 bg-gradient-to-r from-primary/5 to-accent/5" data-testid="card-import-json">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileJson className="w-5 h-5" />
+            Import from JSON (Recommended)
+          </CardTitle>
+          <CardDescription>
+            Upload your saved JSON backup file to restore all customers
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center space-y-3">
+            <FileJson className="w-12 h-12 mx-auto text-primary" />
+            <div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => setJsonFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="json-file"
+                data-testid="input-json-file"
+              />
+              <label htmlFor="json-file">
+                <Button variant="outline" asChild data-testid="button-select-json-file">
+                  <span className="cursor-pointer">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Select JSON File
+                  </span>
+                </Button>
+              </label>
+            </div>
+            {jsonFile && (
+              <p className="text-sm text-muted-foreground" data-testid="text-json-filename">
+                Selected: {jsonFile.name}
+              </p>
+            )}
+          </div>
+
+          <Button
+            onClick={handleJsonImport}
+            disabled={!jsonFile || importing}
+            className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
+            data-testid="button-import-json"
+          >
+            {importing ? "Importing..." : "Import from JSON"}
+          </Button>
+
+          {jsonResult && (
+            <div className={`p-4 rounded-lg ${jsonResult.success ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"}`} data-testid="div-json-result">
+              <div className="flex items-start gap-2">
+                {jsonResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {jsonResult.success ? "Import Successful" : "Import Failed"}
+                  </p>
+                  <p className="text-sm mt-1">
+                    Imported: {jsonResult.imported} | Skipped: {jsonResult.skipped}
+                  </p>
+                  {jsonResult.errors.length > 0 && (
+                    <ul className="text-sm mt-2 space-y-1">
+                      {jsonResult.errors.map((error, idx) => (
+                        <li key={idx}>• {error}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card data-testid="card-import-customers">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Import Customers
+              Import Customers (CSV)
             </CardTitle>
             <CardDescription>
               Upload a CSV file exported from HouseCall Pro with customer data

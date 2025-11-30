@@ -1590,6 +1590,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // JSON Import for customers
+  app.post("/api/import/customers-json", async (req, res) => {
+    try {
+      const { customers } = req.body;
+      
+      if (!customers || !Array.isArray(customers)) {
+        return res.status(400).json({ 
+          success: false, 
+          imported: 0, 
+          skipped: 0, 
+          errors: ["No customer data provided or invalid format. Expected an array of customers."] 
+        });
+      }
+
+      console.log(`Starting JSON import of ${customers.length} customers`);
+
+      // Get all existing customers for duplicate checking
+      const existingCustomers = await storage.getAllCustomers();
+      const existingPhones = new Set(existingCustomers.map(c => c.phone?.replace(/\D/g, '')));
+      const existingEmails = new Set(existingCustomers.filter(c => c.email).map(c => c.email?.toLowerCase()));
+
+      // Get default service type
+      const serviceTypes = await storage.getAllServiceTypes();
+      const defaultServiceType = serviceTypes.find(st => st.name === "1 Dog 1x Week") || serviceTypes[0];
+      
+      if (!defaultServiceType) {
+        return res.status(500).json({
+          success: false,
+          imported: 0,
+          skipped: 0,
+          errors: ["No service types found. Please set up service types first."]
+        });
+      }
+
+      let imported = 0;
+      let skipped = 0;
+      let skippedDuplicates = 0;
+      const errors: string[] = [];
+      const importedPhones = new Set<string>();
+      const importedEmails = new Set<string>();
+
+      for (let i = 0; i < customers.length; i++) {
+        try {
+          const customer = customers[i];
+          
+          // Handle different JSON structures - be flexible with field names
+          const name = customer.name || customer.Name || customer.customerName || "";
+          const address = customer.address || customer.Address || customer.street || "";
+          const phone = (customer.phone || customer.Phone || customer.phoneNumber || "").toString().replace(/\D/g, '');
+          const email = (customer.email || customer.Email || "").toLowerCase().trim();
+          const numberOfDogs = parseInt(customer.numberOfDogs || customer.number_of_dogs || customer.dogs || "1") || 1;
+          const gateCode = customer.gateCode || customer.gate_code || customer.gateCode || "";
+          const yardNotes = customer.yardNotes || customer.yard_notes || customer.notes || "";
+          const smsOptIn = customer.smsOptIn !== false && customer.sms_opt_in !== false;
+          const autopayEnabled = customer.autopayEnabled === true || customer.autopay_enabled === true;
+          const status = customer.status || "active";
+
+          // Skip if missing required fields
+          if (!name || !address || !phone) {
+            skipped++;
+            if (!name) errors.push(`Row ${i + 1}: Missing name`);
+            else if (!address) errors.push(`Row ${i + 1}: Missing address for ${name}`);
+            else if (!phone) errors.push(`Row ${i + 1}: Missing phone for ${name}`);
+            continue;
+          }
+
+          // Check for duplicates
+          if (existingPhones.has(phone) || importedPhones.has(phone)) {
+            skipped++;
+            skippedDuplicates++;
+            continue;
+          }
+
+          if (email && (existingEmails.has(email) || importedEmails.has(email))) {
+            skipped++;
+            skippedDuplicates++;
+            continue;
+          }
+
+          // Find matching service type or use default
+          let serviceTypeId = defaultServiceType.id;
+          if (customer.serviceTypeId || customer.service_type_id) {
+            const requestedId = customer.serviceTypeId || customer.service_type_id;
+            const matchingType = serviceTypes.find(st => st.id === requestedId);
+            if (matchingType) {
+              serviceTypeId = matchingType.id;
+            }
+          }
+
+          // Create the customer
+          await storage.createCustomer({
+            name,
+            address,
+            phone: phone.startsWith('+') ? phone : `+1${phone}`,
+            email: email || null,
+            serviceTypeId,
+            numberOfDogs,
+            gateCode: gateCode || null,
+            yardNotes: yardNotes || null,
+            billingMethod: "invoice",
+            status: status === "archived" ? "archived" : "active",
+            smsOptIn,
+            autopayEnabled,
+          });
+
+          importedPhones.add(phone);
+          if (email) importedEmails.add(email);
+          imported++;
+
+          if (imported <= 3) {
+            console.log(`Imported: ${name} (${phone})`);
+          }
+        } catch (error) {
+          errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`);
+          console.error(`Row ${i + 1} error:`, error);
+        }
+      }
+
+      console.log(`JSON Import complete: ${imported} imported, ${skipped} skipped (${skippedDuplicates} duplicates)`);
+
+      res.json({
+        success: errors.length === 0 || imported > 0,
+        imported,
+        skipped,
+        skippedDuplicates,
+        errors: errors.slice(0, 10),
+      });
+    } catch (error) {
+      console.error("JSON Import error:", error);
+      res.status(500).json({ 
+        success: false, 
+        imported: 0, 
+        skipped: 0, 
+        errors: [error instanceof Error ? error.message : "Server error"] 
+      });
+    }
+  });
+
   app.post("/api/import/schedules", async (req, res) => {
     try {
       const { csvData } = req.body;
