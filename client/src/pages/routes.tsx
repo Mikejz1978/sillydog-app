@@ -669,13 +669,17 @@ export default function Routes() {
                               <>
                                 <Button
                                   size="sm"
-                                  onClick={() => handleStatusUpdate(route.id, "in_route")}
-                                  disabled={updateStatusMutation.isPending}
-                                  data-testid={`button-start-${route.id}`}
+                                  onClick={async () => {
+                                    // First update status to in_route, then send the notification
+                                    await handleStatusUpdate(route.id, "in_route");
+                                    notifyOnWayMutation.mutate(route.id);
+                                  }}
+                                  disabled={updateStatusMutation.isPending || notifyOnWayMutation.isPending}
+                                  data-testid={`button-onmyway-${route.id}`}
                                   className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
                                 >
-                                  <Navigation className="w-3 h-3 mr-1" />
-                                  Start Route
+                                  <MessageSquare className="w-3 h-3 mr-1" />
+                                  On My Way
                                 </Button>
                                 <Button
                                   size="sm"
@@ -705,16 +709,6 @@ export default function Routes() {
                             )}
                             {route.status === "in_route" && (
                               <>
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => notifyOnWayMutation.mutate(route.id)}
-                                  disabled={notifyOnWayMutation.isPending}
-                                  data-testid={`button-notify-${route.id}`}
-                                >
-                                  <MessageSquare className="w-3 h-3 mr-1" />
-                                  On My Way
-                                </Button>
                                 <Button
                                   size="sm"
                                   onClick={() => handleStatusUpdate(route.id, "completed")}
