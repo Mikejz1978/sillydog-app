@@ -375,7 +375,7 @@ export default function Routes() {
   });
 
   const activeCustomers = customers?.filter(c => c.status === "active") || [];
-  const sortedRoutes = routes?.sort((a, b) => a.orderIndex - b.orderIndex) || [];
+  const sortedRoutes = [...(routes || [])].sort((a, b) => a.orderIndex - b.orderIndex);
 
   const handleStatusUpdate = (routeId: string, newStatus: string) => {
     updateStatusMutation.mutate({ id: routeId, status: newStatus });
@@ -564,6 +564,7 @@ export default function Routes() {
                         <div 
                           className="flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing flex-shrink-0"
                           title="Drag to reorder"
+                          data-testid={`drag-handle-${route.id}`}
                         >
                           <GripVertical className="w-4 h-4 text-muted-foreground" />
                           <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white font-semibold">

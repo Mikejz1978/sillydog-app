@@ -597,8 +597,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { routeIds } = req.body;
       
-      if (!routeIds || !Array.isArray(routeIds)) {
+      if (!routeIds || !Array.isArray(routeIds) || routeIds.length === 0) {
         return res.status(400).json({ message: "routeIds array is required" });
+      }
+
+      // Validate all route IDs are strings and unique
+      const uniqueIds = new Set(routeIds);
+      if (uniqueIds.size !== routeIds.length) {
+        return res.status(400).json({ message: "Duplicate route IDs are not allowed" });
+      }
+
+      // Fetch all routes to validate they exist and belong to the same date
+      const fetchedRoutes = await Promise.all(
+        routeIds.map((routeId: string) => storage.getRoute(routeId))
+      );
+
+      // Check all routes exist
+      const missingRoutes = fetchedRoutes.filter(r => !r);
+      if (missingRoutes.length > 0) {
+        return res.status(400).json({ message: "One or more route IDs not found" });
+      }
+
+      // Validate all routes are for the same date
+      const dates = new Set(fetchedRoutes.map(r => r!.date));
+      if (dates.size > 1) {
+        return res.status(400).json({ message: "All routes must be for the same date" });
       }
 
       // Update each route's orderIndex based on its position in the array
@@ -608,16 +631,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       );
 
-      // Get the first route to determine the date for returning updated routes
-      if (routeIds.length > 0) {
-        const firstRoute = await storage.getRoute(routeIds[0]);
-        if (firstRoute) {
-          const updatedRoutes = await storage.getRoutesByDate(firstRoute.date);
-          return res.json(updatedRoutes);
-        }
-      }
-
-      res.json({ message: "Routes reordered successfully" });
+      // Return updated routes for this date
+      const date = fetchedRoutes[0]!.date;
+      const updatedRoutes = await storage.getRoutesByDate(date);
+      res.json(updatedRoutes);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
