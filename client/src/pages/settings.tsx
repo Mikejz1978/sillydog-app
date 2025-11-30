@@ -2,8 +2,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard, Loader2, Navigation, Route } from "lucide-react";
+import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard, Loader2, Navigation, Route, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Settings } from "@shared/schema";
@@ -29,6 +30,10 @@ export default function Settings() {
   const [routeEndAddress, setRouteEndAddress] = useState("");
   const [isGeocodingStart, setIsGeocodingStart] = useState(false);
   const [isGeocodingEnd, setIsGeocodingEnd] = useState(false);
+  
+  // SMS message template state
+  const [smsOnMyWayMessage, setSmsOnMyWayMessage] = useState("");
+  const [smsServiceCompleteMessage, setSmsServiceCompleteMessage] = useState("");
 
   // Update form when settings load
   useEffect(() => {
@@ -40,6 +45,8 @@ export default function Settings() {
       setBaseZipCode(settings.baseZipCode || "");
       setRouteStartAddress(settings.routeStartAddress || "");
       setRouteEndAddress(settings.routeEndAddress || "");
+      setSmsOnMyWayMessage(settings.smsOnMyWayMessage || "Hi {name}! Your SillyDog technician is on the way to {address}. We'll be there shortly! 🐕");
+      setSmsServiceCompleteMessage(settings.smsServiceCompleteMessage || "Service complete at {address}! Your yard is all cleaned up. How did we do? Leave us a review: {reviewUrl}");
     }
   }, [settings]);
 
@@ -231,38 +238,50 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              Notification Settings
+              <MessageSquare className="w-5 h-5" />
+              SMS Message Templates
             </CardTitle>
-            <CardDescription>Configure SMS notifications</CardDescription>
+            <CardDescription>
+              Customize the text messages sent to customers. Use placeholders: <code className="bg-muted px-1 rounded">{"{name}"}</code> for customer name, <code className="bg-muted px-1 rounded">{"{address}"}</code> for address, <code className="bg-muted px-1 rounded">{"{reviewUrl}"}</code> for review link
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium text-sm">SMS: In Route</p>
-                  <p className="text-xs text-muted-foreground">Notify customers when starting route</p>
-                </div>
-                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"></div>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium text-sm">SMS: Service Complete</p>
-                  <p className="text-xs text-muted-foreground">Notify when service is finished</p>
-                </div>
-                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"></div>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium text-sm">SMS: Payment Received</p>
-                  <p className="text-xs text-muted-foreground">Send receipt when payment is made</p>
-                </div>
-                <div className="w-12 h-6 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"></div>
-              </div>
+            <div>
+              <Label htmlFor="sms-on-my-way">"On My Way" Message</Label>
+              <p className="text-xs text-muted-foreground mb-2">Sent when you tap "On My Way" for a route</p>
+              <Textarea 
+                id="sms-on-my-way" 
+                value={smsOnMyWayMessage}
+                onChange={(e) => setSmsOnMyWayMessage(e.target.value)}
+                className="mt-1 min-h-[80px]" 
+                data-testid="textarea-sms-on-my-way"
+                placeholder="Hi {name}! Your SillyDog technician is on the way to {address}. We'll be there shortly! 🐕"
+              />
             </div>
+            <div>
+              <Label htmlFor="sms-service-complete">"Service Complete" Message</Label>
+              <p className="text-xs text-muted-foreground mb-2">Sent automatically when a service is marked complete</p>
+              <Textarea 
+                id="sms-service-complete" 
+                value={smsServiceCompleteMessage}
+                onChange={(e) => setSmsServiceCompleteMessage(e.target.value)}
+                className="mt-1 min-h-[80px]" 
+                data-testid="textarea-sms-service-complete"
+                placeholder="Service complete at {address}! Your yard is all cleaned up. How did we do? Leave us a review: {reviewUrl}"
+              />
+            </div>
+            <Button 
+              onClick={() => updateSettingsMutation.mutate({ smsOnMyWayMessage, smsServiceCompleteMessage })}
+              disabled={updateSettingsMutation.isPending}
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" 
+              data-testid="button-save-sms-templates"
+            >
+              {updateSettingsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Message Templates
+            </Button>
           </CardContent>
         </Card>
 

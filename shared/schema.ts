@@ -389,6 +389,9 @@ export const settings = pgTable("settings", {
   routeEndAddress: text("route_end_address"),
   routeEndLat: decimal("route_end_lat", { precision: 10, scale: 7 }),
   routeEndLng: decimal("route_end_lng", { precision: 10, scale: 7 }),
+  // SMS Message Templates (use {name} and {address} as placeholders)
+  smsOnMyWayMessage: text("sms_on_my_way_message").default("Hi {name}! Your SillyDog technician is on the way to {address}. We'll be there shortly! 🐕"),
+  smsServiceCompleteMessage: text("sms_service_complete_message").default("Service complete at {address}! Your yard is all cleaned up. How did we do? Leave us a review: {reviewUrl}"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

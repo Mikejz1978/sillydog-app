@@ -915,24 +915,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customer = await storage.getCustomer(route.customerId);
       
       if (customer) {
-        // Send SMS based on status (only if customer has opted in)
+        // Handle status changes
         if (status === "in_route") {
-          if (customer.smsOptIn && customer.phone) {
-            await sendSMS(
-              customer.phone,
-              `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll text you when the service is complete!`
-            );
-            console.log(`✅ "In Route" SMS sent to ${customer.name} at ${customer.phone}`);
-          } else {
-            console.log(`ℹ️ "In Route" SMS NOT sent to ${customer.name} - SMS Opt-In: ${customer.smsOptIn}, Phone: ${customer.phone ? 'Yes' : 'No'}`);
-          }
-          
-          // Create job history entry
+          // Create job history entry (SMS is sent via the "On My Way" button separately)
           await storage.createJobHistory({
             customerId: customer.id,
             routeId: route.id,
             serviceDate: route.date,
-            smsInRouteSent: customer.smsOptIn && !!customer.phone,
+            smsInRouteSent: false, // Will be updated when "On My Way" SMS is sent
             smsCompleteSent: false,
           });
         } else if (status === "completed") {
@@ -952,10 +942,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (customer.smsOptIn && customer.phone) {
             const reviewUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'your-app.replit.app'}/review/${reviewToken}`;
             
-            await sendSMS(
-              customer.phone,
-              `Service complete at ${customer.address}! Your yard is all cleaned up. How did we do? Leave us a review: ${reviewUrl}`
-            );
+            // Get customizable message template from settings
+            const settings = await storage.getSettings();
+            const messageTemplate = settings?.smsServiceCompleteMessage || "Service complete at {address}! Your yard is all cleaned up. How did we do? Leave us a review: {reviewUrl}";
+            
+            // Replace placeholders with actual values
+            const message = messageTemplate
+              .replace(/\{name\}/g, customer.name)
+              .replace(/\{address\}/g, customer.address || "your location")
+              .replace(/\{reviewUrl\}/g, reviewUrl);
+            
+            await sendSMS(customer.phone, message);
             console.log(`✅ "Service Complete" SMS sent to ${customer.name} with review link`);
           } else {
             console.log(`ℹ️ "Service Complete" SMS NOT sent to ${customer.name} - SMS Opt-In: ${customer.smsOptIn}, Phone: ${customer.phone ? 'Yes' : 'No'}`);
@@ -999,12 +996,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Customer has no phone number on file" });
       }
 
-      await sendSMS(
-        customer.phone,
-        `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll be there shortly! 🐕`
-      );
+      // Get customizable message template from settings
+      const settings = await storage.getSettings();
+      const messageTemplate = settings?.smsOnMyWayMessage || "Hi {name}! Your SillyDog technician is on the way to {address}. We'll be there shortly! 🐕";
+      
+      // Replace placeholders with actual values
+      const message = messageTemplate
+        .replace(/\{name\}/g, customer.name)
+        .replace(/\{address\}/g, customer.address || "your location");
 
-      console.log(`✅ Manual "On My Way" SMS sent to ${customer.name} at ${customer.phone}`);
+      await sendSMS(customer.phone, message);
+
+      console.log(`✅ "On My Way" SMS sent to ${customer.name} at ${customer.phone}`);
       res.json({ success: true, message: `"On My Way" notification sent to ${customer.name}` });
     } catch (error: any) {
       console.error("Failed to send On My Way notification:", error);
