@@ -21,6 +21,7 @@ import PriceBook from "@/pages/price-book";
 import Settings from "@/pages/settings";
 import Users from "@/pages/users";
 import CustomerPortal from "@/pages/customer-portal";
+import PortalLogin from "@/pages/portal-login";
 import Bookings from "@/pages/bookings";
 import BookNow from "@/pages/book";
 import ReviewPage from "@/pages/review";
@@ -129,6 +130,7 @@ function App() {
             <Route path="/login" component={Login} />
             <Route path="/book" component={BookNow} />
             <Route path="/review/:token" component={ReviewPage} />
+            <Route path="/portal/login" component={PortalLogin} />
             <Route path="/portal" component={CustomerPortal} />
             <Route>
               <AdminLayout />

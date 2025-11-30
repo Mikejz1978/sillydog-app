@@ -236,6 +236,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== CUSTOMER PORTAL AUTHENTICATION ==========
+  // Customer portal login with email and password
+  app.post("/api/portal/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      // Find customer by email
+      const customers = await storage.getAllCustomers();
+      const customer = customers.find(c => c.email?.toLowerCase() === email.toLowerCase());
+
+      if (!customer) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check if customer has a portal password set
+      if (!customer.portalPassword) {
+        return res.status(401).json({ message: "Portal access not set up. Please contact us to set up your account." });
+      }
+
+      // Verify password
+      const isValid = await bcrypt.compare(password, customer.portalPassword);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Store customer ID in session
+      (req.session as any).portalCustomerId = customer.id;
+
+      // Return customer info (without password)
+      const { portalPassword, ...customerWithoutPassword } = customer;
+      res.json({ message: "Login successful", customer: customerWithoutPassword });
+    } catch (error: any) {
+      console.error("Portal login error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Customer portal logout
+  app.post("/api/portal/logout", (req, res) => {
+    (req.session as any).portalCustomerId = null;
+    res.json({ message: "Logout successful" });
+  });
+
+  // Get current portal customer
+  app.get("/api/portal/me", async (req, res) => {
+    try {
+      const customerId = (req.session as any).portalCustomerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        (req.session as any).portalCustomerId = null;
+        return res.status(401).json({ message: "Customer not found" });
+      }
+
+      // Return customer info (without password)
+      const { portalPassword, ...customerWithoutPassword } = customer;
+      res.json({ customer: customerWithoutPassword });
+    } catch (error: any) {
+      console.error("Portal me error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Set up portal password (for new customers or password reset)
+  app.post("/api/portal/setup-password", async (req, res) => {
+    try {
+      const { email, phone, password } = req.body;
+
+      if (!email || !phone || !password) {
+        return res.status(400).json({ message: "Email, phone, and password are required" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      // Find customer by email AND phone (for verification)
+      const customers = await storage.getAllCustomers();
+      const customer = customers.find(
+        c => c.email?.toLowerCase() === email.toLowerCase() && 
+             c.phone.replace(/\D/g, '') === phone.replace(/\D/g, '')
+      );
+
+      if (!customer) {
+        return res.status(404).json({ message: "No customer found with this email and phone combination" });
+      }
+
+      // Hash and save password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateCustomer(customer.id, { portalPassword: hashedPassword });
+
+      res.json({ message: "Portal password set successfully. You can now log in." });
+    } catch (error: any) {
+      console.error("Portal setup error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Get portal customer data (requires authentication)
+  app.get("/api/portal/data", async (req, res) => {
+    try {
+      const customerId = (req.session as any).portalCustomerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get customer's data
+      const invoices = (await storage.getAllInvoices()).filter(i => i.customerId === customerId);
+      const routes = (await storage.getAllRoutes()).filter(r => r.customerId === customerId);
+      const jobHistory = (await storage.getAllJobHistory()).filter(j => j.customerId === customerId);
+      const serviceType = customer.serviceTypeId ? await storage.getServiceType(customer.serviceTypeId) : null;
+
+      // Return customer info (without password)
+      const { portalPassword, ...customerWithoutPassword } = customer;
+
+      res.json({
+        customer: customerWithoutPassword,
+        invoices,
+        routes,
+        jobHistory,
+        serviceType,
+      });
+    } catch (error: any) {
+      console.error("Portal data error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Update customer profile from portal
+  app.patch("/api/portal/profile", async (req, res) => {
+    try {
+      const customerId = (req.session as any).portalCustomerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Only allow updating specific fields from portal
+      const { phone, email, gateCode, yardNotes, smsOptIn, autopayEnabled } = req.body;
+      const updates: any = {};
+
+      if (phone !== undefined) updates.phone = phone;
+      if (email !== undefined) updates.email = email;
+      if (gateCode !== undefined) updates.gateCode = gateCode;
+      if (yardNotes !== undefined) updates.yardNotes = yardNotes;
+      if (smsOptIn !== undefined) updates.smsOptIn = smsOptIn;
+      if (autopayEnabled !== undefined) updates.autopayEnabled = autopayEnabled;
+
+      const customer = await storage.updateCustomer(customerId, updates);
+      const { portalPassword, ...customerWithoutPassword } = customer;
+
+      res.json({ customer: customerWithoutPassword });
+    } catch (error: any) {
+      console.error("Portal profile update error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // ========== USER MANAGEMENT ROUTES (Admin only) ==========
   // Get all users
   app.get("/api/users", requireAdmin, async (_req, res) => {

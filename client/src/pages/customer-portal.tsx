@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,8 @@ import {
   Bell,
   Loader2,
   Camera,
-  History
+  History,
+  LogOut
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -129,9 +131,16 @@ function PaymentForm({
   );
 }
 
-// This is a simplified customer portal for demonstration
-// In production, this would require customer authentication
+interface PortalData {
+  customer: Customer;
+  invoices: Invoice[];
+  routes: Route[];
+  jobHistory: JobHistory[];
+  serviceType: ServiceType | null;
+}
+
 export default function CustomerPortal() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
   
@@ -151,61 +160,72 @@ export default function CustomerPortal() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
 
-  // For demo purposes, we'll show data for the first customer
-  const { data: customers, isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  // Check authentication
+  const { data: authData, isLoading: authLoading, isError: authError } = useQuery<{ customer: Customer }>({
+    queryKey: ["/api/portal/me"],
+    retry: false,
   });
 
-  const { data: invoices } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices"],
+  // Get portal data
+  const { data: portalData, isLoading: dataLoading, refetch: refetchData } = useQuery<PortalData>({
+    queryKey: ["/api/portal/data"],
+    enabled: !!authData?.customer,
+    retry: false,
   });
 
-  const { data: routes } = useQuery<Route[]>({
-    queryKey: ["/api/routes"],
-  });
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && (authError || !authData?.customer)) {
+      setLocation("/portal/login");
+    }
+  }, [authLoading, authError, authData, setLocation]);
 
-  const { data: jobHistory } = useQuery<JobHistory[]>({
-    queryKey: ["/api/job-history"],
-  });
-
-  const { data: serviceTypes } = useQuery<ServiceType[]>({
-    queryKey: ["/api/service-types"],
-  });
-
-  const customer = customers?.[0];
+  const customer = portalData?.customer;
   const customerInvoices = useMemo(() => 
-    invoices?.filter(inv => inv.customerId === customer?.id)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [],
-    [invoices, customer?.id]
+    portalData?.invoices
+      ?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [],
+    [portalData?.invoices]
   );
   
   const upcomingRoutes = useMemo(() => 
-    routes?.filter(r => 
-      r.customerId === customer?.id && 
+    portalData?.routes?.filter(r => 
       (r.status === "scheduled" || r.status === "in_route") &&
       (isFuture(parseISO(r.date)) || isToday(parseISO(r.date)))
     ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) || [],
-    [routes, customer?.id]
+    [portalData?.routes]
   );
 
   const customerJobHistory = useMemo(() =>
-    jobHistory?.filter(j => j.customerId === customer?.id)
-      .sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime()) || [],
-    [jobHistory, customer?.id]
+    portalData?.jobHistory
+      ?.sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime()) || [],
+    [portalData?.jobHistory]
   );
 
   const unpaidInvoices = customerInvoices?.filter(inv => inv.status === "unpaid" || inv.status === "overdue");
   const outstandingBalance = unpaidInvoices?.reduce((sum, inv) => sum + parseFloat(inv.amount), 0) || 0;
 
-  const customerServiceType = serviceTypes?.find(st => st.id === customer?.serviceTypeId);
+  const customerServiceType = portalData?.serviceType;
+
+  // Logout mutation
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/portal/logout", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/data"] });
+      setLocation("/portal/login");
+    },
+  });
 
   // Update customer mutation
   const updateCustomerMutation = useMutation({
     mutationFn: async (data: Partial<Customer>) => {
-      return await apiRequest("PATCH", `/api/customers/${customer?.id}`, data);
+      return await apiRequest("PATCH", "/api/portal/profile", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      refetchData();
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/me"] });
       setIsEditing(false);
       toast({
         title: "Settings Updated",
@@ -258,7 +278,7 @@ export default function CustomerPortal() {
     try {
       const response = await apiRequest("POST", "/api/create-payment-intent", {
         amount: outstandingBalance,
-        invoiceId: unpaidInvoices[0].id, // For single invoice, or handle multiple
+        invoiceId: unpaidInvoices[0].id,
       });
       const data = await response.json();
       setClientSecret(data.clientSecret);
@@ -275,7 +295,6 @@ export default function CustomerPortal() {
   };
 
   const handlePaymentSuccess = async () => {
-    // Mark invoices as paid
     if (unpaidInvoices) {
       for (const invoice of unpaidInvoices) {
         try {
@@ -288,9 +307,7 @@ export default function CustomerPortal() {
       }
     }
     
-    // Invalidate queries to refresh data
-    queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-    
+    refetchData();
     setPaymentDialogOpen(false);
     setClientSecret(null);
   };
@@ -300,7 +317,11 @@ export default function CustomerPortal() {
     setClientSecret(null);
   };
 
-  if (customersLoading) {
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
+
+  if (authLoading || dataLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -313,7 +334,7 @@ export default function CustomerPortal() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <Dog className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">No customer data available</p>
+          <p className="text-muted-foreground">Loading your account...</p>
         </div>
       </div>
     );
@@ -323,7 +344,17 @@ export default function CustomerPortal() {
     <div className="min-h-screen bg-gradient-to-br from-[#00BCD4]/10 via-background to-[#FF6F00]/10">
       <div className="container max-w-6xl mx-auto p-4 md:p-8 space-y-6">
         {/* Header */}
-        <div className="text-center py-8">
+        <div className="text-center py-8 relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="absolute right-0 top-8"
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
           <img 
             src={logoImage} 
             alt="SillyDog Logo" 
@@ -584,7 +615,7 @@ export default function CustomerPortal() {
                       {isCreatingPayment ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Loading...
+                          Processing...
                         </>
                       ) : (
                         <>
@@ -598,14 +629,14 @@ export default function CustomerPortal() {
               </Card>
             )}
 
-            {/* Invoice History */}
+            {/* Invoices List */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5" />
                   Invoice History
                 </CardTitle>
-                <CardDescription>Your billing and payment history</CardDescription>
+                <CardDescription>Your billing history and invoices</CardDescription>
               </CardHeader>
               <CardContent>
                 {customerInvoices.length > 0 ? (
@@ -616,28 +647,28 @@ export default function CustomerPortal() {
                           <div className="flex items-center gap-4">
                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                               invoice.status === "paid" 
-                                ? "bg-green-100 dark:bg-green-900/30" 
-                                : "bg-yellow-100 dark:bg-yellow-900/30"
+                                ? "bg-green-100 dark:bg-green-900" 
+                                : "bg-orange-100 dark:bg-orange-900"
                             }`}>
                               {invoice.status === "paid" ? (
                                 <CheckCircle className="w-5 h-5 text-green-600" />
                               ) : (
-                                <Clock className="w-5 h-5 text-yellow-600" />
+                                <Clock className="w-5 h-5 text-orange-600" />
                               )}
                             </div>
                             <div>
-                              <p className="font-medium">Invoice #{invoice.invoiceNumber}</p>
+                              <p className="font-semibold">Invoice #{invoice.id.slice(-6)}</p>
                               <p className="text-sm text-muted-foreground">
-                                Due: {format(parseISO(invoice.dueDate), "MMM d, yyyy")}
+                                {format(new Date(invoice.createdAt), "MMM d, yyyy")}
                               </p>
-                              {invoice.description && (
-                                <p className="text-xs text-muted-foreground mt-1">{invoice.description}</p>
-                              )}
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-lg">${parseFloat(invoice.amount).toFixed(2)}</p>
-                            <Badge variant={invoice.status === "paid" ? "default" : invoice.status === "overdue" ? "destructive" : "secondary"}>
+                            <p className="font-bold">${parseFloat(invoice.amount).toFixed(2)}</p>
+                            <Badge 
+                              variant={invoice.status === "paid" ? "default" : "secondary"}
+                              className={invoice.status === "paid" ? "bg-green-600" : ""}
+                            >
                               {invoice.status}
                             </Badge>
                           </div>
@@ -663,66 +694,39 @@ export default function CustomerPortal() {
                   <History className="w-5 h-5" />
                   Service History
                 </CardTitle>
-                <CardDescription>Past completed services</CardDescription>
+                <CardDescription>Record of completed services</CardDescription>
               </CardHeader>
               <CardContent>
                 {customerJobHistory.length > 0 ? (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-3">
                       {customerJobHistory.map((job) => (
-                        <div key={job.id} className="p-4 rounded-lg border">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                                <CheckCircle className="w-5 h-5 text-green-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium">{format(parseISO(job.serviceDate), "EEEE, MMMM d, yyyy")}</p>
-                                {job.duration && (
-                                  <p className="text-sm text-muted-foreground">
-                                    Duration: {job.duration} minutes
-                                  </p>
-                                )}
-                              </div>
+                        <div key={job.id} className="flex items-center justify-between p-4 rounded-lg border">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                              <CheckCircle className="w-6 h-6 text-green-600" />
                             </div>
-                            <Badge variant="default">Completed</Badge>
+                            <div>
+                              <p className="font-semibold">{format(parseISO(job.serviceDate), "EEEE, MMMM d, yyyy")}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Service Completed
+                              </p>
+                              {job.notes && (
+                                <p className="text-xs text-muted-foreground mt-1">{job.notes}</p>
+                              )}
+                            </div>
                           </div>
-                          
-                          {job.notes && (
-                            <p className="text-sm text-muted-foreground mb-3 pl-13">
-                              Notes: {job.notes}
-                            </p>
-                          )}
-
-                          {/* Before/After Photos */}
-                          {(job.photoBefore || job.photoAfter) && (
-                            <div className="grid grid-cols-2 gap-4 mt-3">
-                              {job.photoBefore && (
-                                <div>
-                                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                                    <Camera className="w-3 h-3" /> Before
-                                  </p>
-                                  <img 
-                                    src={job.photoBefore} 
-                                    alt="Before service" 
-                                    className="rounded-lg w-full h-32 object-cover"
-                                  />
-                                </div>
-                              )}
-                              {job.photoAfter && (
-                                <div>
-                                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                                    <Camera className="w-3 h-3" /> After
-                                  </p>
-                                  <img 
-                                    src={job.photoAfter} 
-                                    alt="After service" 
-                                    className="rounded-lg w-full h-32 object-cover"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <div className="text-right">
+                            {job.duration && (
+                              <p className="text-sm text-muted-foreground">{job.duration} min</p>
+                            )}
+                            {(job.photoBefore || job.photoAfter) && (
+                              <Badge variant="outline" className="mt-1">
+                                <Camera className="w-3 h-3 mr-1" />
+                                Photos
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -747,7 +751,7 @@ export default function CustomerPortal() {
                     <Settings className="w-5 h-5" />
                     Account Settings
                   </CardTitle>
-                  <CardDescription>Manage your contact information and preferences</CardDescription>
+                  <CardDescription>Update your contact information and preferences</CardDescription>
                 </div>
                 {!isEditing && (
                   <Button onClick={handleEditClick} variant="outline" data-testid="button-edit-settings">
@@ -755,123 +759,94 @@ export default function CustomerPortal() {
                   </Button>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 {isEditing ? (
-                  <div className="space-y-6">
-                    {/* Contact Information */}
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        Contact Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="phone">Phone Number</Label>
-                          <Input
-                            id="phone"
-                            value={editForm.phone}
-                            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                            placeholder="(555) 555-5555"
-                            data-testid="input-phone"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email Address</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={editForm.email}
-                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                            placeholder="email@example.com"
-                            data-testid="input-email"
-                          />
-                        </div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          className="pl-10"
+                          value={editForm.phone}
+                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                          data-testid="input-phone"
+                        />
                       </div>
                     </div>
-
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          className="pl-10"
+                          value={editForm.email}
+                          onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                          data-testid="input-email"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="gateCode">Gate Code</Label>
+                      <div className="relative">
+                        <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="gateCode"
+                          className="pl-10"
+                          value={editForm.gateCode}
+                          onChange={(e) => setEditForm({ ...editForm, gateCode: e.target.value })}
+                          data-testid="input-gate-code"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="yardNotes">Yard Notes</Label>
+                      <Textarea
+                        id="yardNotes"
+                        placeholder="Any special instructions for our technicians..."
+                        value={editForm.yardNotes}
+                        onChange={(e) => setEditForm({ ...editForm, yardNotes: e.target.value })}
+                        data-testid="input-yard-notes"
+                      />
+                    </div>
                     <Separator />
-
-                    {/* Property Access */}
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
-                        <Key className="w-4 h-4" />
-                        Property Access
-                      </h3>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="gateCode">Gate Code</Label>
-                          <Input
-                            id="gateCode"
-                            value={editForm.gateCode}
-                            onChange={(e) => setEditForm({ ...editForm, gateCode: e.target.value })}
-                            placeholder="Enter gate code"
-                            data-testid="input-gate-code"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="yardNotes">Yard Notes & Special Instructions</Label>
-                          <Textarea
-                            id="yardNotes"
-                            value={editForm.yardNotes}
-                            onChange={(e) => setEditForm({ ...editForm, yardNotes: e.target.value })}
-                            placeholder="Enter any special instructions for our technicians..."
-                            rows={3}
-                            data-testid="input-yard-notes"
-                          />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Bell className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">SMS Notifications</p>
+                          <p className="text-sm text-muted-foreground">Receive text updates about your service</p>
                         </div>
                       </div>
+                      <Switch
+                        checked={editForm.smsOptIn}
+                        onCheckedChange={(checked) => setEditForm({ ...editForm, smsOptIn: checked })}
+                        data-testid="switch-sms"
+                      />
                     </div>
-
-                    <Separator />
-
-                    {/* Preferences */}
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
-                        <Bell className="w-4 h-4" />
-                        Preferences
-                      </h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            <MessageSquare className="w-5 h-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">SMS Notifications</p>
-                              <p className="text-sm text-muted-foreground">
-                                Receive text messages about your service
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={editForm.smsOptIn}
-                            onCheckedChange={(checked) => setEditForm({ ...editForm, smsOptIn: checked })}
-                            data-testid="switch-sms-opt-in"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            <CreditCard className="w-5 h-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">Autopay</p>
-                              <p className="text-sm text-muted-foreground">
-                                Automatically pay invoices when due
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={editForm.autopayEnabled}
-                            onCheckedChange={(checked) => setEditForm({ ...editForm, autopayEnabled: checked })}
-                            data-testid="switch-autopay"
-                          />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">Autopay</p>
+                          <p className="text-sm text-muted-foreground">Automatically pay invoices with your saved card</p>
                         </div>
                       </div>
+                      <Switch
+                        checked={editForm.autopayEnabled}
+                        onCheckedChange={(checked) => setEditForm({ ...editForm, autopayEnabled: checked })}
+                        data-testid="switch-autopay"
+                      />
                     </div>
-
-                    {/* Action Buttons */}
                     <div className="flex gap-3 pt-4">
                       <Button 
                         onClick={handleSaveSettings}
+                        className="flex-1 bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
                         disabled={updateCustomerMutation.isPending}
-                        className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
                         data-testid="button-save-settings"
                       >
                         {updateCustomerMutation.isPending ? (
@@ -883,109 +858,58 @@ export default function CustomerPortal() {
                           "Save Changes"
                         )}
                       </Button>
-                      <Button variant="outline" onClick={handleCancelEdit} data-testid="button-cancel-edit">
+                      <Button variant="outline" onClick={handleCancelEdit}>
                         Cancel
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    {/* Contact Information (View Mode) */}
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between py-3 border-b">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <Phone className="w-4 h-4" />
-                        Contact Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Phone className="w-4 h-4" />
-                            Phone
-                          </span>
-                          <span className="font-medium">{customer.phone}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Mail className="w-4 h-4" />
-                            Email
-                          </span>
-                          <span className="font-medium">{customer.email || "Not set"}</span>
-                        </div>
-                      </div>
+                        Phone
+                      </span>
+                      <span className="font-medium">{customer.phone}</span>
                     </div>
-
-                    <Separator />
-
-                    {/* Property Access (View Mode) */}
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <div className="flex items-center justify-between py-3 border-b">
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </span>
+                      <span className="font-medium">{customer.email || "Not set"}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-3 border-b">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <Key className="w-4 h-4" />
-                        Property Access
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground">Gate Code</span>
-                          <span className="font-medium">{customer.gateCode || "Not set"}</span>
-                        </div>
-                        <div className="p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground block mb-2">Yard Notes</span>
-                          <span className="font-medium">{customer.yardNotes || "No special instructions"}</span>
-                        </div>
-                      </div>
+                        Gate Code
+                      </span>
+                      <span className="font-medium">{customer.gateCode || "Not set"}</span>
                     </div>
-
-                    <Separator />
-
-                    {/* Preferences (View Mode) */}
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <div className="flex items-center justify-between py-3 border-b">
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Yard Notes
+                      </span>
+                      <span className="font-medium text-right max-w-[60%]">{customer.yardNotes || "None"}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-3 border-b">
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <Bell className="w-4 h-4" />
-                        Preferences
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4" />
-                            SMS Notifications
-                          </span>
-                          <Badge variant={customer.smsOptIn ? "default" : "secondary"}>
-                            {customer.smsOptIn ? "Enabled" : "Disabled"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <CreditCard className="w-4 h-4" />
-                            Autopay
-                          </span>
-                          <Badge variant={customer.autopayEnabled ? "default" : "secondary"}>
-                            {customer.autopayEnabled ? "Enabled" : "Disabled"}
-                          </Badge>
-                        </div>
-                      </div>
+                        SMS Notifications
+                      </span>
+                      <Badge variant={customer.smsOptIn ? "default" : "secondary"}>
+                        {customer.smsOptIn ? "Enabled" : "Disabled"}
+                      </Badge>
                     </div>
-
-                    {/* Read-only Service Info */}
-                    <Separator />
-                    <div>
-                      <h3 className="font-semibold mb-4 flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        Service Information
-                        <span className="text-xs font-normal text-muted-foreground">(Contact us to change)</span>
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground">Service Address</span>
-                          <span className="font-medium text-right max-w-[60%]">{customer.address}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground">Number of Dogs</span>
-                          <span className="font-medium">{customer.numberOfDogs}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                          <span className="text-muted-foreground">Service Plan</span>
-                          <span className="font-medium">{customerServiceType?.name || "Standard"}</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between py-3">
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Autopay
+                      </span>
+                      <Badge variant={customer.autopayEnabled ? "default" : "secondary"}>
+                        {customer.autopayEnabled ? "Enabled" : "Disabled"}
+                      </Badge>
                     </div>
                   </div>
                 )}
@@ -993,12 +917,6 @@ export default function CustomerPortal() {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Footer */}
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          <p>Need help? Contact us at support@sillydogpoopscoop.com</p>
-          <p className="mt-1">SillyDog Pooper Scooper Services</p>
-        </div>
       </div>
 
       {/* Payment Dialog */}
@@ -1010,26 +928,15 @@ export default function CustomerPortal() {
               Pay Outstanding Balance
             </DialogTitle>
             <DialogDescription>
-              Total amount: ${outstandingBalance.toFixed(2)}
+              Complete payment for your outstanding balance of ${outstandingBalance.toFixed(2)}
             </DialogDescription>
           </DialogHeader>
           {clientSecret && (
-            <Elements 
-              stripe={stripePromise} 
-              options={{ 
-                clientSecret,
-                appearance: {
-                  theme: 'stripe',
-                  variables: {
-                    colorPrimary: '#00BCD4',
-                  },
-                },
-              }}
-            >
-              <PaymentForm 
+            <Elements stripe={stripePromise} options={{ clientSecret }}>
+              <PaymentForm
+                amount={outstandingBalance}
                 onSuccess={handlePaymentSuccess}
                 onCancel={handlePaymentCancel}
-                amount={outstandingBalance}
               />
             </Elements>
           )}
