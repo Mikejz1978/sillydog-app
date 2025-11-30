@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,6 +58,14 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       return response.json();
     },
   });
+
+  // Query service types to show the customer's plan
+  const { data: serviceTypes } = useQuery<ServiceType[]>({
+    queryKey: ["/api/service-types"],
+  });
+
+  // Find the customer's service type
+  const customerServiceType = serviceTypes?.find(st => st.id === customer.serviceTypeId);
 
   const deleteRuleMutation = useMutation({
     mutationFn: async (ruleId: string) => {
@@ -215,6 +223,31 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Customer Service Type Info */}
+          <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Dog className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Service Plan</div>
+                  {customerServiceType ? (
+                    <div className="font-semibold text-lg">
+                      {customerServiceType.name} – ${customerServiceType.basePrice}/visit
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground italic">No service plan assigned</div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Dogs</div>
+                  <div className="font-bold text-lg">{customer.numberOfDogs || 1}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Existing Schedules */}
           {rulesLoading ? (
             <div className="text-center py-4">Loading schedules...</div>
