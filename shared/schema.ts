@@ -382,6 +382,13 @@ export const settings = pgTable("settings", {
   businessEmail: text("business_email"),
   serviceRadius: integer("service_radius").default(15), // miles
   baseZipCode: text("base_zip_code"),
+  // Route optimization settings
+  routeStartAddress: text("route_start_address"),
+  routeStartLat: real("route_start_lat"),
+  routeStartLng: real("route_start_lng"),
+  routeEndAddress: text("route_end_address"),
+  routeEndLat: real("route_end_lat"),
+  routeEndLng: real("route_end_lng"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
