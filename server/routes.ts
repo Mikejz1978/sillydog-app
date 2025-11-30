@@ -802,6 +802,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Reset customer portal password
+  app.post("/api/customers/:id/reset-portal-password", requireAdmin, async (req, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password || password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateCustomer(req.params.id, { portalPassword: hashedPassword });
+
+      console.log(`✅ Admin reset portal password for customer: ${customer.name}`);
+      res.json({ success: true, message: `Portal password reset for ${customer.name}` });
+    } catch (error: any) {
+      console.error("Failed to reset portal password:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Admin: Clear customer's saved payment method
+  app.delete("/api/customers/:id/payment-method", requireAdmin, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Clear Stripe payment method from Stripe if exists
+      if (customer.stripeCustomerId && customer.stripePaymentMethodId) {
+        try {
+          await stripe.paymentMethods.detach(customer.stripePaymentMethodId);
+        } catch (stripeError) {
+          console.warn("Could not detach payment method from Stripe:", stripeError);
+        }
+      }
+
+      // Clear payment method info from customer record
+      await storage.updateCustomer(req.params.id, { 
+        stripePaymentMethodId: null,
+        autopayEnabled: false,
+      });
+
+      console.log(`✅ Admin cleared payment method for customer: ${customer.name}`);
+      res.json({ success: true, message: `Payment method cleared for ${customer.name}` });
+    } catch (error: any) {
+      console.error("Failed to clear payment method:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ========== ROUTE ROUTES ==========
   app.get("/api/routes", async (req, res) => {
     try {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -685,6 +685,57 @@ export default function Customers() {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({
         title: data.charged ? "Customer Charged" : "Invoice Created",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Portal password reset state and mutation
+  const [portalResetDialogOpen, setPortalResetDialogOpen] = useState(false);
+  const [selectedCustomerForPortal, setSelectedCustomerForPortal] = useState<Customer | null>(null);
+  const [newPortalPassword, setNewPortalPassword] = useState("");
+
+  const resetPortalPasswordMutation = useMutation({
+    mutationFn: async ({ customerId, password }: { customerId: string; password: string }) => {
+      const response = await apiRequest("POST", `/api/customers/${customerId}/reset-portal-password`, { password });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Portal Password Reset",
+        description: data.message,
+      });
+      setPortalResetDialogOpen(false);
+      setSelectedCustomerForPortal(null);
+      setNewPortalPassword("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Clear payment method mutation
+  const clearPaymentMethodMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("DELETE", `/api/customers/${customerId}/payment-method`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Payment Method Cleared",
         description: data.message,
       });
     },
@@ -1453,12 +1504,26 @@ export default function Customers() {
                         </TooltipProvider>
                       )}
                     </div>
-                    <div className={`text-xs font-medium px-2 py-1 rounded-full inline-block mt-1 ${
-                      customer.status === "active" 
-                        ? "bg-green-100 text-green-800" 
-                        : "bg-gray-100 text-gray-800"
-                    }`}>
-                      {customer.status}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <div className={`text-xs font-medium px-2 py-1 rounded-full inline-block ${
+                        customer.status === "active" 
+                          ? "bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400" 
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
+                      }`}>
+                        {customer.status}
+                      </div>
+                      {customer.stripePaymentMethodId && (
+                        <div className="text-xs font-medium px-2 py-1 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
+                          <CreditCard className="w-3 h-3" />
+                          Card on file
+                        </div>
+                      )}
+                      {customer.portalPassword && (
+                        <div className="text-xs font-medium px-2 py-1 rounded-full inline-flex items-center gap-1 bg-purple-100 text-purple-800 dark:bg-purple-950/30 dark:text-purple-400">
+                          <Key className="w-3 h-3" />
+                          Portal
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1567,6 +1632,48 @@ export default function Customers() {
                       </>
                     )}
                   </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedCustomerForPortal(customer);
+                            setPortalResetDialogOpen(true);
+                          }}
+                          disabled={resetPortalPasswordMutation.isPending}
+                          data-testid={`button-portal-password-${customer.id}`}
+                        >
+                          <Key className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reset Portal Password</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {customer.stripePaymentMethodId && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm(`Clear ${customer.name}'s saved payment method?\n\nThis will remove their card on file and disable autopay.`)) {
+                                clearPaymentMethodMutation.mutate(customer.id);
+                              }
+                            }}
+                            disabled={clearPaymentMethodMutation.isPending}
+                            data-testid={`button-clear-payment-${customer.id}`}
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            <X className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5 text-destructive" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Clear Card on File</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1601,6 +1708,71 @@ export default function Customers() {
           </div>
         )}
       </div>
+
+      {/* Portal Password Reset Dialog */}
+      <Dialog open={portalResetDialogOpen} onOpenChange={(open) => {
+        setPortalResetDialogOpen(open);
+        if (!open) {
+          setSelectedCustomerForPortal(null);
+          setNewPortalPassword("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Reset Portal Password
+            </DialogTitle>
+            <DialogDescription>
+              Set a new password for {selectedCustomerForPortal?.name}'s customer portal access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">New Password</label>
+              <Input
+                type="password"
+                placeholder="Enter new password (min 6 characters)"
+                value={newPortalPassword}
+                onChange={(e) => setNewPortalPassword(e.target.value)}
+                data-testid="input-portal-password"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPortalResetDialogOpen(false);
+                  setSelectedCustomerForPortal(null);
+                  setNewPortalPassword("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!selectedCustomerForPortal || newPortalPassword.length < 6) {
+                    toast({
+                      title: "Error",
+                      description: "Password must be at least 6 characters",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  resetPortalPasswordMutation.mutate({
+                    customerId: selectedCustomerForPortal.id,
+                    password: newPortalPassword,
+                  });
+                }}
+                disabled={resetPortalPasswordMutation.isPending || newPortalPassword.length < 6}
+                data-testid="button-confirm-reset-password"
+              >
+                {resetPortalPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
