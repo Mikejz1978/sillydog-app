@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard, Loader2, Navigation, Route } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Settings } from "@shared/schema";
@@ -23,6 +23,12 @@ export default function Settings() {
   const [businessEmail, setBusinessEmail] = useState("");
   const [serviceRadius, setServiceRadius] = useState("");
   const [baseZipCode, setBaseZipCode] = useState("");
+  
+  // Route optimization state
+  const [routeStartAddress, setRouteStartAddress] = useState("");
+  const [routeEndAddress, setRouteEndAddress] = useState("");
+  const [isGeocodingStart, setIsGeocodingStart] = useState(false);
+  const [isGeocodingEnd, setIsGeocodingEnd] = useState(false);
 
   // Update form when settings load
   useEffect(() => {
@@ -32,6 +38,8 @@ export default function Settings() {
       setBusinessEmail(settings.businessEmail || "");
       setServiceRadius(settings.serviceRadius?.toString() || "");
       setBaseZipCode(settings.baseZipCode || "");
+      setRouteStartAddress(settings.routeStartAddress || "");
+      setRouteEndAddress(settings.routeEndAddress || "");
     }
   }, [settings]);
 
@@ -69,6 +77,55 @@ export default function Settings() {
       serviceRadius: serviceRadius ? parseInt(serviceRadius) : null,
       baseZipCode,
     });
+  };
+
+  // Geocode and save route optimization settings
+  const handleSaveRouteOptimization = async () => {
+    try {
+      let startLat = null, startLng = null, endLat = null, endLng = null;
+      
+      // Geocode start address if provided
+      if (routeStartAddress) {
+        setIsGeocodingStart(true);
+        const startResponse = await apiRequest("POST", "/api/geocode", { address: routeStartAddress });
+        const startCoords = await startResponse.json();
+        if (startCoords.lat && startCoords.lng) {
+          startLat = startCoords.lat;
+          startLng = startCoords.lng;
+        }
+        setIsGeocodingStart(false);
+      }
+      
+      // Geocode end address if provided
+      if (routeEndAddress) {
+        setIsGeocodingEnd(true);
+        const endResponse = await apiRequest("POST", "/api/geocode", { address: routeEndAddress });
+        const endCoords = await endResponse.json();
+        if (endCoords.lat && endCoords.lng) {
+          endLat = endCoords.lat;
+          endLng = endCoords.lng;
+        }
+        setIsGeocodingEnd(false);
+      }
+      
+      // Save settings with coordinates
+      updateSettingsMutation.mutate({
+        routeStartAddress,
+        routeStartLat: startLat,
+        routeStartLng: startLng,
+        routeEndAddress,
+        routeEndLat: endLat,
+        routeEndLng: endLng,
+      });
+    } catch (error) {
+      setIsGeocodingStart(false);
+      setIsGeocodingEnd(false);
+      toast({
+        variant: "destructive",
+        title: "Geocoding Error",
+        description: "Could not find coordinates for one or more addresses.",
+      });
+    }
   };
 
   if (isLoading) {
@@ -285,6 +342,69 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">Payment methods are securely stored via Stripe</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Route className="w-5 h-5" />
+              Route Optimization
+            </CardTitle>
+            <CardDescription>Set your starting and ending locations for route optimization</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="route-start" className="flex items-center gap-2">
+                  <Navigation className="w-4 h-4 text-green-500" />
+                  Start Location
+                </Label>
+                <Input 
+                  id="route-start" 
+                  placeholder="Enter your starting address" 
+                  value={routeStartAddress}
+                  onChange={(e) => setRouteStartAddress(e.target.value)}
+                  className="mt-1" 
+                  data-testid="input-route-start" 
+                />
+                <p className="text-xs text-muted-foreground mt-1">Where you start your day</p>
+              </div>
+              <div>
+                <Label htmlFor="route-end" className="flex items-center gap-2">
+                  <Navigation className="w-4 h-4 text-red-500" />
+                  End Location
+                </Label>
+                <Input 
+                  id="route-end" 
+                  placeholder="Enter your ending address" 
+                  value={routeEndAddress}
+                  onChange={(e) => setRouteEndAddress(e.target.value)}
+                  className="mt-1" 
+                  data-testid="input-route-end" 
+                />
+                <p className="text-xs text-muted-foreground mt-1">Where you end your day</p>
+              </div>
+            </div>
+            {settings?.routeStartLat && settings?.routeEndLat && (
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-700 dark:text-green-300 font-medium">Route locations configured</p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  Optimization will use these locations when calculating the best route order.
+                </p>
+              </div>
+            )}
+            <Button 
+              onClick={handleSaveRouteOptimization}
+              disabled={updateSettingsMutation.isPending || isGeocodingStart || isGeocodingEnd}
+              className="w-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]" 
+              data-testid="button-save-route-optimization"
+            >
+              {(updateSettingsMutation.isPending || isGeocodingStart || isGeocodingEnd) && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              {isGeocodingStart || isGeocodingEnd ? "Finding Coordinates..." : "Save Route Settings"}
+            </Button>
           </CardContent>
         </Card>
       </div>
