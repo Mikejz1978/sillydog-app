@@ -1,0 +1,104 @@
+
+Search
+
+Live tail
+PST
+
+Menu
+
+==> Downloading cache...
+==> Cloning from https://github.com/Mikejz1978/sillydog-app
+==> Checking out commit 49de0805e64794aa4a9c9dc5f7ed02099de2b59e in branch main
+==> Downloaded 207MB in 8s. Extraction took 4s.
+==> Using Node.js version 22.16.0 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm install && npm run build'...
+up to date, audited 561 packages in 1s
+70 packages are looking for funding
+  run `npm fund` for details
+11 vulnerabilities (5 low, 5 moderate, 1 high)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+vite v5.4.20 building for production...
+transforming...
+Browserslist: browsers data (caniuse-lite) is 13 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+✓ 2167 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/public/index.html                                  1.59 kB │ gzip:   0.68 kB
+../dist/public/assets/sillydog-logo-B3qDCprO.png       1,664.51 kB
+../dist/public/assets/logo_1762200437346-B4wVA81p.png  1,810.41 kB
+../dist/public/assets/index-Cd0euUoc.css                  82.16 kB │ gzip:  13.39 kB
+../dist/public/assets/index-CTRhdqg3.js                  695.78 kB │ gzip: 197.95 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 5.11s
+  dist/index.js  118.1kb
+⚡ Done in 9ms
+==> Uploading build...
+==> Uploaded in 8.2s. Compression took 3.9s
+==> Build successful 🎉
+==> Deploying...
+==> Running 'npm start'
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/index.js
+✅ Twilio client initialized successfully
+📱 Using phone number: +18449190798
+🔄 Adding new fixed-price service types...
+❌ Error adding service types: error: relation "service_types" does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///opt/render/project/src/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DbStorage.getAllServiceTypes (file:///opt/render/project/src/dist/index.js:691:12)
+    at async addNewServiceTypes (file:///opt/render/project/src/dist/index.js:2923:22)
+    at async file:///opt/render/project/src/dist/index.js:3075:3 {
+  length: 113,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '172',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Scheduled jobs started:
+- Monthly billing: 1st of month at midnight CST
+- Night-before reminders: Daily at 6 PM CST
+- Automatic route generation: Daily at midnight CST
+8:16:07 PM [express] serving on port 10000
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://sillydog-app.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
+error: relation "sessions" does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PGStore._asyncQuery (/opt/render/project/src/node_modules/connect-pg-simple/index.js:322:21)
+error: relation "sessions" does not exist
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async PGStore._asyncQuery (/opt/render/project/src/node_modules/connect-pg-simple/index.js:322:21)
+==> Detected service running on port 10000
+==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
