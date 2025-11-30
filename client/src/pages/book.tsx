@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, PawPrint } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type BookingFormData = z.infer<typeof insertBookingRequestSchema>;
 
@@ -43,6 +44,7 @@ export default function BookNow() {
       numberOfDogs: 1,
       preferredServicePlan: "",
       yardNotes: "",
+      smsOptIn: false,
     },
   });
 
@@ -348,6 +350,35 @@ export default function BookNow() {
                           Any details that would help us serve you better
                         </FormDescription>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* SMS Consent - Required for Twilio Compliance */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-lg font-semibold">Communication Preferences</h3>
+                  
+                  <FormField
+                    control={form.control}
+                    name="smsOptIn"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50/50">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="checkbox-sms-optin"
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-base font-medium">
+                            I agree to receive text messages
+                          </FormLabel>
+                          <FormDescription className="text-sm">
+                            By checking this box, I consent to receive SMS text messages from SillyDog Pooper Scooper Services at the phone number provided. Messages may include appointment reminders, service updates, and booking confirmations. Message frequency varies. Message and data rates may apply. Reply STOP to opt out at any time. Reply HELP for assistance.
+                          </FormDescription>
+                        </div>
                       </FormItem>
                     )}
                   />

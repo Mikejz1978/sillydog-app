@@ -293,6 +293,7 @@ export const bookingRequests = pgTable("booking_requests", {
   numberOfDogs: integer("number_of_dogs").notNull().default(1),
   yardNotes: text("yard_notes"),
   preferredServicePlan: text("preferred_service_plan"), // 'weekly', 'biweekly', 'one-time'
+  smsOptIn: boolean("sms_opt_in").notNull().default(false), // Customer consent to receive SMS notifications
   status: text("status").notNull().default("pending"), // 'pending', 'accepted', 'rejected'
   customerId: varchar("customer_id"), // Linked customer if converted
   adminNotes: text("admin_notes"), // Internal notes for staff
