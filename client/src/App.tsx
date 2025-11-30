@@ -43,7 +43,6 @@ function Router() {
       <Route path="/users" component={Users} />
       <Route path="/settings" component={Settings} />
       <Route path="/bookings" component={Bookings} />
-      <Route path="/portal" component={CustomerPortal} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -130,6 +129,7 @@ function App() {
             <Route path="/login" component={Login} />
             <Route path="/book" component={BookNow} />
             <Route path="/review/:token" component={ReviewPage} />
+            <Route path="/portal" component={CustomerPortal} />
             <Route>
               <AdminLayout />
             </Route>
