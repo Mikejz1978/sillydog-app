@@ -494,6 +494,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "No routes to optimize" });
       }
 
+      // Get settings for start/end locations
+      const settings = await storage.getSettings();
+      const hasStartLocation = settings?.routeStartLat && settings?.routeStartLng;
+
       // Get customer details for all routes
       const routesWithCustomers = await Promise.all(
         routes.map(async (route) => {
@@ -502,12 +506,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      // Simple optimization algorithm: alphabetical by address (proxy for geographic sorting)
-      // In a real system, you'd use geocoding + traveling salesman algorithm
-      const optimized = routesWithCustomers.sort((a, b) => {
-        if (!a.customer || !b.customer) return 0;
-        return a.customer.address.localeCompare(b.customer.address);
-      });
+      // Calculate distance between two coordinates (Haversine formula)
+      const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+        const R = 3959; // Earth's radius in miles
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      };
+
+      let optimized;
+
+      if (hasStartLocation) {
+        // Use nearest neighbor algorithm starting from the configured start location
+        const startLat = parseFloat(settings.routeStartLat as string);
+        const startLng = parseFloat(settings.routeStartLng as string);
+        
+        // Filter to customers with valid coordinates
+        const withCoords = routesWithCustomers.filter(rc => 
+          rc.customer?.lat && rc.customer?.lng
+        );
+        const withoutCoords = routesWithCustomers.filter(rc => 
+          !rc.customer?.lat || !rc.customer?.lng
+        );
+
+        // Nearest neighbor algorithm
+        const ordered: typeof withCoords = [];
+        let remaining = [...withCoords];
+        let currentLat = startLat;
+        let currentLng = startLng;
+
+        while (remaining.length > 0) {
+          // Find the nearest customer to the current position
+          let nearestIdx = 0;
+          let nearestDist = Infinity;
+
+          for (let i = 0; i < remaining.length; i++) {
+            const customer = remaining[i].customer!;
+            const dist = calculateDistance(
+              currentLat, currentLng,
+              parseFloat(customer.lat as string),
+              parseFloat(customer.lng as string)
+            );
+            if (dist < nearestDist) {
+              nearestDist = dist;
+              nearestIdx = i;
+            }
+          }
+
+          // Add the nearest customer to the ordered list
+          const nearest = remaining[nearestIdx];
+          ordered.push(nearest);
+          currentLat = parseFloat(nearest.customer!.lat as string);
+          currentLng = parseFloat(nearest.customer!.lng as string);
+          remaining.splice(nearestIdx, 1);
+        }
+
+        // Combine optimized routes with those that couldn't be geocoded
+        optimized = [...ordered, ...withoutCoords];
+        
+        console.log(`🗺️ Optimized ${ordered.length} routes using start location, ${withoutCoords.length} without coordinates`);
+      } else {
+        // Fallback: alphabetical by address
+        optimized = routesWithCustomers.sort((a, b) => {
+          if (!a.customer || !b.customer) return 0;
+          return a.customer.address.localeCompare(b.customer.address);
+        });
+        console.log("🗺️ Optimized routes alphabetically (no start location configured)");
+      }
 
       // Update order indexes
       await Promise.all(

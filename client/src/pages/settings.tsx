@@ -82,38 +82,69 @@ export default function Settings() {
   // Geocode and save route optimization settings
   const handleSaveRouteOptimization = async () => {
     try {
-      let startLat = null, startLng = null, endLat = null, endLng = null;
+      let startLat: string | null = null;
+      let startLng: string | null = null;
+      let endLat: string | null = null;
+      let endLng: string | null = null;
+      let geocodeError = false;
       
       // Geocode start address if provided
-      if (routeStartAddress) {
+      if (routeStartAddress.trim()) {
         setIsGeocodingStart(true);
-        const startResponse = await apiRequest("POST", "/api/geocode", { address: routeStartAddress });
-        const startCoords = await startResponse.json();
-        if (startCoords.lat && startCoords.lng) {
-          startLat = startCoords.lat;
-          startLng = startCoords.lng;
+        try {
+          const startResponse = await apiRequest("POST", "/api/geocode", { address: routeStartAddress });
+          const startCoords = await startResponse.json();
+          if (startCoords.lat && startCoords.lng) {
+            startLat = String(startCoords.lat);
+            startLng = String(startCoords.lng);
+          } else {
+            geocodeError = true;
+            toast({
+              variant: "destructive",
+              title: "Start Address Not Found",
+              description: "Could not find coordinates for the start address.",
+            });
+          }
+        } catch {
+          geocodeError = true;
         }
         setIsGeocodingStart(false);
       }
       
       // Geocode end address if provided
-      if (routeEndAddress) {
+      if (routeEndAddress.trim()) {
         setIsGeocodingEnd(true);
-        const endResponse = await apiRequest("POST", "/api/geocode", { address: routeEndAddress });
-        const endCoords = await endResponse.json();
-        if (endCoords.lat && endCoords.lng) {
-          endLat = endCoords.lat;
-          endLng = endCoords.lng;
+        try {
+          const endResponse = await apiRequest("POST", "/api/geocode", { address: routeEndAddress });
+          const endCoords = await endResponse.json();
+          if (endCoords.lat && endCoords.lng) {
+            endLat = String(endCoords.lat);
+            endLng = String(endCoords.lng);
+          } else {
+            geocodeError = true;
+            toast({
+              variant: "destructive",
+              title: "End Address Not Found",
+              description: "Could not find coordinates for the end address.",
+            });
+          }
+        } catch {
+          geocodeError = true;
         }
         setIsGeocodingEnd(false);
       }
       
+      // Only save if at least one address was successfully geocoded, or if clearing addresses
+      if (geocodeError && (routeStartAddress.trim() || routeEndAddress.trim())) {
+        return; // Abort save if geocoding failed for provided addresses
+      }
+      
       // Save settings with coordinates
       updateSettingsMutation.mutate({
-        routeStartAddress,
+        routeStartAddress: routeStartAddress.trim() || null,
         routeStartLat: startLat,
         routeStartLng: startLng,
-        routeEndAddress,
+        routeEndAddress: routeEndAddress.trim() || null,
         routeEndLat: endLat,
         routeEndLng: endLng,
       });
