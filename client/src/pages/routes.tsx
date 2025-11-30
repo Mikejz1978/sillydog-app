@@ -110,12 +110,19 @@ export default function Routes() {
       const response = await apiRequest("POST", "/api/routes/optimize", { date });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Routes Optimized",
-        description: "Routes have been reordered for efficiency.",
+        description: data.message || "Routes have been reordered for efficiency.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Optimization Failed",
+        description: error.message || "Failed to optimize routes. Please try again.",
+        variant: "destructive",
       });
     },
   });
