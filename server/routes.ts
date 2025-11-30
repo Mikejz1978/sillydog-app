@@ -592,6 +592,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== ROUTE REORDER ==========
+  app.post("/api/routes/reorder", async (req, res) => {
+    try {
+      const { routeIds } = req.body;
+      
+      if (!routeIds || !Array.isArray(routeIds)) {
+        return res.status(400).json({ message: "routeIds array is required" });
+      }
+
+      // Update each route's orderIndex based on its position in the array
+      await Promise.all(
+        routeIds.map((routeId: string, index: number) =>
+          storage.updateRoute(routeId, { orderIndex: index })
+        )
+      );
+
+      // Get the first route to determine the date for returning updated routes
+      if (routeIds.length > 0) {
+        const firstRoute = await storage.getRoute(routeIds[0]);
+        if (firstRoute) {
+          const updatedRoutes = await storage.getRoutesByDate(firstRoute.date);
+          return res.json(updatedRoutes);
+        }
+      }
+
+      res.json({ message: "Routes reordered successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ========== PHOTO UPLOAD ROUTE ==========
   app.post("/api/job-history/:id/photos", async (req, res) => {
     try {

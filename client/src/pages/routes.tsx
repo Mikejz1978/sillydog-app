@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2, StickyNote } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2, StickyNote, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -36,6 +36,8 @@ export default function Routes() {
   const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
   const [photoBefore, setPhotoBefore] = useState<string>("");
   const [photoAfter, setPhotoAfter] = useState<string>("");
+  const [draggedRouteId, setDraggedRouteId] = useState<string | null>(null);
+  const [dragOverRouteId, setDragOverRouteId] = useState<string | null>(null);
   const beforeInputRef = useRef<HTMLInputElement>(null);
   const afterInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -215,6 +217,80 @@ export default function Routes() {
       });
     },
   });
+
+  const reorderRoutesMutation = useMutation({
+    mutationFn: async (routeIds: string[]) => {
+      const response = await apiRequest("POST", "/api/routes/reorder", { routeIds });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Routes Reordered",
+        description: "Route order has been updated.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Reorder Failed",
+        description: error.message || "Failed to reorder routes. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, routeId: string) => {
+    setDraggedRouteId(routeId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', routeId);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, routeId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedRouteId && draggedRouteId !== routeId) {
+      setDragOverRouteId(routeId);
+    }
+  }, [draggedRouteId]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverRouteId(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetRouteId: string) => {
+    e.preventDefault();
+    setDragOverRouteId(null);
+    
+    if (!draggedRouteId || draggedRouteId === targetRouteId || !routes) return;
+    
+    // Get current sorted routes
+    const sortedRoutes = [...routes].sort((a, b) => a.orderIndex - b.orderIndex);
+    
+    // Find indices
+    const draggedIndex = sortedRoutes.findIndex(r => r.id === draggedRouteId);
+    const targetIndex = sortedRoutes.findIndex(r => r.id === targetRouteId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+    
+    // Reorder array
+    const newRoutes = [...sortedRoutes];
+    const [removed] = newRoutes.splice(draggedIndex, 1);
+    newRoutes.splice(targetIndex, 0, removed);
+    
+    // Get new order of route IDs
+    const newRouteIds = newRoutes.map(r => r.id);
+    
+    // Submit reorder
+    reorderRoutesMutation.mutate(newRouteIds);
+    setDraggedRouteId(null);
+  }, [draggedRouteId, routes, reorderRoutesMutation]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedRouteId(null);
+    setDragOverRouteId(null);
+  }, []);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
     const file = event.target.files?.[0];
@@ -470,15 +546,29 @@ export default function Routes() {
               <div className="space-y-3">
                 {sortedRoutes.map((route, index) => {
                   const customer = customers?.find(c => c.id === route.customerId);
+                  const isDragging = draggedRouteId === route.id;
+                  const isDragOver = dragOverRouteId === route.id;
                   return (
                     <div
                       key={route.id}
-                      className="p-4 rounded-lg border hover-elevate"
+                      className={`p-4 rounded-lg border hover-elevate transition-all ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-primary border-2 bg-primary/5' : ''}`}
                       data-testid={`route-item-${route.id}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, route.id)}
+                      onDragOver={(e) => handleDragOver(e, route.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, route.id)}
+                      onDragEnd={handleDragEnd}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white font-semibold flex-shrink-0">
-                          {index + 1}
+                        <div 
+                          className="flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing flex-shrink-0"
+                          title="Drag to reorder"
+                        >
+                          <GripVertical className="w-4 h-4 text-muted-foreground" />
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white font-semibold">
+                            {index + 1}
+                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold">{customer?.name}</h4>
