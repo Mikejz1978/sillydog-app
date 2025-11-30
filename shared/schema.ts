@@ -50,6 +50,7 @@ export const customers = pgTable("customers", {
   address: text("address").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
+  portalPassword: text("portal_password"), // Hashed password for customer portal login
   serviceTypeId: varchar("service_type_id").notNull(), // Required - determines pricing
   numberOfDogs: integer("number_of_dogs").notNull().default(1), // Kept for display purposes, not used in billing
   gateCode: text("gate_code"),
