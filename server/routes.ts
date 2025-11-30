@@ -922,6 +922,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send "On My Way" notification to customer
+  app.post("/api/routes/:id/notify-on-way", async (req, res) => {
+    try {
+      const route = await storage.getRoute(req.params.id);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+
+      const customer = await storage.getCustomer(route.customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (!customer.smsOptIn) {
+        return res.status(400).json({ message: "Customer has not opted in for SMS notifications" });
+      }
+
+      if (!customer.phone) {
+        return res.status(400).json({ message: "Customer has no phone number on file" });
+      }
+
+      await sendSMS(
+        customer.phone,
+        `Hi ${customer.name}! Your SillyDog technician is on the way to ${customer.address}. We'll be there shortly! 🐕`
+      );
+
+      console.log(`✅ Manual "On My Way" SMS sent to ${customer.name} at ${customer.phone}`);
+      res.json({ success: true, message: `"On My Way" notification sent to ${customer.name}` });
+    } catch (error: any) {
+      console.error("Failed to send On My Way notification:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Skip route (customer still gets charged)
   app.post("/api/routes/:id/skip", async (req, res) => {
     try {

@@ -116,3 +116,43 @@ export async function sendAdminNotification(
     }
   }
 }
+
+/**
+ * Send "On My Way" notification to a customer
+ */
+export async function sendOnMyWayNotification(customerId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  if (!twilioClient) {
+    return { success: false, message: "Twilio not configured" };
+  }
+
+  try {
+    const customer = await storage.getCustomer(customerId);
+    if (!customer) {
+      return { success: false, message: "Customer not found" };
+    }
+
+    if (!customer.smsOptIn) {
+      return { success: false, message: "Customer has not opted in for SMS" };
+    }
+
+    if (!customer.phone) {
+      return { success: false, message: "Customer has no phone number" };
+    }
+
+    const smsMessage = `Hi ${customer.name}! SillyDog Pooper Scooper is on the way to your location. We'll be there shortly! 🐕`;
+
+    await twilioClient.messages.create({
+      body: smsMessage,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: customer.phone,
+    });
+
+    return { success: true, message: `On My Way notification sent to ${customer.name}` };
+  } catch (error: any) {
+    console.error("Failed to send On My Way notification:", error);
+    return { success: false, message: error.message || "Failed to send SMS" };
+  }
+}

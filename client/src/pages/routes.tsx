@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2, StickyNote, GripVertical } from "lucide-react";
+import { Plus, Calendar, MapPin, Check, Navigation, Camera, Zap, RefreshCw, Ban, Undo2, Trash2, StickyNote, GripVertical, MessageSquare } from "lucide-react";
 import { RouteMap } from "@/components/route-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -236,6 +236,26 @@ export default function Routes() {
       toast({
         title: "Reorder Failed",
         description: error.message || "Failed to reorder routes. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const notifyOnWayMutation = useMutation({
+    mutationFn: async (routeId: string) => {
+      const response = await apiRequest("POST", `/api/routes/${routeId}/notify-on-way`);
+      return response.json();
+    },
+    onSuccess: (data: { success: boolean; message: string }) => {
+      toast({
+        title: "Message Sent",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Send",
+        description: error.message || "Failed to send on-my-way notification.",
         variant: "destructive",
       });
     },
@@ -678,6 +698,16 @@ export default function Routes() {
                             )}
                             {route.status === "in_route" && (
                               <>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => notifyOnWayMutation.mutate(route.id)}
+                                  disabled={notifyOnWayMutation.isPending}
+                                  data-testid={`button-notify-${route.id}`}
+                                >
+                                  <MessageSquare className="w-3 h-3 mr-1" />
+                                  On My Way
+                                </Button>
                                 <Button
                                   size="sm"
                                   onClick={() => handleStatusUpdate(route.id, "completed")}
