@@ -44,11 +44,152 @@ function hasIncompleteData(customer: Customer): boolean {
   return getIncompleteFields(customer).length > 0;
 }
 
+// Type for nearby customer with coordinates
+interface NearbyCustomer {
+  lat: number;
+  lng: number;
+  distanceMiles: number;
+  dayOfWeek: number;
+}
+
+interface BestFitSuggestion {
+  dayOfWeek: number;
+  dayName: string;
+  averageDistance: number;
+  nearbyCount: number;
+  nearbyCustomers: NearbyCustomer[];
+}
+
+// Mini Map component for showing nearby customers
+function NearbyCustomersMap({ 
+  customerCoords, 
+  nearbyCustomers,
+  selectedDay 
+}: { 
+  customerCoords: { lat: number; lng: number } | null;
+  nearbyCustomers: NearbyCustomer[];
+  selectedDay: string;
+}) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+  useEffect(() => {
+    if (!apiKey) return;
+    
+    if (window.google?.maps) {
+      setIsLoaded(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setIsLoaded(true);
+    document.head.appendChild(script);
+
+    return () => {
+      markersRef.current.forEach(marker => marker.setMap(null));
+    };
+  }, [apiKey]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current || !customerCoords) return;
+
+    if (!mapInstanceRef.current) {
+      mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+        zoom: 12,
+        center: customerCoords,
+        mapTypeId: "roadmap",
+        disableDefaultUI: true,
+        zoomControl: true,
+        styles: [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }],
+      });
+    }
+
+    const map = mapInstanceRef.current;
+    map.setCenter(customerCoords);
+
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+
+    const bounds = new window.google.maps.LatLngBounds();
+    bounds.extend(customerCoords);
+
+    const newCustomerMarker = new window.google.maps.Marker({
+      position: customerCoords,
+      map,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 12,
+        fillColor: "#22c55e",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 3,
+      },
+      title: "New Customer",
+      zIndex: 100,
+    });
+    markersRef.current.push(newCustomerMarker);
+
+    nearbyCustomers.forEach((nearby, idx) => {
+      const position = { lat: nearby.lat, lng: nearby.lng };
+      bounds.extend(position);
+
+      const marker = new window.google.maps.Marker({
+        position,
+        map,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: "#f59e0b",
+          fillOpacity: 0.8,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        },
+        title: `${nearby.distanceMiles} miles away`,
+      });
+      markersRef.current.push(marker);
+    });
+
+    if (nearbyCustomers.length > 0) {
+      map.fitBounds(bounds, { padding: 40 });
+    }
+  }, [isLoaded, customerCoords, nearbyCustomers]);
+
+  if (!apiKey) return null;
+  if (!customerCoords) return null;
+
+  return (
+    <div className="mt-2 rounded-md overflow-hidden border">
+      <div className="bg-muted px-3 py-1.5 text-xs font-medium flex items-center justify-between">
+        <span>{selectedDay}: {nearbyCustomers.length} customers within 5 miles</span>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            New
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            Nearby
+          </span>
+        </div>
+      </div>
+      <div ref={mapRef} className="h-40 w-full" data-testid="map-nearby-customers" />
+    </div>
+  );
+}
+
 // Schedule Management Dialog Component
 function ScheduleDialog({ customer }: { customer: Customer }) {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
-  const [bestFitSuggestions, setBestFitSuggestions] = useState<any[]>([]);
+  const [bestFitSuggestions, setBestFitSuggestions] = useState<BestFitSuggestion[]>([]);
   const [loadingBestFit, setLoadingBestFit] = useState(false);
+  const [customerCoords, setCustomerCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedMapDay, setSelectedMapDay] = useState<number | null>(null);
   const { toast } = useToast();
 
   const { data: scheduleRules, isLoading: rulesLoading } = useQuery<ScheduleRule[]>({
@@ -176,9 +317,17 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
       });
       const data = await response.json();
       setBestFitSuggestions(data.suggestions || []);
+      if (data.coordinates) {
+        setCustomerCoords(data.coordinates);
+      }
+      // Auto-select first day with nearby customers for the map
+      const firstWithNearby = (data.suggestions || []).find((s: BestFitSuggestion) => s.nearbyCount > 0);
+      if (firstWithNearby) {
+        setSelectedMapDay(firstWithNearby.dayOfWeek);
+      }
       toast({
         title: "Best Fit Analysis Complete",
-        description: "Recommended days based on your existing routes.",
+        description: "Showing customers within 5 miles for each day.",
       });
     } catch (error) {
       toast({
@@ -193,7 +342,7 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
 
   const applyBestFitDays = (topN: number = 3) => {
     const recommendedDays = bestFitSuggestions
-      .filter(s => s.customerCount > 0) // Only suggest days with existing customers
+      .filter(s => s.nearbyCount > 0) // Only suggest days with nearby customers (within 5 miles)
       .slice(0, topN)
       .map(s => s.dayOfWeek);
     
@@ -341,22 +490,43 @@ function ScheduleDialog({ customer }: { customer: Customer }) {
                         
                         {bestFitSuggestions.length > 0 && (
                           <div className="mb-3 p-3 bg-muted rounded-md space-y-2">
-                            <div className="text-sm font-medium">Recommended Days:</div>
+                            <div className="text-sm font-medium">Recommended Days (within 5 miles):</div>
                             <div className="flex flex-wrap gap-2">
                               {bestFitSuggestions.slice(0, 5).map((suggestion, idx) => (
-                                <div
+                                <button
+                                  type="button"
                                   key={suggestion.dayOfWeek}
-                                  className={`text-xs px-2 py-1 rounded ${
-                                    idx < 3 ? 'bg-primary/20 text-primary font-semibold' : 'bg-muted-foreground/10'
+                                  onClick={() => setSelectedMapDay(suggestion.dayOfWeek)}
+                                  className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${
+                                    selectedMapDay === suggestion.dayOfWeek 
+                                      ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1' 
+                                      : idx < 3 && suggestion.nearbyCount > 0
+                                        ? 'bg-primary/20 text-primary font-semibold hover:bg-primary/30' 
+                                        : 'bg-muted-foreground/10 hover:bg-muted-foreground/20'
                                   }`}
+                                  data-testid={`button-day-${suggestion.dayName.toLowerCase()}`}
                                 >
                                   {suggestion.dayName}
-                                  {suggestion.customerCount > 0 && (
-                                    <span className="ml-1">({suggestion.customerCount} nearby)</span>
+                                  {suggestion.nearbyCount > 0 && (
+                                    <span className="ml-1">({suggestion.nearbyCount} nearby)</span>
                                   )}
-                                </div>
+                                </button>
                               ))}
                             </div>
+                            
+                            {/* Mini map showing nearby customers for selected day */}
+                            {selectedMapDay !== null && customerCoords && (
+                              <NearbyCustomersMap
+                                customerCoords={customerCoords}
+                                nearbyCustomers={
+                                  bestFitSuggestions.find(s => s.dayOfWeek === selectedMapDay)?.nearbyCustomers || []
+                                }
+                                selectedDay={
+                                  bestFitSuggestions.find(s => s.dayOfWeek === selectedMapDay)?.dayName || ''
+                                }
+                              />
+                            )}
+                            
                             <Button
                               type="button"
                               variant="secondary"
@@ -1091,18 +1261,18 @@ export default function Customers() {
                 />
                 {bestFitSuggestions.length > 0 && (
                   <div className="bg-muted p-4 rounded-md space-y-2">
-                    <h4 className="font-medium text-sm">Best Route Days (by proximity)</h4>
+                    <h4 className="font-medium text-sm">Best Route Days (within 5 miles)</h4>
                     <div className="space-y-1">
                       {bestFitSuggestions.slice(0, 3).map((suggestion, index) => (
                         <div key={suggestion.dayOfWeek} className="text-sm flex items-center justify-between">
                           <span>
                             {index + 1}. {suggestion.dayName}
-                            {suggestion.customerCount > 0 && ` (${suggestion.customerCount} nearby customers)`}
+                            {suggestion.nearbyCount > 0 && ` (${suggestion.nearbyCount} nearby)`}
                           </span>
                           <span className="text-muted-foreground">
-                            {suggestion.customerCount > 0 
-                              ? `Avg ${suggestion.averageDistance.toFixed(1)} km` 
-                              : "No customers on this day"}
+                            {suggestion.nearbyCount > 0 
+                              ? `Avg ${suggestion.averageDistance.toFixed(1)} mi` 
+                              : "No nearby customers"}
                           </span>
                         </div>
                       ))}

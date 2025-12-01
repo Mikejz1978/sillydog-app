@@ -63,12 +63,26 @@ function toRad(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
+function kmToMiles(km: number): number {
+  return km * 0.621371;
+}
+
+export interface NearbyCustomer {
+  lat: number;
+  lng: number;
+  distanceMiles: number;
+  dayOfWeek: number;
+}
+
 export interface DayDistance {
   dayOfWeek: number;
   dayName: string;
   averageDistance: number;
-  customerCount: number;
+  nearbyCount: number;
+  nearbyCustomers: NearbyCustomer[];
 }
+
+const NEARBY_RADIUS_MILES = 5;
 
 export async function findBestFitDay(
   newCustomerCoords: Coordinates,
@@ -80,7 +94,7 @@ export async function findBestFitDay(
 ): Promise<DayDistance[]> {
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   
-  const distancesByDay: Record<number, number[]> = {
+  const nearbyByDay: Record<number, NearbyCustomer[]> = {
     0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []
   };
 
@@ -91,26 +105,41 @@ export async function findBestFitDay(
         lng: parseFloat(customer.lng),
       };
       
-      const distance = calculateDistance(newCustomerCoords, customerCoords);
-      distancesByDay[customer.dayOfWeek].push(distance);
+      const distanceKm = calculateDistance(newCustomerCoords, customerCoords);
+      const distanceMiles = kmToMiles(distanceKm);
+      
+      if (distanceMiles <= NEARBY_RADIUS_MILES) {
+        nearbyByDay[customer.dayOfWeek].push({
+          lat: customerCoords.lat,
+          lng: customerCoords.lng,
+          distanceMiles: Math.round(distanceMiles * 10) / 10,
+          dayOfWeek: customer.dayOfWeek,
+        });
+      }
     }
   }
 
   const results: DayDistance[] = [];
   
   for (let day = 0; day < 7; day++) {
-    const distances = distancesByDay[day];
-    const avgDistance = distances.length > 0
-      ? distances.reduce((sum, d) => sum + d, 0) / distances.length
+    const nearby = nearbyByDay[day];
+    const avgDistance = nearby.length > 0
+      ? nearby.reduce((sum, c) => sum + c.distanceMiles, 0) / nearby.length
       : 999;
     
     results.push({
       dayOfWeek: day,
       dayName: dayNames[day],
       averageDistance: avgDistance,
-      customerCount: distances.length,
+      nearbyCount: nearby.length,
+      nearbyCustomers: nearby,
     });
   }
 
-  return results.sort((a, b) => a.averageDistance - b.averageDistance);
+  return results.sort((a, b) => {
+    if (a.nearbyCount === 0 && b.nearbyCount === 0) return 0;
+    if (a.nearbyCount === 0) return 1;
+    if (b.nearbyCount === 0) return -1;
+    return b.nearbyCount - a.nearbyCount || a.averageDistance - b.averageDistance;
+  });
 }
