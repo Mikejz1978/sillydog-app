@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X, Send, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -918,6 +918,27 @@ export default function Customers() {
     },
   });
 
+  // Send portal invite mutation
+  const sendPortalInviteMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("POST", `/api/customers/${customerId}/send-portal-invite`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Portal Invite Sent",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Form with extended schema for separate first/last name fields
   const formSchema = insertCustomerSchema.omit({ name: true }).extend({
     firstName: z.string().min(1, "First name is required"),
@@ -1819,6 +1840,28 @@ export default function Customers() {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Reset Portal Password</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm(`Send portal invite SMS to ${customer.name}?`)) {
+                              sendPortalInviteMutation.mutate(customer.id);
+                            }
+                          }}
+                          disabled={sendPortalInviteMutation.isPending || !customer.smsOptIn || !customer.phone}
+                          data-testid={`button-send-invite-${customer.id}`}
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {!customer.phone ? "No phone number" : !customer.smsOptIn ? "SMS not enabled" : "Send Portal Invite SMS"}
+                      </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                   {customer.stripePaymentMethodId && (

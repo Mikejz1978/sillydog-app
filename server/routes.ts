@@ -827,6 +827,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Send portal invite SMS to customer
+  app.post("/api/customers/:id/send-portal-invite", requireAdmin, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (!customer.phone) {
+        return res.status(400).json({ message: "Customer has no phone number on file" });
+      }
+
+      if (!customer.smsOptIn) {
+        return res.status(400).json({ message: "Customer has not opted in for SMS notifications" });
+      }
+
+      // Generate the portal URL from environment or settings
+      // Priority: APP_BASE_URL env var > REPLIT_DEV_DOMAIN > deployed Render URL
+      let baseUrl = process.env.APP_BASE_URL;
+      if (!baseUrl && process.env.REPLIT_DEV_DOMAIN) {
+        baseUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      }
+      if (!baseUrl) {
+        baseUrl = 'https://sillydog-app.onrender.com';
+      }
+      const portalUrl = `${baseUrl}/portal/login`;
+
+      // Create message based on whether they already have portal access
+      let message: string;
+      if (customer.portalPassword) {
+        message = `Hi ${customer.name}! Access your SillyDog customer portal anytime at ${portalUrl}. Log in with your email address to view services, invoices, and manage your account.`;
+      } else {
+        message = `Hi ${customer.name}! You're invited to the SillyDog customer portal! Visit ${portalUrl} to sign up. You'll be able to view your service schedule, pay invoices, and manage your account.`;
+      }
+
+      await sendSMS(customer.phone, message);
+
+      console.log(`✅ Portal invite SMS sent to ${customer.name} at ${customer.phone}`);
+      res.json({ success: true, message: `Portal invite sent to ${customer.name}` });
+    } catch (error: any) {
+      console.error("Failed to send portal invite:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Admin: Clear customer's saved payment method
   app.delete("/api/customers/:id/payment-method", requireAdmin, async (req, res) => {
     try {
