@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { clearCsrfToken } from "@/lib/csrf";
 import type { User } from "@shared/schema";
 
@@ -18,13 +18,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
   const [isInitialized, setIsInitialized] = useState(false);
 
   const { data: authData, isLoading, refetch } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -39,7 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return response.json();
     },
     onSuccess: async () => {
-      // Refetch user data and wait for it to complete before redirecting
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       await refetch();
     },
