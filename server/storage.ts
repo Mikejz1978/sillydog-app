@@ -26,6 +26,8 @@ import {
   type InsertUser,
   type Settings,
   type InsertSettings,
+  type PushSubscription,
+  type InsertPushSubscription,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -127,6 +129,13 @@ export interface IStorage {
   // Settings
   getSettings(): Promise<Settings>;
   updateSettings(updates: Partial<InsertSettings>): Promise<Settings>;
+
+  // Push Subscriptions
+  getPushSubscriptionsByCustomer(customerId: string): Promise<PushSubscription[]>;
+  getPushSubscriptionsByUser(userId: string): Promise<PushSubscription[]>;
+  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
+  deletePushSubscription(endpoint: string): Promise<void>;
+  getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -519,6 +528,13 @@ export class MemStorage implements IStorage {
   async deleteUser(_id: string): Promise<void> { throw new Error("Not implemented"); }
   async getSettings(): Promise<Settings> { throw new Error("Not implemented"); }
   async updateSettings(_updates: Partial<InsertSettings>): Promise<Settings> { throw new Error("Not implemented"); }
+  
+  // Push Subscriptions - Not implemented in MemStorage
+  async getPushSubscriptionsByCustomer(_customerId: string): Promise<PushSubscription[]> { return []; }
+  async getPushSubscriptionsByUser(_userId: string): Promise<PushSubscription[]> { return []; }
+  async createPushSubscription(_subscription: InsertPushSubscription): Promise<PushSubscription> { throw new Error("Not implemented"); }
+  async deletePushSubscription(_endpoint: string): Promise<void> { throw new Error("Not implemented"); }
+  async getPushSubscriptionByEndpoint(_endpoint: string): Promise<PushSubscription | undefined> { return undefined; }
 }
 
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
@@ -1173,6 +1189,60 @@ export class DbStorage implements IStorage {
       return created[0];
     }
     
+    return result[0];
+  }
+
+  // Push Subscriptions
+  async getPushSubscriptionsByCustomer(customerId: string): Promise<PushSubscription[]> {
+    return await this.db
+      .select()
+      .from(schema.pushSubscriptions)
+      .where(eq(schema.pushSubscriptions.customerId, customerId));
+  }
+
+  async getPushSubscriptionsByUser(userId: string): Promise<PushSubscription[]> {
+    return await this.db
+      .select()
+      .from(schema.pushSubscriptions)
+      .where(eq(schema.pushSubscriptions.userId, userId));
+  }
+
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    // Check if subscription already exists
+    const existing = await this.db
+      .select()
+      .from(schema.pushSubscriptions)
+      .where(eq(schema.pushSubscriptions.endpoint, subscription.endpoint));
+    
+    if (existing[0]) {
+      // Update existing subscription
+      const result = await this.db
+        .update(schema.pushSubscriptions)
+        .set(subscription)
+        .where(eq(schema.pushSubscriptions.endpoint, subscription.endpoint))
+        .returning();
+      return result[0];
+    }
+    
+    // Create new subscription
+    const result = await this.db
+      .insert(schema.pushSubscriptions)
+      .values(subscription)
+      .returning();
+    return result[0];
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await this.db
+      .delete(schema.pushSubscriptions)
+      .where(eq(schema.pushSubscriptions.endpoint, endpoint));
+  }
+
+  async getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.pushSubscriptions)
+      .where(eq(schema.pushSubscriptions.endpoint, endpoint));
     return result[0];
   }
 }

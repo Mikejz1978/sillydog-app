@@ -2,12 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
     
-    <!-- SillyDog Logo Favicons -->
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#f7c948" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="SillyDog" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="SillyDog" />
+    <meta name="msapplication-TileColor" content="#f7c948" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Favicons and App Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
     
     <title>SillyDog Pooper Scooper Services - Business Management</title>
     <meta name="description" content="Professional business management platform for SillyDog Pooper Scooper Services. Manage customers, routes, invoicing, and automated notifications." />
@@ -15,7 +31,7 @@
     <!-- Open Graph / Social Media -->
     <meta property="og:title" content="SillyDog Pooper Scooper Services" />
     <meta property="og:description" content="Professional business management platform for SillyDog Pooper Scooper Services." />
-    <meta property="og:image" content="/favicon.png" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
     <meta property="og:type" content="website" />
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,5 +41,20 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('SW registration failed:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

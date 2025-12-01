@@ -1,10 +1,10 @@
-modules = ["nodejs-20", "web", "postgresql-16"]
+modules = ["nodejs-20", "web", "bun", "postgresql-16"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["git"]
+packages = ["git", "nodejs"]
 
 [deployment]
 deploymentTarget = "gce"
@@ -30,6 +30,10 @@ externalPort = 4200
 [[ports]]
 localPort = 38105
 externalPort = 8000
+
+[[ports]]
+localPort = 41209
+externalPort = 8080
 
 [[ports]]
 localPort = 41297
@@ -85,3 +89,10 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_stripe:1.0.0", "javascript_mem_db:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BOlE1d2ZMPLWvJ_4xlWG7vafRFpReCJgfbU_efITN61ottE0ucTk9LBGcboN7rMQ3OQC3YbPo6ljfXmlhRFg8_I"
+VAPID_PRIVATE_KEY = "kZrMPByRdpPOEnshMg3mf9q3Vy3JgFJ8ySL3Lf45Sa0"
+VITE_VAPID_PUBLIC_KEY = "BOlE1d2ZMPLWvJ_4xlWG7vafRFpReCJgfbU_efITN61ottE0ucTk9LBGcboN7rMQ3OQC3YbPo6ljfXmlhRFg8_I"
