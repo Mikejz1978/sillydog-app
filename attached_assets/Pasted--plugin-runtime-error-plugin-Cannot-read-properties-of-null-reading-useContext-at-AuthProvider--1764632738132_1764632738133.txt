@@ -1,0 +1,102 @@
+[plugin:runtime-error-plugin] Cannot read properties of null (reading 'useContext')
+at AuthProvider in client/src/contexts/AuthContext.tsx
+
+That error means: React hooks (useQueryClient, useState, etc.) are being called outside of a proper React render. With the code you showed:
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const [isInitialized, setIsInitialized] = useState(false);
+  ...
+}
+
+
+this happens in two common cases:
+
+AuthProvider is being called like a function instead of used as <AuthProvider>
+
+Or it’s not inside a <QueryClientProvider>.
+
+We’ll fix both in one shot by making sure your top-level structure is correct.
+
+1️⃣ Fix App.tsx — make sure AuthProvider is used as JSX
+
+Open client/src/App.tsx and make sure your App component looks like this pattern:
+
+import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { RouterProvider } from "react-router-dom";  // or whatever you actually use
+import { router } from "./router";                  // adjust to your real router import
+
+const queryClient = new QueryClient();
+
+export function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          {/* whatever you render now, e.g.: */}
+          <RouterProvider router={router} />
+          {/* or your routes/components */}
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
+
+
+Important:
+
+You should NOT see anything like:
+
+return AuthProvider({ children: <RouterProvider router={router} /> });
+
+
+If you see that, change it to the JSX version above.
+
+AuthProvider must be used as <AuthProvider> ... </AuthProvider>, never as a plain function call.
+
+If you already create your QueryClient and QueryClientProvider in main.tsx instead of App.tsx, that’s fine — just make sure:
+
+QueryClientProvider is outside AuthProvider
+
+AuthProvider is outside the rest of your app.
+
+So the nesting somewhere should be:
+
+<QueryClientProvider client={queryClient}>
+  <BrowserRouter>
+    <AuthProvider>
+      <AppRoutesOrWhatever />
+    </AuthProvider>
+  </BrowserRouter>
+</QueryClientProvider>
+
+2️⃣ Double-check main.tsx isn’t also calling hooks wrong
+
+Open client/src/main.tsx and make sure it’s only doing the React render, something like:
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// service worker registration is fine down here if you added it
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .catch((err) => console.error("Service worker registration failed", err));
+  });
+}
+
+
+No hooks (useQueryClient, useState, etc.) should be used in this file.
