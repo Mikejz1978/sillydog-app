@@ -29,6 +29,7 @@ import ReviewsPage from "@/pages/reviews";
 import PortalPreview from "@/pages/portal-preview";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
+import { DownloadAppBanner } from "@/components/download-app-banner";
 
 function Router() {
   return (
@@ -139,6 +140,7 @@ function App() {
             </Route>
           </Switch>
           <Toaster />
+          <DownloadAppBanner />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>

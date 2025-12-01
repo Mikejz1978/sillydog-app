@@ -1,0 +1,186 @@
+1️⃣ Make sure the SillyDog app is installable (PWA)
+a) Register the service worker
+
+In your React entry file (most likely client/src/main.tsx or client/src/index.tsx), add this at the bottom of the file:
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .catch((err) => {
+        console.error("Service worker registration failed", err);
+      });
+  });
+}
+
+
+If your entry file has a different name, it’s the one where createRoot / ReactDOM.createRoot is called – same idea, same code.
+
+b) Make sure your manifest is linked
+
+In your main HTML template (for a Vite/React app it’s usually client/index.html), you should have:
+
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0f766e" />
+
+
+And your client/public/manifest.json should look roughly like:
+
+{
+  "name": "SillyDog Pooper Scooper",
+  "short_name": "SillyDog",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+
+
+(You can adjust colors/names later; the key is start_url, display: "standalone", and icons.)
+
+c) Add an in-app “Install SillyDog App” banner
+
+Create a new component at
+client/src/components/DownloadAppBanner.tsx:
+
+import React, { useEffect, useState } from "react";
+
+export const DownloadAppBanner: React.FC = () => {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log("User response to install prompt:", outcome);
+
+    setDeferredPrompt(null);
+    setCanInstall(false);
+  };
+
+  if (!canInstall) return null;
+
+  return (
+    <div
+      style={{
+        padding: "0.75rem 1rem",
+        borderTop: "1px solid #e5e7eb",
+        background: "#f9fafb",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "0.75rem",
+      }}
+    >
+      <span>Install the SillyDog app for faster booking on your phone.</span>
+      <button
+        onClick={handleInstallClick}
+        style={{
+          padding: "0.5rem 1rem",
+          borderRadius: "999px",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        Install app
+      </button>
+    </div>
+  );
+};
+
+
+Then include it somewhere global, like in client/src/App.tsx (or your main layout component):
+
+import { DownloadAppBanner } from "./components/DownloadAppBanner";
+
+function App() {
+  return (
+    <>
+      {/* your existing layout / router / pages here */}
+      {/* ... */}
+      <DownloadAppBanner />
+    </>
+  );
+}
+
+export default App;
+
+
+On Android Chrome / desktop Chrome, users will now get an “Install app” button when the browser says the PWA is installable.
+
+2️⃣ Add a “Download the app” page on sillydogpoopscoop.com
+
+On your main marketing site (sillydogpoopscoop.com), create a simple page, for example /app or /download.
+
+That page just needs:
+
+A button that opens your Render app
+https://sillydog-app.onrender.com
+
+Simple instructions for iPhone and Android
+
+Example HTML for that page:
+
+<h1>Download the SillyDog App</h1>
+<p>
+  Book cleanups, see your schedule, and get “on my way” notifications right from
+  your phone.
+</p>
+
+<p><strong>Step 1:</strong> Tap the button below to open the app.</p>
+<a href="https://sillydog-app.onrender.com" class="btn">
+  Open SillyDog App
+</a>
+
+<h2>On Android</h2>
+<p>
+  When the app opens, you should see a banner or menu option to “Install app” or
+  “Add to Home screen.” Tap that to add SillyDog to your home screen.
+</p>
+
+<h2>On iPhone</h2>
+<p>
+  When the app opens in Safari, tap the Share icon, then choose
+  <strong>Add to Home Screen</strong>.
+</p>
+
+
+Then add a link in your main site menu/footer:
+
+“📱 Download Our App” → /app
+
+Now your flow looks like:
+
+Customer visits sillydogpoopscoop.com
+
+Clicks Download Our App
+
+That opens your Render app
+
+PWA + banner handle the actual “install”/Add to Home Screen
