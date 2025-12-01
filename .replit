@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "postgresql-16"]
+modules = ["nodejs-20", "web", "postgresql-16", "bun"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -85,3 +85,11 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_stripe:1.0.0", "javascript_mem_db:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BKNaSYflxMsGUssHuAu0L3xZSUty6FQ3XbjRIQa1RqY61JKmUlpHiMPzBMAG5_1uV8fauVw0RfBj-k-Vo3mLhBA"
+VAPID_PRIVATE_KEY = "NUYze3sTDQN2qxgKCHKvuGC5CtUq_JpL5KTiWiP_CCU"
+VAPID_EMAIL = "mailto:admin@sillydogpoopscoop.com"
+VITE_VAPID_PUBLIC_KEY = "BKNaSYflxMsGUssHuAu0L3xZSUty6FQ3XbjRIQa1RqY61JKmUlpHiMPzBMAG5_1uV8fauVw0RfBj-k-Vo3mLhBA"
