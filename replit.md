@@ -37,13 +37,6 @@ This project is a comprehensive web-based business management platform designed 
 -   **Service Catalog (Price Book)**: **44 fixed-price service type combinations** matching HouseCall Pro exactly - no dynamic pricing calculations. Examples: "3 Dogs 2x Week" = $12.38/visit, "Biweekly 5 Dogs" = $50.00/visit.
 -   **Job Documentation**: Photo upload system for before/after photos during service completion.
 -   **Reporting**: Generates reports with CSV exports for revenue, jobs, and invoices.
--   **PWA (Progressive Web App)**: 
-    -   Installable app with manifest.json and service worker (sw.js)
-    -   App icons in 8 sizes (72x72 to 512x512) stored in client/public/icons/
-    -   Push notification support using web-push library with VAPID keys
-    -   Push subscription API endpoints (/api/push/vapid-public-key, /api/push/subscribe, /api/push/unsubscribe)
-    -   usePushNotifications hook and PushNotificationToggle component for frontend
-    -   Offline support with service worker caching
 
 ### Design System
 -   **Primary Colors**: Golden Yellow (#f7c948) to Light Blue (#7fa7c5) gradient matching the sillydogpoopscoop.com website, with accent yellow (#ffdb6e) and cream background (#fff8ec).

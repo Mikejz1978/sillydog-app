@@ -1,100 +1,91 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { clearCsrfToken } from "@/lib/csrf";
+import type { User } from "@shared/schema";
 
-type AuthUser = any | null;
+type AuthUser = Omit<User, "password">;
 
-interface AuthContextValue {
-  user: AuthUser;
+interface AuthContextType {
+  user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  refetch: () => Promise<void>;
+  refetch: () => void;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const fetchUser = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/auth/me", {
-        credentials: "include",
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user || data);
-      } else {
-        // Not logged in (401, 403, etc.)
-        setUser(null);
-      }
-    } catch (err) {
-      console.error("Failed to fetch auth info:", err);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: authData, isLoading, refetch } = useQuery({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   useEffect(() => {
-    // Load auth state once when the provider mounts
-    fetchUser();
-  }, [fetchUser]);
-
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.message || "Login failed");
+    if (!isLoading) {
+      setIsInitialized(true);
     }
+  }, [isLoading]);
 
-    await fetchUser();
-  }, [fetchUser]);
+  const loginMutation = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const response = await apiRequest("POST", "/api/auth/login", { email, password });
+      return response.json();
+    },
+    onSuccess: async () => {
+      // Refetch user data and wait for it to complete before redirecting
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      await refetch();
+    },
+  });
 
-  const logout = useCallback(async () => {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
-    setUser(null);
-  }, []);
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/auth/logout");
+      clearCsrfToken();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+    },
+  });
 
-  const value: AuthContextValue = {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    login,
-    logout,
-    refetch: fetchUser,
+  const login = async (email: string, password: string) => {
+    await loginMutation.mutateAsync({ email, password });
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const logout = async () => {
+    await logoutMutation.mutateAsync();
+  };
+
+  const user = authData?.user || null;
+  const isAuthenticated = !!user;
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading: !isInitialized,
+        isAuthenticated,
+        login,
+        logout,
+        refetch,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-  return ctx;
+  return context;
 }

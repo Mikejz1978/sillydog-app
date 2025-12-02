@@ -24,7 +24,6 @@ import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geo
 import { generateMonthlyInvoices } from "./services/billing";
 import { sendNightBeforeReminders } from "./services/reminders";
 import { notifyAdminOfNewBooking } from "./services/notifications";
-import { getVapidPublicKey, sendPushNotification, PushNotifications } from "./services/push-notifications";
 import rateLimit from "express-rate-limit";
 
 // Helper to generate cryptographically secure review token
@@ -2548,91 +2547,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updated);
     } catch (error) {
       console.error("Payment method setup error:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // ========== PUSH NOTIFICATIONS ==========
-  // Get VAPID public key (public - only exposes public key, not private)
-  app.get("/api/push/vapid-public-key", (_req, res) => {
-    const publicKey = getVapidPublicKey();
-    if (!publicKey) {
-      return res.status(503).json({ message: "Push notifications not configured" });
-    }
-    res.json({ publicKey });
-  });
-
-  // Subscribe to push notifications
-  app.post("/api/push/subscribe", async (req, res) => {
-    try {
-      const { subscription, userId, customerId } = req.body;
-      
-      if (!subscription || !subscription.endpoint || !subscription.keys) {
-        return res.status(400).json({ message: "Invalid subscription data" });
-      }
-
-      const pushSubscription = await storage.createPushSubscription({
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-        userId: userId || null,
-        customerId: customerId || null,
-      });
-
-      res.json({ success: true, id: pushSubscription.id });
-    } catch (error) {
-      console.error("Push subscription error:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // Unsubscribe from push notifications
-  app.post("/api/push/unsubscribe", async (req, res) => {
-    try {
-      const { endpoint } = req.body;
-      
-      if (!endpoint) {
-        return res.status(400).json({ message: "Endpoint is required" });
-      }
-
-      await storage.deletePushSubscription(endpoint);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Push unsubscribe error:", error);
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  // Send test push notification (admin only)
-  app.post("/api/push/test", requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.body;
-      
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-
-      const subscriptions = await storage.getPushSubscriptionsByUser(userId);
-      
-      if (subscriptions.length === 0) {
-        return res.status(404).json({ message: "No push subscriptions found for user" });
-      }
-
-      const successCount = await sendPushNotification(
-        subscriptions,
-        {
-          title: "Test Notification",
-          body: "Push notifications are working! 🎉",
-          url: "/",
-        },
-        async (endpoint) => {
-          await storage.deletePushSubscription(endpoint);
-        }
-      );
-
-      res.json({ success: true, sent: successCount, total: subscriptions.length });
-    } catch (error) {
-      console.error("Test push error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });
