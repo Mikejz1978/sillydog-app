@@ -6,8 +6,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiRequest } from "@/lib/queryClient";
-import { clearCsrfToken } from "@/lib/csrf";
 
 type AuthUser = {
   id: string;
@@ -32,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const fetchAuth = useCallback(async () => {
+  const fetchUser = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/me", {
@@ -54,22 +52,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchAuth();
-  }, [fetchAuth]);
+    fetchUser();
+  }, [fetchUser]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const response = await apiRequest("POST", "/api/auth/login", { email, password });
-    if (!response.ok) {
-      const error = await response.json();
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
       throw new Error(error.message || "Login failed");
     }
-    await fetchAuth();
-  }, [fetchAuth]);
+
+    await fetchUser();
+  }, [fetchUser]);
 
   const logout = useCallback(async () => {
     try {
-      await apiRequest("POST", "/api/auth/logout");
-      clearCsrfToken();
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
     } catch (err) {
       console.error("Logout error:", err);
     }
@@ -82,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     login,
     logout,
-    refetch: fetchAuth,
+    refetch: fetchUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
