@@ -1,32 +1,36 @@
-const CACHE_NAME = 'sillydog-v1';
-
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open("sillydog-cache-v1").then((cache) => {
+      return cache.addAll(["/", "/index.html", "/manifest.json"]);
+    })
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== "sillydog-cache-v1") {
+            return caches.delete(key);
+          }
+        })
+      )
+    )
   );
-  clients.claim();
+  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== 'GET') return;
-  
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
+    caches.match(event.request).then((cached) => {
+      return (
+        cached ||
+        fetch(event.request).catch(() =>
+          caches.match("/index.html")
+        )
+      );
+    })
   );
 });

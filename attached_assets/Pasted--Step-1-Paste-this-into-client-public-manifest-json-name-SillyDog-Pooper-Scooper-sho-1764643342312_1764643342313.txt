@@ -1,0 +1,108 @@
+✅ Step 1 — Paste this into client/public/manifest.json
+{
+  "name": "SillyDog Pooper Scooper",
+  "short_name": "SillyDog",
+  "description": "Business dashboard for SillyDog Pooper Scooper Services.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fff8ec",
+  "theme_color": "#f7c948",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
+
+✅ Step 2 — Replace your client/public/sw.js with this
+
+This handles basic caching + offline support:
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open("sillydog-cache-v1").then((cache) => {
+      return cache.addAll(["/", "/index.html", "/manifest.json"]);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== "sillydog-cache-v1") {
+            return caches.delete(key);
+          }
+        })
+      )
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return (
+        cached ||
+        fetch(event.request).catch(() =>
+          caches.match("/index.html") // fallback
+        )
+      );
+    })
+  );
+});
+
+✅ Step 3 — Add PWA tags to client/index.html
+
+Open:
+
+client/index.html
+
+
+Inside <head>, add:
+
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#f7c948" />
+
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js");
+    });
+  }
+</script>
+
+⚠ IMPORTANT
+
+Render MUST serve your client/public folder statically.
+
+In your server/index.ts, make sure this exists above your API routes:
+
+app.use(express.static("client/public"));
+
+
+And for SPA routing fallback:
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/public/index.html"));
+});
