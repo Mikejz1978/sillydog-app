@@ -1,19 +1,13 @@
-import React, {
+import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useState,
-  type ReactNode,
+  ReactNode,
 } from "react";
 
-type AuthUser = {
-  id: string;
-  email: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  role: string;
-} | null;
+type AuthUser = any | null;
 
 interface AuthContextValue {
   user: AuthUser;
@@ -39,8 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (res.ok) {
         const data = await res.json();
-        setUser(data.user || null);
+        setUser(data.user || data);
       } else {
+        // Not logged in (401, 403, etc.)
         setUser(null);
       }
     } catch (err) {
@@ -52,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Load auth state once when the provider mounts
     fetchUser();
   }, [fetchUser]);
 
