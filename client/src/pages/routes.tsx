@@ -290,26 +290,26 @@ export default function Routes() {
   const handleDrop = useCallback((e: React.DragEvent, targetRouteId: string) => {
     e.preventDefault();
     setDragOverRouteId(null);
-    
+
     if (!draggedRouteId || draggedRouteId === targetRouteId || !routes) return;
-    
+
     // Get current sorted routes
     const sortedRoutes = [...routes].sort((a, b) => a.orderIndex - b.orderIndex);
-    
+
     // Find indices
     const draggedIndex = sortedRoutes.findIndex(r => r.id === draggedRouteId);
     const targetIndex = sortedRoutes.findIndex(r => r.id === targetRouteId);
-    
+
     if (draggedIndex === -1 || targetIndex === -1) return;
-    
+
     // Reorder array
     const newRoutes = [...sortedRoutes];
     const [removed] = newRoutes.splice(draggedIndex, 1);
     newRoutes.splice(targetIndex, 0, removed);
-    
+
     // Get new order of route IDs
     const newRouteIds = newRoutes.map(r => r.id);
-    
+
     // Submit reorder
     reorderRoutesMutation.mutate(newRouteIds);
     setDraggedRouteId(null);
@@ -364,7 +364,7 @@ export default function Routes() {
     const { data: jobHistory } = await queryClient.fetchQuery({
       queryKey: ["/api/job-history"],
     });
-    
+
     const job = (jobHistory as any[])?.find(j => j.routeId === selectedRouteForPhotos.id);
     if (!job) {
       toast({
@@ -629,7 +629,7 @@ export default function Routes() {
                               </TooltipProvider>
                             )}
                           </div>
-                          
+
                           {/* Timer for one-time and new-start services */}
                           {(route.serviceType === "one-time" || route.serviceType === "new-start") && route.status === "in_route" && (
                             <div className="mt-3">
@@ -664,11 +664,10 @@ export default function Routes() {
                                 </a>
                               </Button>
                             )}
-                            
+
                             {route.status === "scheduled" && (
                               <>
                                 <Button
-                                  size="sm"
                                   onClick={async () => {
                                     // First update status to in_route, then send the notification
                                     await handleStatusUpdate(route.id, "in_route");
@@ -676,9 +675,9 @@ export default function Routes() {
                                   }}
                                   disabled={updateStatusMutation.isPending || notifyOnWayMutation.isPending}
                                   data-testid={`button-onmyway-${route.id}`}
-                                  className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
+                                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold shadow-md active:scale-95 transition flex items-center"
                                 >
-                                  <MessageSquare className="w-3 h-3 mr-1" />
+                                  <MessageSquare className="w-4 h-4 mr-2" />
                                   On My Way
                                 </Button>
                                 <Button
@@ -791,7 +790,7 @@ export default function Routes() {
           <CardContent>
             {(() => {
               const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-              
+
               if (!apiKey) {
                 return (
                   <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
@@ -803,7 +802,7 @@ export default function Routes() {
                   </div>
                 );
               }
-              
+
               if (sortedRoutes.length === 0) {
                 return (
                   <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
@@ -815,7 +814,7 @@ export default function Routes() {
                   </div>
                 );
               }
-              
+
               return (
                 <RouteMap 
                   routes={sortedRoutes} 
@@ -844,7 +843,6 @@ export default function Routes() {
                 ref={beforeInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 className="hidden"
                 onChange={(e) => handleFileSelect(e, 'before')}
                 data-testid="input-photo-before"
@@ -880,7 +878,6 @@ export default function Routes() {
                 ref={afterInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 className="hidden"
                 onChange={(e) => handleFileSelect(e, 'after')}
                 data-testid="input-photo-after"
