@@ -1,10 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { clearCsrfToken } from "@/lib/csrf";
 import type { User } from "@shared/schema";
-
-// Authentication context for managing user session
 
 type AuthUser = Omit<User, "password">;
 
@@ -20,7 +18,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
   const [isInitialized, setIsInitialized] = useState(false);
 
   const { data: authData, isLoading, refetch } = useQuery({
