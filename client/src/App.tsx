@@ -1,13 +1,11 @@
 import { Switch, Route, useLocation } from "wouter";
 import { useEffect } from "react";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsBadge } from "@/components/notifications-badge";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
@@ -126,24 +124,20 @@ function AdminLayout() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Switch>
-            <Route path="/login" component={Login} />
-            <Route path="/book" component={BookNow} />
-            <Route path="/review/:token" component={ReviewPage} />
-            <Route path="/portal/login" component={PortalLogin} />
-            <Route path="/portal" component={CustomerPortal} />
-            <Route>
-              <AdminLayout />
-            </Route>
-          </Switch>
-          <Toaster />
-          <DownloadAppBanner />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <TooltipProvider>
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/book" component={BookNow} />
+        <Route path="/review/:token" component={ReviewPage} />
+        <Route path="/portal/login" component={PortalLogin} />
+        <Route path="/portal" component={CustomerPortal} />
+        <Route>
+          <AdminLayout />
+        </Route>
+      </Switch>
+      <Toaster />
+      <DownloadAppBanner />
+    </TooltipProvider>
   );
 }
 
