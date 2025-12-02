@@ -4,6 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { clearCsrfToken } from "@/lib/csrf";
 import type { User } from "@shared/schema";
 
+// Authentication context for managing user session
+
 type AuthUser = Omit<User, "password">;
 
 interface AuthContextType {
