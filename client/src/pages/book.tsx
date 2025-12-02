@@ -369,16 +369,18 @@ export default function BookNow() {
                             checked={field.value}
                             onCheckedChange={field.onChange}
                             data-testid="checkbox-sms-optin"
+                            required
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="text-base font-medium">
-                            I agree to receive text messages
+                            I agree to receive SMS messages <span className="text-red-500">*</span>
                           </FormLabel>
-                          <FormDescription className="text-sm">
-                            By checking this box, I consent to receive SMS text messages from SillyDog Pooper Scooper Services at the phone number provided. Messages may include appointment reminders, service updates, and booking confirmations. Message frequency varies. Message and data rates may apply. Reply STOP to opt out at any time. Reply HELP for assistance.
+                          <FormDescription className="text-sm leading-relaxed">
+                            I agree to receive SMS messages from SillyDog Pooper Scooper including booking confirmations, schedule updates, route reminders, and invoice notifications. Message frequency varies. Message & data rates may apply. Reply STOP to opt-out, HELP for help.
                           </FormDescription>
                         </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />

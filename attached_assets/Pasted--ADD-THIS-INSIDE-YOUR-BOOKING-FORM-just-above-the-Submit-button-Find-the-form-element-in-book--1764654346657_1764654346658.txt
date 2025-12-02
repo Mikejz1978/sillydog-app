@@ -1,0 +1,86 @@
+✅ ADD THIS INSIDE YOUR BOOKING FORM (just above the Submit button)
+
+Find the <form> element in book.tsx
+(usually near the bottom, right above the submit button).
+
+Right before your "Submit", paste this:
+
+<div className="sms-optin mt-4">
+  <label className="flex items-start gap-3">
+    <input
+      type="checkbox"
+      required
+      className="mt-1 h-4 w-4"
+    />
+    <span className="text-sm text-gray-700 leading-relaxed">
+      I agree to receive SMS messages from SillyDog Pooper Scooper including
+      booking confirmations, schedule updates, route reminders, and invoice
+      notifications. Message frequency varies. Message & data rates may apply.
+      Reply STOP to opt-out, HELP for help.
+    </span>
+  </label>
+</div>
+
+🧩 WHERE EXACTLY TO PUT IT
+
+It belongs between your form fields and the submit button.
+
+Example:
+
+<form onSubmit={handleSubmit}>
+  {/* name, phone, address, dogs, notes fields here */}
+
+  {/* ⬇️ Insert this right here */}
+  <div className="sms-optin mt-4">
+    <label className="flex items-start gap-3">
+      <input
+        type="checkbox"
+        required
+        className="mt-1 h-4 w-4"
+      />
+      <span className="text-sm text-gray-700 leading-relaxed">
+        I agree to receive SMS messages from SillyDog Pooper Scooper including
+        booking confirmations, schedule updates, route reminders, and invoice
+        notifications. Message frequency varies. Message & data rates may apply.
+        Reply STOP to opt-out, HELP for help.
+      </span>
+    </label>
+  </div>
+  {/* ⬆️ Insert here */}
+
+  <button type="submit" className="btn btn-primary w-full mt-6">
+    Submit Booking Request
+  </button>
+</form>
+
+
+Twilio requires:
+
+✔ Mandatory checkbox
+✔ Visible SMS consent
+✔ Message types
+✔ Frequency statement
+✔ Opt-out (STOP) & HELP
+✔ Message/data rates
+
+This text is exactly correct.
+
+✅ What to do next
+
+Once you paste the code and save:
+
+Go to https://sillydog-app.onrender.com/book
+
+Confirm the checkbox appears.
+
+Tell me: “It’s live.”
+
+Then I will:
+
+📸 Take the official Twilio screenshot
+☁️ Host it for you
+🔗 Give you the URL to paste into the “Opt-In Image URLs” field
+
+And your Toll-Free Verification will be ready for resubmission.
+
+Just tell me when the checkbox is live and I’ll take care of the rest.
