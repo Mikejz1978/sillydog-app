@@ -56,6 +56,18 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return next();
   }
   
+  // Exempt public endpoints that don't require authentication
+  // These are protected by rate limiting instead
+  // Use req.originalUrl for full path matching since middleware is mounted at /api
+  const publicPaths = [
+    "/api/public/booking",
+    "/api/portal/login",
+  ];
+  
+  if (publicPaths.some(path => req.originalUrl.startsWith(path))) {
+    return next();
+  }
+  
   const token = req.headers["x-csrf-token"] as string;
   
   if (!token || !verifyCsrfToken(req, token)) {
