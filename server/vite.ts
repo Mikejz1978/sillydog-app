@@ -68,13 +68,14 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Try several possible build output locations and pick the first that exists
+  // Where the client build actually ends up after `npm run build`
+  // Vite puts it in: dist/public
   const candidatePaths = [
-    // when client is built into dist/public (common with this template)
-    path.resolve(import.meta.dirname, "public"),
-    // when client is built into dist at the repo root
+    // main expected path in production (Render)
+    path.resolve(process.cwd(), "dist", "public"),
+    // fallback: if for some reason it's just dist
     path.resolve(process.cwd(), "dist"),
-    // when client is built into public at the repo root
+    // fallback: public at repo root
     path.resolve(process.cwd(), "public"),
   ];
 
@@ -89,16 +90,16 @@ export function serveStatic(app: Express) {
 
   if (!distPath) {
     throw new Error(
-      `Could not find a client build directory. Checked:\n` +
+      "Could not find the client build directory. Checked:\n" +
         candidatePaths.join("\n")
     );
   }
 
-  // 1) Serve static assets (JS, CSS, images) from the chosen build folder
+  // 1) Serve static assets (JS, CSS, images) from the client build
   app.use(express.static(distPath));
 
-  // 2) Fallback: any non-asset route gets index.html (for the SPA router)
+  // 2) SPA fallback: any non-asset route gets index.html
   app.get("*", (_req, res) => {
-    res.sendFile(path.join(distPath!, "index.html"));
+    res.sendFile(path.join(distPath, "index.html"));
   });
 }
