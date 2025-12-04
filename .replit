@@ -40,10 +40,6 @@ localPort = 38105
 externalPort = 8000
 
 [[ports]]
-localPort = 38209
-externalPort = 8081
-
-[[ports]]
 localPort = 40595
 externalPort = 8080
 
@@ -107,3 +103,6 @@ integrations = ["javascript_stripe:1.0.0", "javascript_mem_db:1.0.0"]
 [userenv.shared]
 TESTING_VITE_STRIPE_PUBLIC_KEY = "pk_test_51SPSrH2FJbsdSIBmWhrlzq0kFpcitixTOQoLNisXU3tSDgDLLeTUYhA45h9eB7RJCYFV6Zb0xneKxuBoLzvvZxvD00LySwqc6v"
 TESTING_STRIPE_SECRET_KEY = "sk_test_51SPSrH2FJbsdSIBmBNjsHdiquAkzDwVAi5q92Y3OE69vM2bebZdjcp1FR5T5t3YGHgev6wgWb5VyubSJLXVsJKCS00dubnI9f5"
+
+[userenv.production]
+VITE_STRIPE_PUBLIC_KEY = "pk_live_51SPSr6C1vs0mPNtQwHfkhgZyvWyfXqfAF1J6nb21R1FdKYtcIbwEBP0aqT5SbZ7EzlOCfyqZiXMO3OxMMQi19XTL00MbGftpjB"
