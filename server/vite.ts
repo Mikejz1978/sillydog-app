@@ -68,18 +68,37 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // Try several possible build output locations and pick the first that exists
+  const candidatePaths = [
+    // when client is built into dist/public (common with this template)
+    path.resolve(import.meta.dirname, "public"),
+    // when client is built into dist at the repo root
+    path.resolve(process.cwd(), "dist"),
+    // when client is built into public at the repo root
+    path.resolve(process.cwd(), "public"),
+  ];
 
-  if (!fs.existsSync(distPath)) {
+  let distPath: string | undefined;
+
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      distPath = p;
+      break;
+    }
+  }
+
+  if (!distPath) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find a client build directory. Checked:\n` +
+        candidatePaths.join("\n")
     );
   }
 
+  // 1) Serve static assets (JS, CSS, images) from the chosen build folder
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // 2) Fallback: any non-asset route gets index.html (for the SPA router)
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(distPath!, "index.html"));
   });
 }
