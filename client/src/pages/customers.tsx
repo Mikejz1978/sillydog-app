@@ -730,7 +730,7 @@ export default function Customers() {
           byDay: scheduleDays,
           windowStart: scheduleStartTime,
           windowEnd: scheduleEndTime,
-          frequency: "weekly",
+          frequency: scheduleFrequency,
         };
       }
       
@@ -747,6 +747,7 @@ export default function Customers() {
       setScheduleDays([]);
       setScheduleStartTime("08:00");
       setScheduleEndTime("12:00");
+      setScheduleFrequency("weekly");
       form.reset();
       setEditingCustomer(null);
       
@@ -968,14 +969,16 @@ export default function Customers() {
   const [scheduleDays, setScheduleDays] = useState<number[]>([]);
   const [scheduleStartTime, setScheduleStartTime] = useState("08:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("12:00");
+  const [scheduleFrequency, setScheduleFrequency] = useState<"weekly" | "biweekly">("weekly");
 
-  // Reset service days whenever dialog opens or editing customer changes
+  // Reset service days and frequency whenever dialog opens or editing customer changes
   useEffect(() => {
     if (dialogOpen) {
       if (editingCustomer) {
         setScheduleDays(editingCustomer.preferredDays || []);
       } else {
         setScheduleDays([]);
+        setScheduleFrequency("weekly");
       }
     }
   }, [dialogOpen, editingCustomer]);
@@ -1385,6 +1388,23 @@ export default function Customers() {
                       <p className="text-xs text-muted-foreground mb-3">
                         Select service days and time window to auto-create schedule and routes
                       </p>
+                    </div>
+
+                    {/* Service Frequency */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Service Frequency</label>
+                      <Select 
+                        value={scheduleFrequency} 
+                        onValueChange={(value: "weekly" | "biweekly") => setScheduleFrequency(value)}
+                      >
+                        <SelectTrigger data-testid="select-schedule-frequency">
+                          <SelectValue placeholder="Select frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="biweekly">Biweekly (Every Other Week)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Days of Week Selection */}
