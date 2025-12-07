@@ -144,29 +144,30 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
       // For weekly schedules with multiple days, generate on matching days
       shouldGenerate = daysDiff >= 0;
     } else if (rule.frequency === "biweekly") {
-      // Biweekly: Generate routes every other week
-      // Strategy: Find the Monday of the week containing dtStart (the "anchor week"),
-      // then check if the Monday of targetDate's week is an even number of weeks away
-      // Uses UTC dates to avoid DST issues
+      // Biweekly: Generate routes every other week starting from the FIRST matching day
+      // Strategy: Find the first occurrence of the selected day on or after dtStart,
+      // then generate routes every 14 days (2 weeks) from that first occurrence
       
-      // Get Monday of the week containing dtStart (anchor week) - use UTC
-      const anchorWeekStart = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
-      const anchorDayOfWeek = anchorWeekStart.getUTCDay();
-      const daysToMonday = anchorDayOfWeek === 0 ? -6 : -(anchorDayOfWeek - 1);
-      anchorWeekStart.setUTCDate(anchorWeekStart.getUTCDate() + daysToMonday);
+      // Find the first occurrence of this day of week on or after dtStart
+      const startDayOfWeek = startDate.getDay();
+      let daysUntilFirstOccurrence = dayOfWeek - startDayOfWeek;
+      if (daysUntilFirstOccurrence < 0) {
+        daysUntilFirstOccurrence += 7; // If the day already passed this week, go to next week
+      }
       
-      // Get Monday of the week containing targetDate - use UTC
-      const targetWeekStart = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate()));
-      const targetDayOfWeek = targetWeekStart.getUTCDay();
-      const daysToMondayTarget = targetDayOfWeek === 0 ? -6 : -(targetDayOfWeek - 1);
-      targetWeekStart.setUTCDate(targetWeekStart.getUTCDate() + daysToMondayTarget);
+      // Calculate the first occurrence date
+      const firstOccurrence = new Date(startDate);
+      firstOccurrence.setDate(startDate.getDate() + daysUntilFirstOccurrence);
       
-      // Calculate weeks between the two Mondays using UTC (DST-safe)
-      const daysBetweenWeeks = Math.round((targetWeekStart.getTime() - anchorWeekStart.getTime()) / (1000 * 60 * 60 * 24));
-      const weeksBetween = Math.floor(daysBetweenWeeks / 7);
+      // Calculate days from the first occurrence to the target date
+      const daysFromFirstOccurrence = Math.floor((targetDate.getTime() - firstOccurrence.getTime()) / (1000 * 60 * 60 * 24));
       
-      // Generate routes on even biweekly cycles (0, 2, 4...) - all days in the same week share the same cycle
-      shouldGenerate = daysDiff >= 0 && weeksBetween % 2 === 0;
+      // Generate if this is the first occurrence or exactly 14, 28, 42... days after (every 2 weeks)
+      shouldGenerate = daysFromFirstOccurrence >= 0 && daysFromFirstOccurrence % 14 === 0;
+      
+      if (shouldGenerate) {
+        console.log(`   📅 Biweekly: First occurrence ${firstOccurrence.toISOString().split('T')[0]}, target ${targetDateStr}, daysFromFirst=${daysFromFirstOccurrence}`);
+      }
     } else if (rule.frequency === "one-time" || rule.frequency === "new-start") {
       // Only generate once on the start date
       shouldGenerate = daysDiff === 0;
@@ -708,11 +709,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", async (req, res) => {
     try {
       const { schedule, ...customerData } = req.body;
+      console.log(`📝 Creating customer: ${customerData.name}`);
+      console.log(`📅 Schedule data received:`, JSON.stringify(schedule));
+      
       const validated = insertCustomerSchema.parse(customerData);
       const customer = await storage.createCustomer(validated);
       
       // If schedule data is provided, create schedule rule and generate initial routes
       if (schedule && schedule.byDay && schedule.byDay.length > 0) {
+        console.log(`📅 Creating schedule with frequency: "${schedule.frequency}", days: ${JSON.stringify(schedule.byDay)}`);
+        
         const scheduleRule = await storage.createScheduleRule({
           customerId: customer.id,
           frequency: schedule.frequency || "weekly",
@@ -723,12 +729,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paused: false,
         });
         
+        console.log(`✅ Schedule rule created: ${scheduleRule.id}, frequency: ${scheduleRule.frequency}`);
+        
         // Generate routes for the next 60 days
-        await generateRoutesForSchedule(scheduleRule, 60);
+        const routeCount = await generateRoutesForSchedule(scheduleRule, 60);
+        console.log(`🛣️ Generated ${routeCount} routes for schedule ${scheduleRule.id}`);
       }
       
       res.status(201).json(customer);
     } catch (error: any) {
+      console.error(`❌ Error creating customer:`, error);
       res.status(400).json({ message: error.message });
     }
   });
