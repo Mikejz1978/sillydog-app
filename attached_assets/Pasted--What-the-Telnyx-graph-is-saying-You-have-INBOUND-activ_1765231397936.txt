@@ -1,0 +1,139 @@
+🔍 What the Telnyx graph is saying
+
+You have INBOUND activity (blue spike) ✅
+
+You have ZERO OUTBOUND activity (orange = 0) ❌
+
+That means:
+
+✅ Your webhook / number can RECEIVE messages
+❌ Your app is NOT actually sending through Telnyx
+
+So the UI is saving the message + showing “Message Sent”, but the server is not successfully submitting the outbound SMS to Telnyx.
+
+This narrows the issue to one of only three things:
+
+✅ 1. The “FROM” number being used is NOT your Telnyx number
+
+Your Telnyx number is:
+
++1-702-867-9664
+
+But your UI says:
+
+“Messages will be sent via SMS to 7027877722”
+That’s the TO number — good ✅
+
+Now we must ensure your backend is using:
+
+from: +17028679664
+
+
+If it’s using:
+
+7028679664
+
++17027877722 (wrong)
+
+or an empty string
+
+👉 Telnyx will silently reject before it even hits the outbound queue.
+
+✅ 2. The Messaging Profile is NOT attached for outbound
+
+Even though the webhook is set, you must also verify outbound routing:
+
+In Telnyx:
+
+Go to Numbers → My Numbers
+
+Click +1-702-867-9664
+
+Open the Messaging tab
+
+Confirm:
+
+✅ Messaging Profile = SillyDog SMS
+
+✅ Outbound SMS = Enabled
+
+If outbound is not enabled here, Telnyx will accept inbound but block outbound (exactly what you’re seeing now).
+
+✅ 3. Your production server is missing ONE env var
+
+Since you rewired to direct REST calls, your server now needs:
+
+TELNYX_API_KEY
+TELNYX_PHONE_NUMBER
+
+
+You already confirmed:
+
+✅ API key is set
+
+⚠️ But earlier logs showed PHONE NUMBER missing
+
+If Render still doesn’t have this exact variable:
+
+TELNYX_PHONE_NUMBER=+17028679664
+
+
+✅ The UI will “send”
+❌ But Telnyx will never get a valid request
+
+✅ What To Do Right Now (IN THIS ORDER)
+✅ Step 1 — Verify outbound routing in Telnyx
+
+Numbers → My Numbers → +17028679664 → Messaging tab
+
+Tell me if you see:
+
+✅ “SillyDog SMS” attached
+
+✅ Outbound enabled
+
+✅ Step 2 — Verify Render environment
+
+In Render → Environment Variables, confirm EXACTLY:
+
+TELNYX_API_KEY = sk_live_...
+TELNYX_PHONE_NUMBER = +17028679664
+
+
+⚠️ The + and country code must be there
+
+If you add or fix this → Redeploy immediately.
+
+✅ Step 3 — After redeploy, send:
+FINAL TEST
+
+
+Then immediately refresh:
+
+Telnyx → Messaging → Message Logs
+
+You SHOULD see:
+
+Direction: Outbound
+
+Status: queued → sent → delivered
+
+✅ Why this will fix it
+
+Right now your system state is:
+
+Layer	Status
+UI	✅ Working
+DB	✅ Saving
+Webhook	✅ Receiving
+Telnyx Outbound	❌ Not being hit
+
+Once outbound routing + env var match → the orange line will light up and your phone will ring ✅📱
+
+✅ Reply with just these two answers:
+
+Does +17028679664 show outbound enabled in Telnyx?
+
+Does Render show TELNYX_PHONE_NUMBER=+17028679664 exactly?
+
+Once you answer that, I’ll tell you the exact final switch to flip so your next send actually hits your phone.
