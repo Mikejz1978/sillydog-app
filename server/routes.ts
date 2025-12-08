@@ -39,28 +39,44 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-10-29.clover",
 });
 
-// Telnyx setup
+// Telnyx setup - Using REST API (SDK v4.5.1 has issues)
 const telnyxApiKey = process.env.TELNYX_API_KEY;
 const telnyxPhoneNumber = process.env.TELNYX_PHONE_NUMBER;
 
-let telnyxClient: any = null;
-if (telnyxApiKey && telnyxPhoneNumber) {
-  try {
-    telnyxClient = new Telnyx(telnyxApiKey);
-    console.log("✅ Telnyx client initialized successfully");
-    console.log(`📱 Using phone number: ${telnyxPhoneNumber}`);
-  } catch (error) {
-    console.error("❌ Failed to initialize Telnyx:", error);
+// Helper function to send SMS via Telnyx REST API
+async function sendTelnyxSMS(from: string, to: string, text: string): Promise<{ id: string }> {
+  if (!telnyxApiKey) {
+    throw new Error("Telnyx API key not configured");
   }
+
+  const response = await fetch('https://api.telnyx.com/v2/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${telnyxApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ from, to, text })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Telnyx API error (${response.status}): ${error}`);
+  }
+
+  const result = await response.json();
+  return { id: result.data.id };
+}
+
+if (telnyxApiKey && telnyxPhoneNumber) {
+  console.log("✅ Telnyx configured (using REST API)");
+  console.log(`📱 Phone: ${telnyxPhoneNumber}`);
 } else {
-  console.warn("⚠️ Telnyx credentials not found - SMS notifications disabled");
-  console.warn(`   TELNYX_API_KEY: ${telnyxApiKey ? 'SET' : 'MISSING'}`);
-  console.warn(`   TELNYX_PHONE_NUMBER: ${telnyxPhoneNumber ? 'SET' : 'MISSING'}`);
+  console.warn("⚠️  Telnyx not configured - SMS disabled");
 }
 
 // Helper function to send SMS via Telnyx
 async function sendSMS(to: string, message: string) {
-  if (!telnyxClient || !telnyxPhoneNumber) {
+  if (!telnyxApiKey || !telnyxPhoneNumber) {
     console.log(`⚠️ SMS NOT SENT - Telnyx not configured. Would send to ${to}: ${message}`);
     return;
   }
@@ -85,12 +101,8 @@ async function sendSMS(to: string, message: string) {
   }
 
   try {
-    const result = await telnyxClient.messages.create({
-      from: telnyxPhoneNumber,
-      to: formattedPhone,
-      text: message,
-    });
-    console.log(`✅ SMS sent successfully to ${formattedPhone} via Telnyx - ID: ${result.data.id}`);
+    const result = await sendTelnyxSMS(telnyxPhoneNumber, formattedPhone, message);
+    console.log(`✅ SMS sent successfully to ${formattedPhone} via Telnyx - ID: ${result.id}`);
   } catch (error: any) {
     console.error(`❌ Failed to send SMS to ${formattedPhone}:`, error.message);
     // Don't rethrow - log error but allow workflow to continue
@@ -1478,9 +1490,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      // Send SMS via Telnyx and get message ID
+      // Send SMS via Telnyx REST API and get message ID
       let externalMessageId: string | undefined;
-      if (telnyxClient && telnyxPhoneNumber) {
+      if (telnyxApiKey && telnyxPhoneNumber) {
         try {
           let cleanDigits = customer.phone.trim().replace(/\D/g, '');
           let formattedPhone: string;
@@ -1492,12 +1504,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Invalid phone number format');
           }
 
-          const result = await telnyxClient.messages.create({
-            from: telnyxPhoneNumber,
-            to: formattedPhone,
-            text: validated.messageText,
-          });
-          externalMessageId = result.data.id;
+          const result = await sendTelnyxSMS(telnyxPhoneNumber, formattedPhone, validated.messageText);
+          externalMessageId = result.id;
           console.log(`✅ SMS sent successfully to ${formattedPhone} - Telnyx ID: ${externalMessageId}`);
         } catch (error: any) {
           console.error(`❌ Failed to send SMS:`, error.message);

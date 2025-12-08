@@ -1,9 +1,30 @@
 import { storage } from "../storage";
-import Telnyx from "telnyx";
 
-const telnyxClient = process.env.TELNYX_API_KEY
-  ? new Telnyx(process.env.TELNYX_API_KEY)
-  : null;
+const telnyxApiKey = process.env.TELNYX_API_KEY;
+
+// Helper function to send SMS via Telnyx REST API
+async function sendTelnyxSMS(from: string, to: string, text: string): Promise<{ id: string }> {
+  if (!telnyxApiKey) {
+    throw new Error("Telnyx API key not configured");
+  }
+
+  const response = await fetch('https://api.telnyx.com/v2/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${telnyxApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ from, to, text })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Telnyx API error (${response.status}): ${error}`);
+  }
+
+  const result = await response.json();
+  return { id: result.data.id };
+}
 
 export async function sendNightBeforeReminders(serviceDate: string): Promise<{
   sent: number;
@@ -18,7 +39,7 @@ export async function sendNightBeforeReminders(serviceDate: string): Promise<{
     errors: [] as string[],
   };
 
-  if (!telnyxClient) {
+  if (!telnyxApiKey) {
     results.errors.push("Telnyx not configured");
     return results;
   }
@@ -43,16 +64,16 @@ export async function sendNightBeforeReminders(serviceDate: string): Promise<{
       }
 
       try {
-        const message = await telnyxClient.messages.create({
-          from: process.env.TELNYX_PHONE_NUMBER,
-          to: customer.phone,
-          text: `Hi ${customer.name}! This is a reminder that SillyDog will be servicing your yard tomorrow (${serviceDate}). Thank you for choosing us!`,
-        });
+        const message = await sendTelnyxSMS(
+          process.env.TELNYX_PHONE_NUMBER!,
+          customer.phone,
+          `Hi ${customer.name}! This is a reminder that SillyDog will be servicing your yard tomorrow (${serviceDate}). Thank you for choosing us!`
+        );
 
         await storage.createReminderLog({
           customerId: customer.id,
           serviceDate,
-          twilioSid: message.data.id,
+          twilioSid: message.id,
           status: "sent",
         });
 

@@ -167,11 +167,17 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertMessageSchema = createInsertSchema(messages).omit({
-  id: true,
-  createdAt: true,
-  sentAt: true,
-});
+export const insertMessageSchema = createInsertSchema(messages)
+  .omit({
+    id: true,
+    createdAt: true,
+    sentAt: true,
+  })
+  .extend({
+    direction: z.string().optional(),
+    status: z.string().optional(),
+    externalMessageId: z.string().optional(),
+  });
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;

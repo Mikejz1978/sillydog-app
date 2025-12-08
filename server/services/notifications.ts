@@ -1,12 +1,32 @@
 import { storage } from "../storage";
-import Telnyx from "telnyx";
 import type { BookingRequest, InsertNotification } from "@shared/schema";
 
-const telnyxClient = process.env.TELNYX_API_KEY
-  ? new Telnyx(process.env.TELNYX_API_KEY)
-  : null;
+const telnyxApiKey = process.env.TELNYX_API_KEY;
+const ADMIN_PHONE = process.env.TELNYX_PHONE_NUMBER;
 
-const ADMIN_PHONE = process.env.TELNYX_PHONE_NUMBER; // This is where admin receives notifications
+// Helper function to send SMS via Telnyx REST API
+async function sendTelnyxSMS(from: string, to: string, text: string): Promise<{ id: string }> {
+  if (!telnyxApiKey) {
+    throw new Error("Telnyx API key not configured");
+  }
+
+  const response = await fetch('https://api.telnyx.com/v2/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${telnyxApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ from, to, text })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Telnyx API error (${response.status}): ${error}`);
+  }
+
+  const result = await response.json();
+  return { id: result.data.id };
+}
 
 /**
  * Send a new booking request notification to admin via SMS and create in-app notification
@@ -45,7 +65,7 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
   }
 
   // Send SMS if Telnyx is configured
-  if (telnyxClient && ADMIN_PHONE) {
+  if (telnyxApiKey && ADMIN_PHONE) {
     try {
       const message = `NEW BOOKING REQUEST from ${booking.name}\n\n` +
                      `Address: ${booking.address}\n` +
@@ -54,11 +74,7 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
                      `Phone: ${booking.phone}\n\n` +
                      `View in admin dashboard to schedule.`;
 
-      await telnyxClient.messages.create({
-        from: ADMIN_PHONE,
-        to: ADMIN_PHONE, // Send to self (admin)
-        text: message,
-      });
+      await sendTelnyxSMS(ADMIN_PHONE, ADMIN_PHONE, message);
 
       result.smsDelivered = true;
 
@@ -99,18 +115,14 @@ export async function sendAdminNotification(
     message,
     bookingRequestId: null,
     customerId: null,
-    smsDelivered: sendSMS && !!telnyxClient,
+    smsDelivered: sendSMS && !!telnyxApiKey,
     readAt: null,
   });
 
   // Optionally send SMS
-  if (sendSMS && telnyxClient && ADMIN_PHONE) {
+  if (sendSMS && telnyxApiKey && ADMIN_PHONE) {
     try {
-      await telnyxClient.messages.create({
-        from: ADMIN_PHONE,
-        to: ADMIN_PHONE,
-        text: `${title}\n\n${message}`,
-      });
+      await sendTelnyxSMS(ADMIN_PHONE, ADMIN_PHONE, `${title}\n\n${message}`);
     } catch (error) {
       console.error("Failed to send admin SMS:", error);
     }
@@ -124,7 +136,7 @@ export async function sendOnMyWayNotification(customerId: string): Promise<{
   success: boolean;
   message: string;
 }> {
-  if (!telnyxClient) {
+  if (!telnyxApiKey) {
     return { success: false, message: "Telnyx not configured" };
   }
 
@@ -144,11 +156,7 @@ export async function sendOnMyWayNotification(customerId: string): Promise<{
 
     const smsMessage = `Hi ${customer.name}! SillyDog Pooper Scooper is on the way to your location. We'll be there shortly! 🐕`;
 
-    await telnyxClient.messages.create({
-      from: process.env.TELNYX_PHONE_NUMBER,
-      to: customer.phone,
-      text: smsMessage,
-    });
+    await sendTelnyxSMS(process.env.TELNYX_PHONE_NUMBER!, customer.phone, smsMessage);
 
     return { success: true, message: `On My Way notification sent to ${customer.name}` };
   } catch (error: any) {

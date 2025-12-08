@@ -47,5 +47,17 @@ This project is a comprehensive web-based business management platform designed 
 ## External Dependencies
 -   **Database**: Neon PostgreSQL (for persistent data storage)
 -   **Payments**: Stripe API (for payment intents, processing, and autopay)
--   **SMS**: Twilio API (for automated customer notifications and two-way messaging)
+-   **SMS**: Telnyx REST API (for automated customer notifications and two-way messaging)
+    -   **Important**: Uses direct REST API calls instead of SDK due to Telnyx Node SDK v4.5.1 having broken methods
+    -   Implementation: Direct fetch() calls to `https://api.telnyx.com/v2/messages`
+    -   Files: `server/routes.ts`, `server/services/notifications.ts`, `server/services/reminders.ts`
 -   **Geocoding**: Google Maps Geocoding API (for address-to-coordinates conversion and route optimization suggestions)
+
+## Technical Notes
+
+### Telnyx SDK Issue & REST API Bypass
+**Problem**: The Telnyx Node SDK v4.5.1 has broken methods - `telnyxClient.messages.create()` returns undefined even when properly initialized.
+
+**Solution**: All SMS functionality bypasses the SDK and uses direct REST API calls via the `sendTelnyxSMS()` helper function that performs fetch requests to the Telnyx API with Bearer token authentication.
+
+**Do NOT attempt to use the Telnyx SDK** - the methods do not exist on the client object despite what the documentation suggests. Always use the REST API implementation.
