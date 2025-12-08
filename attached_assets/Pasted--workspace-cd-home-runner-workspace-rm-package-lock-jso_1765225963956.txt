@@ -1,0 +1,133 @@
+~/workspace$ cd /home/runner/workspace
+rm package-lock.json
+npm install vite drizzle-kit esbuild @vitejs/plugin-react --save-dev --force
+npm warn using --force Recommended protections disabled.
+
+up to date, audited 461 packages in 8s
+
+51 packages are looking for funding
+  run `npm fund` for details
+
+2 low severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+~/workspace$ npm install --legacy-peer-deps --force
+npm warn using --force Recommended protections disabled.
+
+up to date, audited 385 packages in 1s
+
+32 packages are looking for funding
+  run `npm fund` for details
+
+2 low severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+~/workspace$ upm add vite
+upm add drizzle-kit
+upm add esbuild
+upm add @vitejs/plugin-react
+--> bun add vite
+bun add v1.2.16 (631e6748)
+
++ @replit/vite-plugin-cartographer@0.4.4
++ @replit/vite-plugin-dev-banner@0.1.1
++ @replit/vite-plugin-runtime-error-modal@0.0.3
++ @tailwindcss/typography@0.5.19
++ @tailwindcss/vite@4.1.17
++ @types/connect-pg-simple@7.0.3
++ @types/express@4.17.21
++ @types/express-session@1.18.2
++ @types/passport@1.0.17
++ @types/passport-local@1.0.38
++ @types/pg@8.15.6
++ @types/react@18.3.27
++ @types/react-dom@18.3.7
++ @types/ws@8.18.1
++ @vitejs/plugin-react@4.7.0
++ autoprefixer@10.4.22
++ drizzle-kit@0.31.8
++ esbuild@0.25.12 (v0.27.1 available)
++ postcss@8.5.6
++ tailwindcss@3.4.18
++ tsx@4.21.0
++ typescript@5.9.3
++ @tanstack/react-query@5.90.11
++ react-hook-form@7.67.0
+
+installed vite@7.2.7 with binaries:
+ - vite
+
+202 packages installed [1.98s]
+--> bun add drizzle-kit
+bun add v1.2.16 (631e6748)
+
+installed drizzle-kit@0.31.8 with binaries:
+ - drizzle-kit
+
+[71.00ms] done
+--> bun add esbuild
+bun add v1.2.16 (631e6748)
+
+installed esbuild@0.27.1 with binaries:
+ - esbuild
+
+4 packages installed [554.00ms]
+--> bun add @vitejs/plugin-react
+bun add v1.2.16 (631e6748)
+
+installed @vitejs/plugin-react@5.1.2
+
+3 packages installed [317.00ms]
+~/workspace$ npx vite --version
+vite/7.2.7 linux-x64 node-v20.19.3
+~/workspace$ npx drizzle-kit --version
+drizzle-kit: v0.31.8
+drizzle-orm: v0.39.3 
+
+~/workspace$ npx drizzle-kit push
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/home/runner/workspace/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
+[i] No changes detected
+~/workspace$ npm run dev
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+⚠️ Telnyx credentials not found - SMS notifications disabled
+   TELNYX_API_KEY: SET
+   TELNYX_PHONE_NUMBER: MISSING
+🔄 Adding new fixed-price service types...
+✅ All service types already exist, skipping migration
+Scheduled jobs started:
+- Monthly billing: 1st of month at midnight CST
+- Night-before reminders: Daily at 6 PM CST
+- Automatic route generation: Daily at midnight CST
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at doListen (node:net:2139:7)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5000
+}
+
+Node.js v20.19.3
+~/workspace$ 
