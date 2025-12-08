@@ -1,12 +1,12 @@
 import { storage } from "../storage";
-import twilio from "twilio";
+import Telnyx from "telnyx";
 import type { BookingRequest, InsertNotification } from "@shared/schema";
 
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+const telnyxClient = process.env.TELNYX_API_KEY
+  ? new Telnyx(process.env.TELNYX_API_KEY)
   : null;
 
-const ADMIN_PHONE = process.env.TWILIO_PHONE_NUMBER; // This is where admin receives notifications
+const ADMIN_PHONE = process.env.TELNYX_PHONE_NUMBER; // This is where admin receives notifications
 
 /**
  * Send a new booking request notification to admin via SMS and create in-app notification
@@ -44,8 +44,8 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
     result.error = error instanceof Error ? error.message : "Unknown error creating notification";
   }
 
-  // Send SMS if Twilio is configured
-  if (twilioClient && ADMIN_PHONE) {
+  // Send SMS if Telnyx is configured
+  if (telnyxClient && ADMIN_PHONE) {
     try {
       const message = `NEW BOOKING REQUEST from ${booking.name}\n\n` +
                      `Address: ${booking.address}\n` +
@@ -54,10 +54,10 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
                      `Phone: ${booking.phone}\n\n` +
                      `View in admin dashboard to schedule.`;
 
-      await twilioClient.messages.create({
-        body: message,
+      await telnyxClient.messages.create({
         from: ADMIN_PHONE,
         to: ADMIN_PHONE, // Send to self (admin)
+        text: message,
       });
 
       result.smsDelivered = true;
@@ -77,7 +77,7 @@ export async function notifyAdminOfNewBooking(booking: BookingRequest): Promise<
       }
     }
   } else {
-    console.log("Twilio not configured, skipping SMS notification");
+    console.log("Telnyx not configured, skipping SMS notification");
   }
 
   return result;
@@ -99,17 +99,17 @@ export async function sendAdminNotification(
     message,
     bookingRequestId: null,
     customerId: null,
-    smsDelivered: sendSMS && !!twilioClient,
+    smsDelivered: sendSMS && !!telnyxClient,
     readAt: null,
   });
 
   // Optionally send SMS
-  if (sendSMS && twilioClient && ADMIN_PHONE) {
+  if (sendSMS && telnyxClient && ADMIN_PHONE) {
     try {
-      await twilioClient.messages.create({
-        body: `${title}\n\n${message}`,
+      await telnyxClient.messages.create({
         from: ADMIN_PHONE,
         to: ADMIN_PHONE,
+        text: `${title}\n\n${message}`,
       });
     } catch (error) {
       console.error("Failed to send admin SMS:", error);
@@ -124,8 +124,8 @@ export async function sendOnMyWayNotification(customerId: string): Promise<{
   success: boolean;
   message: string;
 }> {
-  if (!twilioClient) {
-    return { success: false, message: "Twilio not configured" };
+  if (!telnyxClient) {
+    return { success: false, message: "Telnyx not configured" };
   }
 
   try {
@@ -144,10 +144,10 @@ export async function sendOnMyWayNotification(customerId: string): Promise<{
 
     const smsMessage = `Hi ${customer.name}! SillyDog Pooper Scooper is on the way to your location. We'll be there shortly! 🐕`;
 
-    await twilioClient.messages.create({
-      body: smsMessage,
-      from: process.env.TWILIO_PHONE_NUMBER,
+    await telnyxClient.messages.create({
+      from: process.env.TELNYX_PHONE_NUMBER,
       to: customer.phone,
+      text: smsMessage,
     });
 
     return { success: true, message: `On My Way notification sent to ${customer.name}` };

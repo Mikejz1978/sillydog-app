@@ -1,8 +1,8 @@
 import { storage } from "../storage";
-import twilio from "twilio";
+import Telnyx from "telnyx";
 
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+const telnyxClient = process.env.TELNYX_API_KEY
+  ? new Telnyx(process.env.TELNYX_API_KEY)
   : null;
 
 export async function sendNightBeforeReminders(serviceDate: string): Promise<{
@@ -18,8 +18,8 @@ export async function sendNightBeforeReminders(serviceDate: string): Promise<{
     errors: [] as string[],
   };
 
-  if (!twilioClient) {
-    results.errors.push("Twilio not configured");
+  if (!telnyxClient) {
+    results.errors.push("Telnyx not configured");
     return results;
   }
 
@@ -43,16 +43,16 @@ export async function sendNightBeforeReminders(serviceDate: string): Promise<{
       }
 
       try {
-        const message = await twilioClient.messages.create({
-          body: `Hi ${customer.name}! This is a reminder that SillyDog will be servicing your yard tomorrow (${serviceDate}). Thank you for choosing us!`,
-          from: process.env.TWILIO_PHONE_NUMBER,
+        const message = await telnyxClient.messages.create({
+          from: process.env.TELNYX_PHONE_NUMBER,
           to: customer.phone,
+          text: `Hi ${customer.name}! This is a reminder that SillyDog will be servicing your yard tomorrow (${serviceDate}). Thank you for choosing us!`,
         });
 
         await storage.createReminderLog({
           customerId: customer.id,
           serviceDate,
-          twilioSid: message.sid,
+          twilioSid: message.data.id,
           status: "sent",
         });
 

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import Stripe from "stripe";
-import twilio from "twilio";
+import Telnyx from "telnyx";
 import { storage } from "./storage";
 import passport from "./auth";
 import { requireAuth, requireAdmin, requireStaff } from "./middleware/auth";
@@ -39,31 +39,29 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-10-29.clover",
 });
 
-// Twilio setup
-const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+// Telnyx setup
+const telnyxApiKey = process.env.TELNYX_API_KEY;
+const telnyxPhoneNumber = process.env.TELNYX_PHONE_NUMBER;
 
-let twilioClient: any = null;
-if (twilioAccountSid && twilioAuthToken && twilioPhoneNumber) {
+let telnyxClient: any = null;
+if (telnyxApiKey && telnyxPhoneNumber) {
   try {
-    twilioClient = twilio(twilioAccountSid, twilioAuthToken);
-    console.log("✅ Twilio client initialized successfully");
-    console.log(`📱 Using phone number: ${twilioPhoneNumber}`);
+    telnyxClient = new Telnyx(telnyxApiKey);
+    console.log("✅ Telnyx client initialized successfully");
+    console.log(`📱 Using phone number: ${telnyxPhoneNumber}`);
   } catch (error) {
-    console.error("❌ Failed to initialize Twilio:", error);
+    console.error("❌ Failed to initialize Telnyx:", error);
   }
 } else {
-  console.warn("⚠️ Twilio credentials not found - SMS notifications disabled");
-  console.warn(`   TWILIO_ACCOUNT_SID: ${twilioAccountSid ? 'SET' : 'MISSING'}`);
-  console.warn(`   TWILIO_AUTH_TOKEN: ${twilioAuthToken ? 'SET' : 'MISSING'}`);
-  console.warn(`   TWILIO_PHONE_NUMBER: ${twilioPhoneNumber ? 'SET' : 'MISSING'}`);
+  console.warn("⚠️ Telnyx credentials not found - SMS notifications disabled");
+  console.warn(`   TELNYX_API_KEY: ${telnyxApiKey ? 'SET' : 'MISSING'}`);
+  console.warn(`   TELNYX_PHONE_NUMBER: ${telnyxPhoneNumber ? 'SET' : 'MISSING'}`);
 }
 
-// Helper function to send SMS
+// Helper function to send SMS via Telnyx
 async function sendSMS(to: string, message: string) {
-  if (!twilioClient || !twilioPhoneNumber) {
-    console.log(`⚠️ SMS NOT SENT - Twilio not configured. Would send to ${to}: ${message}`);
+  if (!telnyxClient || !telnyxPhoneNumber) {
+    console.log(`⚠️ SMS NOT SENT - Telnyx not configured. Would send to ${to}: ${message}`);
     return;
   }
 
@@ -87,16 +85,14 @@ async function sendSMS(to: string, message: string) {
   }
 
   try {
-    const result = await twilioClient.messages.create({
-      body: message,
-      from: twilioPhoneNumber,
+    const result = await telnyxClient.messages.create({
+      from: telnyxPhoneNumber,
       to: formattedPhone,
+      text: message,
     });
-    console.log(`✅ SMS sent successfully to ${formattedPhone} - SID: ${result.sid}`);
+    console.log(`✅ SMS sent successfully to ${formattedPhone} via Telnyx - ID: ${result.data.id}`);
   } catch (error: any) {
     console.error(`❌ Failed to send SMS to ${formattedPhone}:`, error.message);
-    console.error(`   Error code: ${error.code}`);
-    console.error(`   More info: ${error.moreInfo}`);
     // Don't rethrow - log error but allow workflow to continue
     console.error(`   SMS delivery failed but workflow will continue`);
   }
