@@ -1478,19 +1478,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      // Send SMS via Twilio
-      await sendSMS(customer.phone, validated.messageText);
+      // Send SMS via Telnyx and get message ID
+      let externalMessageId: string | undefined;
+      if (telnyxClient && telnyxPhoneNumber) {
+        try {
+          let cleanDigits = customer.phone.trim().replace(/\D/g, '');
+          let formattedPhone: string;
+          if (cleanDigits.length === 10) {
+            formattedPhone = '+1' + cleanDigits;
+          } else if (cleanDigits.length === 11 && cleanDigits.startsWith('1')) {
+            formattedPhone = '+' + cleanDigits;
+          } else {
+            throw new Error('Invalid phone number format');
+          }
+
+          const result = await telnyxClient.messages.create({
+            from: telnyxPhoneNumber,
+            to: formattedPhone,
+            text: validated.messageText,
+          });
+          externalMessageId = result.data.id;
+          console.log(`✅ SMS sent successfully to ${formattedPhone} - Telnyx ID: ${externalMessageId}`);
+        } catch (error: any) {
+          console.error(`❌ Failed to send SMS:`, error.message);
+          throw new Error(`Failed to send SMS: ${error.message}`);
+        }
+      }
       
       // Save message to database
       const message = await storage.createMessage({
         ...validated,
         direction: "outbound",
         status: "sent",
+        externalMessageId,
       });
       
       res.status(201).json(message);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ========== TELNYX WEBHOOK ==========
+  // Webhook endpoint for receiving Telnyx events (incoming messages & delivery status)
+  app.post("/api/webhooks/telnyx", async (req, res) => {
+    try {
+      const event = req.body;
+      console.log("📨 Telnyx webhook received:", JSON.stringify(event, null, 2));
+
+      // Return 200 immediately to acknowledge receipt
+      res.status(200).send('OK');
+
+      // Process webhook asynchronously
+      if (!event.data || !event.data.event_type) {
+        console.warn("⚠️ Unknown webhook format:", event);
+        return;
+      }
+
+      const eventType = event.data.event_type;
+      const payload = event.data.payload;
+
+      // Handle incoming message
+      if (eventType === "message.received") {
+        console.log("📥 Incoming message from:", payload.from.phone_number);
+        
+        // Find customer by phone number
+        const customer = await storage.findCustomerByPhone(payload.from.phone_number);
+        
+        if (!customer) {
+          console.warn(`⚠️ No customer found for phone: ${payload.from.phone_number}`);
+          return;
+        }
+
+        // Store incoming message
+        await storage.createMessage({
+          customerId: customer.id,
+          messageText: payload.text || '',
+          direction: "inbound",
+          status: "delivered",
+          externalMessageId: payload.id,
+        });
+        
+        console.log(`✅ Stored incoming message from customer: ${customer.name}`);
+      }
+      
+      // Handle delivery status update
+      else if (eventType === "message.finalized") {
+        console.log("📬 Message status update:", payload.to[0].status);
+        
+        if (payload.id) {
+          const status = payload.to[0].status === "delivered" ? "delivered" : "failed";
+          await storage.updateMessageStatus(payload.id, status);
+          console.log(`✅ Updated message ${payload.id} status to: ${status}`);
+        }
+      }
+      
+      else {
+        console.log(`ℹ️ Unhandled webhook event type: ${eventType}`);
+      }
+      
+    } catch (error: any) {
+      console.error("❌ Webhook processing error:", error);
+      // Don't rethrow - webhook already acknowledged with 200
     }
   });
 

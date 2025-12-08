@@ -81,6 +81,8 @@ export interface IStorage {
   getAllMessages(): Promise<Message[]>;
   getMessagesByCustomer(customerId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+  updateMessageStatus(externalMessageId: string, status: string): Promise<void>;
+  findCustomerByPhone(phone: string): Promise<Customer | undefined>;
 
   // Schedule Rules
   getAllScheduleRules(): Promise<ScheduleRule[]>;
@@ -503,6 +505,8 @@ export class MemStorage implements IStorage {
   async getAllMessages(): Promise<Message[]> { return []; }
   async getMessagesByCustomer(_customerId: string): Promise<Message[]> { return []; }
   async createMessage(_message: InsertMessage): Promise<Message> { throw new Error("Not implemented"); }
+  async updateMessageStatus(_externalMessageId: string, _status: string): Promise<void> { throw new Error("Not implemented"); }
+  async findCustomerByPhone(_phone: string): Promise<Customer | undefined> { return undefined; }
   async getAllScheduleRules(): Promise<ScheduleRule[]> { return []; }
   async getScheduleRulesByCustomer(_customerId: string): Promise<ScheduleRule[]> { return []; }
   async createScheduleRule(_rule: InsertScheduleRule): Promise<ScheduleRule> { throw new Error("Not implemented"); }
@@ -898,6 +902,23 @@ export class DbStorage implements IStorage {
       .values(insertMessage)
       .returning();
     return result[0];
+  }
+
+  async updateMessageStatus(externalMessageId: string, status: string): Promise<void> {
+    await this.db
+      .update(schema.messages)
+      .set({ status })
+      .where(eq(schema.messages.externalMessageId, externalMessageId));
+  }
+
+  async findCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    const cleanDigits = phone.replace(/\D/g, '');
+    const results = await this.db
+      .select()
+      .from(schema.customers)
+      .where(eq(schema.customers.phone, cleanDigits))
+      .limit(1);
+    return results[0];
   }
 
   // Schedule Rules
