@@ -1,0 +1,61 @@
+workspace$ npm install  # Reinstall with corrected versions
+git add .
+git commit -m "Fix package versions for Render deployment compatibility"
+git push origin main
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: vite@7.2.7
+npm error Found: @types/node@20.16.11
+npm error node_modules/@types/node
+npm error   dev @types/node@"20.16.11" from the root project
+npm error   @types/node@"*" from @types/pg@8.11.6
+npm error   node_modules/@neondatabase/serverless/node_modules/@types/pg
+npm error     @types/pg@"8.11.6" from @neondatabase/serverless@0.10.4
+npm error     node_modules/@neondatabase/serverless
+npm error       @neondatabase/serverless@"^0.10.4" from the root project
+npm error       1 more (drizzle-orm)
+npm error   9 more (@types/body-parser, @types/connect, ...)
+npm error
+npm error Could not resolve dependency:
+npm error peerOptional @types/node@"^20.19.0 || >=22.12.0" from vite@7.2.7
+npm error node_modules/vite
+npm error   dev vite@"^7.2.7" from the root project
+npm error   peer vite@"^5.2.0 || ^6 || ^7" from @tailwindcss/vite@4.1.17
+npm error   node_modules/@tailwindcss/vite
+npm error     dev @tailwindcss/vite@"^4.1.3" from the root project
+npm error   1 more (@vitejs/plugin-react)
+npm error
+npm error Conflicting peer dependency: @types/node@24.10.1
+npm error node_modules/@types/node
+npm error   peerOptional @types/node@"^20.19.0 || >=22.12.0" from vite@7.2.7
+npm error   node_modules/vite
+npm error     dev vite@"^7.2.7" from the root project
+npm error     peer vite@"^5.2.0 || ^6 || ^7" from @tailwindcss/vite@4.1.17
+npm error     node_modules/@tailwindcss/vite
+npm error       dev @tailwindcss/vite@"^4.1.3" from the root project
+npm error     1 more (@vitejs/plugin-react)
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/runner/.npm/_logs/2025-12-08T20_38_54_796Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2025-12-08T20_38_54_796Z-debug-0.log
+On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+nothing to commit, working tree clean
+Enumerating objects: 6, done.
+Counting objects: 100% (6/6), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 1.62 KiB | 1.62 MiB/s, done.
+Total 4 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/Mikejz1978/sillydog-app.git
+   317ab30..13151d0  main -> main
+~/workspace$ 
