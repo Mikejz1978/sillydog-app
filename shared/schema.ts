@@ -171,6 +171,9 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   id: true,
   createdAt: true,
   sentAt: true,
+  direction: true,
+  status: true,
+  externalMessageId: true,
 });
 
 export type Message = typeof messages.$inferSelect;
