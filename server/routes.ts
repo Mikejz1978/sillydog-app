@@ -2648,11 +2648,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Send announcement to all SMS-opted-in customers (admin only)
   app.post("/api/announcements", csrfProtection, requireAdmin, async (req, res) => {
     try {
-      // Check if Telnyx is configured
-      if (!telnyxApiKey || !telnyxPhoneNumber) {
-        return res.status(503).json({ 
-          message: "SMS service not configured. Please set TELNYX_API_KEY and TELNYX_PHONE_NUMBER environment variables." 
-        });
+      // Check if Telnyx is configured - if not, we'll log instead of sending
+      const telnyxConfigured = !!(telnyxApiKey && telnyxPhoneNumber);
+      if (!telnyxConfigured) {
+        console.log("⚠️ Telnyx not configured - announcement will be logged but not sent via SMS");
       }
 
       // Validate request body using schema
@@ -2707,20 +2706,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Invalid phone format: ${customer.phone}`);
           }
 
-          // Send SMS using the REST API
-          const result = await sendTelnyxSMS(telnyxPhoneNumber, formattedPhone, messageText);
-          
-          // Record successful send
-          await storage.createAnnouncementRecipient({
-            announcementId: announcement.id,
-            customerId: customer.id,
-            customerName: customer.name,
-            customerPhone: formattedPhone,
-            status: "sent",
-            externalMessageId: result.id,
-          });
+          if (telnyxConfigured) {
+            // Send SMS using the REST API
+            const result = await sendTelnyxSMS(telnyxPhoneNumber!, formattedPhone, messageText);
+            // Record successful send with external message ID
+            await storage.createAnnouncementRecipient({
+              announcementId: announcement.id,
+              customerId: customer.id,
+              customerName: customer.name,
+              customerPhone: formattedPhone,
+              status: "sent",
+              externalMessageId: result.id,
+            });
+            console.log(`✅ Announcement sent to ${customer.name} (${formattedPhone})`);
+          } else {
+            // Log-only mode when Telnyx not configured
+            await storage.createAnnouncementRecipient({
+              announcementId: announcement.id,
+              customerId: customer.id,
+              customerName: customer.name,
+              customerPhone: formattedPhone,
+              status: "logged",
+            });
+            console.log(`📝 [LOG ONLY] Would send announcement to ${customer.name} (${formattedPhone}): "${messageText.substring(0, 50)}..."`);
+          }
           successCount++;
-          console.log(`✅ Announcement sent to ${customer.name} (${formattedPhone})`);
         } catch (error: any) {
           // Record failed send
           await storage.createAnnouncementRecipient({
@@ -2744,9 +2754,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedAt: new Date(),
       });
 
+      const modeMessage = telnyxConfigured ? "sent" : "logged (SMS not configured)";
       res.json({
         ...finalAnnouncement,
-        message: `Announcement sent to ${successCount} customers. ${failCount} failed.`,
+        message: `Announcement ${modeMessage} to ${successCount} customers. ${failCount} failed.`,
       });
     } catch (error) {
       console.error("Send announcement error:", error);
