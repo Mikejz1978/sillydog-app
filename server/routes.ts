@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -2835,6 +2836,344 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Payment method setup error:", error);
       res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== STRIPE CHECKOUT SESSION (Text Payment Link) ==========
+  app.post("/api/create-checkout-session", async (req, res) => {
+    try {
+      const { customerId, invoiceId, amount, description } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      let stripeCustomerId: string | undefined;
+      let customer;
+      
+      // Get or create Stripe customer
+      if (customerId) {
+        customer = await storage.getCustomer(customerId);
+        if (customer) {
+          if (!customer.stripeCustomerId) {
+            const stripeCustomer = await stripe.customers.create({
+              name: customer.name,
+              email: customer.email || undefined,
+              phone: customer.phone,
+              address: { line1: customer.address },
+            });
+            await storage.updateCustomer(customerId, { stripeCustomerId: stripeCustomer.id });
+            stripeCustomerId = stripeCustomer.id;
+          } else {
+            stripeCustomerId = customer.stripeCustomerId;
+          }
+        }
+      }
+
+      const baseUrl = process.env.NODE_ENV === "production" 
+        ? "https://sillydog-app.onrender.com"
+        : `http://localhost:5000`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        customer: stripeCustomerId,
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              unit_amount: Math.round(parseFloat(amount) * 100),
+              product_data: { name: description || "SillyDog Service" },
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          invoiceId: invoiceId || "",
+          customerId: customerId || "",
+        },
+        success_url: `${baseUrl}/portal/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/portal/payment-cancelled`,
+      });
+
+      res.json({ url: session.url, sessionId: session.id });
+    } catch (error: any) {
+      console.error("Checkout session error:", error);
+      res.status(500).json({ message: "Error creating checkout session: " + error.message });
+    }
+  });
+
+  // ========== STRIPE SETUP INTENT (Save Card on File) ==========
+  app.post("/api/create-setup-intent", async (req, res) => {
+    try {
+      const { customerId } = req.body;
+      
+      if (!customerId) {
+        return res.status(400).json({ message: "Customer ID is required" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      let stripeCustomerId = customer.stripeCustomerId;
+
+      // Create Stripe customer if needed
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          name: customer.name,
+          email: customer.email || undefined,
+          phone: customer.phone,
+          address: { line1: customer.address },
+        });
+        stripeCustomerId = stripeCustomer.id;
+        await storage.updateCustomer(customerId, { stripeCustomerId });
+      }
+
+      const setupIntent = await stripe.setupIntents.create({
+        customer: stripeCustomerId,
+        payment_method_types: ["card"],
+        metadata: {
+          customerId: customerId,
+        },
+      });
+
+      res.json({ clientSecret: setupIntent.client_secret });
+    } catch (error: any) {
+      console.error("Setup intent error:", error);
+      res.status(500).json({ message: "Error creating setup intent: " + error.message });
+    }
+  });
+
+  // ========== STRIPE CHARGE CARD ON FILE ==========
+  app.post("/api/charge-card-on-file", async (req, res) => {
+    try {
+      const { customerId, amount, description, invoiceId } = req.body;
+      
+      if (!customerId || !amount) {
+        return res.status(400).json({ message: "Customer ID and amount are required" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (!customer.stripeCustomerId || !customer.stripePaymentMethodId) {
+        return res.status(400).json({ message: "Customer does not have a card on file" });
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(parseFloat(amount) * 100),
+        currency: "usd",
+        customer: customer.stripeCustomerId,
+        payment_method: customer.stripePaymentMethodId,
+        off_session: true,
+        confirm: true,
+        description: description || "SillyDog Service",
+        metadata: {
+          invoiceId: invoiceId || "",
+          customerId: customerId,
+        },
+      });
+
+      // If payment succeeded and invoice provided, mark as paid
+      if (paymentIntent.status === "succeeded" && invoiceId) {
+        await storage.markInvoicePaid(invoiceId, paymentIntent.id);
+        
+        // Send confirmation SMS
+        if (customer.smsOptIn) {
+          await sendSMS(
+            customer.phone,
+            `Payment of $${parseFloat(amount).toFixed(2)} received! Thank you for your payment.`
+          );
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        paymentIntentId: paymentIntent.id,
+        status: paymentIntent.status 
+      });
+    } catch (error: any) {
+      console.error("Charge card error:", error);
+      
+      // Handle authentication required
+      if (error.code === "authentication_required") {
+        return res.status(400).json({ 
+          message: "Card requires authentication. Please use a checkout link instead.",
+          requiresAction: true 
+        });
+      }
+      
+      res.status(500).json({ message: "Payment failed: " + error.message });
+    }
+  });
+
+  // ========== STRIPE WEBHOOK HANDLER ==========
+  // Note: This needs raw body, added at top of registerRoutes
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.warn("Stripe webhook secret not configured");
+      return res.status(400).send("Webhook secret not configured");
+    }
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err: any) {
+      console.error("Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    console.log(`📨 Stripe webhook received: ${event.type}`);
+
+    try {
+      switch (event.type) {
+        case "payment_intent.succeeded": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          const invoiceId = paymentIntent.metadata?.invoiceId;
+          
+          if (invoiceId) {
+            const invoice = await storage.getInvoice(invoiceId);
+            if (invoice && invoice.status !== "paid") {
+              await storage.markInvoicePaid(invoiceId, paymentIntent.id);
+              console.log(`✅ Invoice ${invoiceId} marked as paid via webhook`);
+              
+              // Send confirmation SMS
+              const customer = await storage.getCustomer(invoice.customerId);
+              if (customer?.smsOptIn) {
+                await sendSMS(
+                  customer.phone,
+                  `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
+                );
+              }
+            }
+          }
+          break;
+        }
+        
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const invoiceId = session.metadata?.invoiceId;
+          
+          if (invoiceId) {
+            const invoice = await storage.getInvoice(invoiceId);
+            if (invoice && invoice.status !== "paid") {
+              await storage.markInvoicePaid(invoiceId, session.payment_intent as string);
+              console.log(`✅ Invoice ${invoiceId} marked as paid via checkout session`);
+              
+              // Send confirmation SMS
+              const customer = await storage.getCustomer(invoice.customerId);
+              if (customer?.smsOptIn) {
+                await sendSMS(
+                  customer.phone,
+                  `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
+                );
+              }
+            }
+          }
+          break;
+        }
+
+        case "setup_intent.succeeded": {
+          const setupIntent = event.data.object as Stripe.SetupIntent;
+          const customerId = setupIntent.metadata?.customerId;
+          const paymentMethodId = setupIntent.payment_method as string;
+          
+          if (customerId && paymentMethodId) {
+            // Update customer with new payment method
+            await storage.updateCustomer(customerId, {
+              stripePaymentMethodId: paymentMethodId,
+              autopayEnabled: true,
+              billingMethod: "card",
+            });
+            console.log(`✅ Customer ${customerId} card saved via webhook`);
+          }
+          break;
+        }
+
+        case "payment_intent.payment_failed": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          console.error(`❌ Payment failed: ${paymentIntent.id} - ${paymentIntent.last_payment_error?.message}`);
+          break;
+        }
+      }
+    } catch (error: any) {
+      console.error("Webhook processing error:", error);
+    }
+
+    res.json({ received: true });
+  });
+
+  // ========== TEXT PAYMENT LINK TO CUSTOMER ==========
+  app.post("/api/customers/:id/send-payment-link", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { amount, description, invoiceId } = req.body;
+
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (!customer.smsOptIn) {
+        return res.status(400).json({ message: "Customer has opted out of SMS" });
+      }
+
+      // Create checkout session
+      let stripeCustomerId = customer.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          name: customer.name,
+          email: customer.email || undefined,
+          phone: customer.phone,
+          address: { line1: customer.address },
+        });
+        stripeCustomerId = stripeCustomer.id;
+        await storage.updateCustomer(id, { stripeCustomerId });
+      }
+
+      const baseUrl = process.env.NODE_ENV === "production" 
+        ? "https://sillydog-app.onrender.com"
+        : `http://localhost:5000`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        customer: stripeCustomerId,
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              unit_amount: Math.round(parseFloat(amount) * 100),
+              product_data: { name: description || "SillyDog Service" },
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          invoiceId: invoiceId || "",
+          customerId: id,
+        },
+        success_url: `${baseUrl}/portal/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/portal/payment-cancelled`,
+      });
+
+      // Send SMS with payment link
+      const message = `Hi ${customer.name}! Here's your payment link for $${parseFloat(amount).toFixed(2)}: ${session.url}`;
+      await sendSMS(customer.phone, message);
+
+      res.json({ 
+        success: true, 
+        message: `Payment link sent to ${customer.phone}`,
+        url: session.url 
+      });
+    } catch (error: any) {
+      console.error("Send payment link error:", error);
+      res.status(500).json({ message: "Error sending payment link: " + error.message });
     }
   });
 
