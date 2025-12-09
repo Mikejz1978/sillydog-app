@@ -8,7 +8,7 @@ import { Settings as SettingsIcon, Bell, DollarSign, MapPin, CreditCard, Loader2
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Settings } from "@shared/schema";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -34,6 +34,117 @@ export default function Settings() {
   // SMS message template state
   const [smsOnMyWayMessage, setSmsOnMyWayMessage] = useState("");
   const [smsServiceCompleteMessage, setSmsServiceCompleteMessage] = useState("");
+
+  // Refs for Google Places Autocomplete
+  const startAddressInputRef = useRef<HTMLInputElement>(null);
+  const endAddressInputRef = useRef<HTMLInputElement>(null);
+  const startAutocompleteRef = useRef<any>(null);
+  const endAutocompleteRef = useRef<any>(null);
+
+  // Initialize Google Places Autocomplete for start address
+  const initializeStartAutocomplete = useCallback(() => {
+    const w = window as any;
+    if (!startAddressInputRef.current || !w.google?.maps?.places) return;
+
+    if (startAutocompleteRef.current) {
+      w.google.maps.event.clearInstanceListeners(startAutocompleteRef.current);
+      startAutocompleteRef.current = null;
+    }
+
+    startAutocompleteRef.current = new w.google.maps.places.Autocomplete(startAddressInputRef.current, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' },
+    });
+
+    startAutocompleteRef.current.addListener('place_changed', () => {
+      const place = startAutocompleteRef.current?.getPlace();
+      if (place?.formatted_address) {
+        setRouteStartAddress(place.formatted_address);
+      }
+    });
+  }, []);
+
+  // Initialize Google Places Autocomplete for end address
+  const initializeEndAutocomplete = useCallback(() => {
+    const w = window as any;
+    if (!endAddressInputRef.current || !w.google?.maps?.places) return;
+
+    if (endAutocompleteRef.current) {
+      w.google.maps.event.clearInstanceListeners(endAutocompleteRef.current);
+      endAutocompleteRef.current = null;
+    }
+
+    endAutocompleteRef.current = new w.google.maps.places.Autocomplete(endAddressInputRef.current, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' },
+    });
+
+    endAutocompleteRef.current.addListener('place_changed', () => {
+      const place = endAutocompleteRef.current?.getPlace();
+      if (place?.formatted_address) {
+        setRouteEndAddress(place.formatted_address);
+      }
+    });
+  }, []);
+
+  // Ref callbacks to initialize autocomplete when inputs are mounted
+  const startAddressRefCallback = useCallback((node: HTMLInputElement | null) => {
+    (startAddressInputRef as any).current = node;
+    const w = window as any;
+    if (node && w.google?.maps?.places) {
+      initializeStartAutocomplete();
+    }
+  }, [initializeStartAutocomplete]);
+
+  const endAddressRefCallback = useCallback((node: HTMLInputElement | null) => {
+    (endAddressInputRef as any).current = node;
+    const w = window as any;
+    if (node && w.google?.maps?.places) {
+      initializeEndAutocomplete();
+    }
+  }, [initializeEndAutocomplete]);
+
+  // Initialize autocomplete when Google Maps loads (only once)
+  useEffect(() => {
+    const w = window as any;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    
+    const checkGoogle = () => {
+      if (w.google?.maps?.places) {
+        // Stop polling once API is loaded
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+        // Initialize if not already done
+        if (startAddressInputRef.current && !startAutocompleteRef.current) {
+          initializeStartAutocomplete();
+        }
+        if (endAddressInputRef.current && !endAutocompleteRef.current) {
+          initializeEndAutocomplete();
+        }
+      }
+    };
+    
+    checkGoogle();
+    if (!w.google?.maps?.places) {
+      interval = setInterval(checkGoogle, 500);
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (interval) clearInterval(interval);
+      const w = window as any;
+      if (startAutocompleteRef.current && w.google?.maps?.event) {
+        w.google.maps.event.clearInstanceListeners(startAutocompleteRef.current);
+        startAutocompleteRef.current = null;
+      }
+      if (endAutocompleteRef.current && w.google?.maps?.event) {
+        w.google.maps.event.clearInstanceListeners(endAutocompleteRef.current);
+        endAutocompleteRef.current = null;
+      }
+    };
+  }, [initializeStartAutocomplete, initializeEndAutocomplete]);
 
   // Update form when settings load
   useEffect(() => {
@@ -410,30 +521,32 @@ export default function Settings() {
                   <Navigation className="w-4 h-4 text-green-500" />
                   Start Location
                 </Label>
-                <Input 
+                <input 
+                  ref={startAddressRefCallback}
                   id="route-start" 
-                  placeholder="Enter your starting address" 
+                  placeholder="Start typing an address..." 
                   value={routeStartAddress}
                   onChange={(e) => setRouteStartAddress(e.target.value)}
-                  className="mt-1" 
+                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" 
                   data-testid="input-route-start" 
                 />
-                <p className="text-xs text-muted-foreground mt-1">Where you start your day</p>
+                <p className="text-xs text-muted-foreground mt-1">Start typing and select from suggestions</p>
               </div>
               <div>
                 <Label htmlFor="route-end" className="flex items-center gap-2">
                   <Navigation className="w-4 h-4 text-red-500" />
                   End Location
                 </Label>
-                <Input 
+                <input 
+                  ref={endAddressRefCallback}
                   id="route-end" 
-                  placeholder="Enter your ending address" 
+                  placeholder="Start typing an address..." 
                   value={routeEndAddress}
                   onChange={(e) => setRouteEndAddress(e.target.value)}
-                  className="mt-1" 
+                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" 
                   data-testid="input-route-end" 
                 />
-                <p className="text-xs text-muted-foreground mt-1">Where you end your day</p>
+                <p className="text-xs text-muted-foreground mt-1">Start typing and select from suggestions</p>
               </div>
             </div>
             {settings?.routeStartLat && settings?.routeEndLat && (
