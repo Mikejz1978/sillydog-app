@@ -422,3 +422,47 @@ export function calculateTimerBasedPrice(durationMinutes: number, servicePlan: s
   const hours = durationMinutes / 60;
   return Math.round(hours * 100 * 100) / 100; // Round to 2 decimal places
 }
+
+// Announcements - Bulk SMS broadcasts to customers
+export const announcements = pgTable("announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(), // Internal title for reference
+  messageText: text("message_text").notNull(), // The SMS message content
+  sentBy: varchar("sent_by").notNull(), // User ID who sent it
+  totalRecipients: integer("total_recipients").notNull().default(0),
+  successfulSends: integer("successful_sends").notNull().default(0),
+  failedSends: integer("failed_sends").notNull().default(0),
+  status: text("status").notNull().default("pending"), // 'pending', 'sending', 'completed', 'failed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+  totalRecipients: true,
+  successfulSends: true,
+  failedSends: true,
+  status: true,
+}).extend({
+  sentBy: z.string().optional(), // Optional because it's set server-side from authenticated user
+});
+
+export type Announcement = typeof announcements.$inferSelect;
+export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+
+// Announcement Recipients - Track which customers received each announcement
+export const announcementRecipients = pgTable("announcement_recipients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  announcementId: varchar("announcement_id").notNull().references(() => announcements.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'sent', 'failed'
+  externalMessageId: text("external_message_id"), // Telnyx message ID
+  errorMessage: text("error_message"), // If failed, why
+  sentAt: timestamp("sent_at"),
+});
+
+export type AnnouncementRecipient = typeof announcementRecipients.$inferSelect;

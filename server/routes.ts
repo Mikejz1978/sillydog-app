@@ -19,6 +19,7 @@ import {
   insertBookingRequestSchema,
   insertReviewSchema,
   insertUserSchema,
+  insertAnnouncementSchema,
 } from "@shared/schema";
 import { geocodeAddress, findBestFitDay, type Coordinates } from "./services/geocoding";
 import { generateMonthlyInvoices } from "./services/billing";
@@ -2597,6 +2598,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(settings);
     } catch (error) {
       console.error("Update settings error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ========== ANNOUNCEMENTS (Bulk SMS Broadcasts) ==========
+  // Get all announcements (admin only)
+  app.get("/api/announcements", requireAdmin, async (_req, res) => {
+    try {
+      const announcements = await storage.getAllAnnouncements();
+      res.json(announcements);
+    } catch (error) {
+      console.error("Get announcements error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Get count of customers who would receive announcement (admin only)
+  // NOTE: This must be registered BEFORE /api/announcements/:id to avoid matching "preview" as an ID
+  app.get("/api/announcements/preview/count", requireAdmin, async (_req, res) => {
+    try {
+      const allCustomers = await storage.getAllCustomers();
+      const smsCustomers = allCustomers.filter(
+        (c) => c.status === "active" && c.smsOptIn && c.phone
+      );
+      res.json({ count: smsCustomers.length });
+    } catch (error) {
+      console.error("Get SMS customer count error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Get single announcement with recipients (admin only)
+  app.get("/api/announcements/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const announcement = await storage.getAnnouncement(id);
+      if (!announcement) {
+        return res.status(404).json({ message: "Announcement not found" });
+      }
+      const recipients = await storage.getAnnouncementRecipients(id);
+      res.json({ ...announcement, recipients });
+    } catch (error) {
+      console.error("Get announcement error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Send announcement to all SMS-opted-in customers (admin only)
+  app.post("/api/announcements", csrfProtection, requireAdmin, async (req, res) => {
+    try {
+      // Check if Telnyx is configured
+      if (!telnyxApiKey || !telnyxPhoneNumber) {
+        return res.status(503).json({ 
+          message: "SMS service not configured. Please set TELNYX_API_KEY and TELNYX_PHONE_NUMBER environment variables." 
+        });
+      }
+
+      // Validate request body using schema
+      const parseResult = insertAnnouncementSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid request data",
+          errors: parseResult.error.flatten().fieldErrors 
+        });
+      }
+      
+      const { title, messageText, sentBy } = parseResult.data;
+      const userId = sentBy || (req as any).user?.id || "system";
+
+      // Get all active customers with SMS opt-in
+      const allCustomers = await storage.getAllCustomers();
+      const smsCustomers = allCustomers.filter(
+        (c) => c.status === "active" && c.smsOptIn && c.phone
+      );
+
+      if (smsCustomers.length === 0) {
+        return res.status(400).json({ message: "No customers with SMS opt-in found" });
+      }
+
+      // Create the announcement record
+      const announcement = await storage.createAnnouncement({
+        title,
+        messageText,
+        sentBy: userId,
+      });
+
+      // Update with total recipients
+      await storage.updateAnnouncement(announcement.id, {
+        totalRecipients: smsCustomers.length,
+        status: "sending",
+      });
+
+      // Send to each customer (async, but we track results)
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const customer of smsCustomers) {
+        try {
+          // Format phone number
+          const cleanDigits = customer.phone.replace(/\D/g, '');
+          let formattedPhone: string;
+          if (cleanDigits.length === 10) {
+            formattedPhone = '+1' + cleanDigits;
+          } else if (cleanDigits.length === 11 && cleanDigits.startsWith('1')) {
+            formattedPhone = '+' + cleanDigits;
+          } else {
+            throw new Error(`Invalid phone format: ${customer.phone}`);
+          }
+
+          // Send SMS using the REST API
+          const result = await sendTelnyxSMS(telnyxPhoneNumber, formattedPhone, messageText);
+          
+          // Record successful send
+          await storage.createAnnouncementRecipient({
+            announcementId: announcement.id,
+            customerId: customer.id,
+            customerName: customer.name,
+            customerPhone: formattedPhone,
+            status: "sent",
+            externalMessageId: result.id,
+          });
+          successCount++;
+          console.log(`✅ Announcement sent to ${customer.name} (${formattedPhone})`);
+        } catch (error: any) {
+          // Record failed send
+          await storage.createAnnouncementRecipient({
+            announcementId: announcement.id,
+            customerId: customer.id,
+            customerName: customer.name,
+            customerPhone: customer.phone,
+            status: "failed",
+            errorMessage: error.message,
+          });
+          failCount++;
+          console.error(`❌ Failed to send to ${customer.name}: ${error.message}`);
+        }
+      }
+
+      // Update announcement with final counts
+      const finalAnnouncement = await storage.updateAnnouncement(announcement.id, {
+        successfulSends: successCount,
+        failedSends: failCount,
+        status: "completed",
+        completedAt: new Date(),
+      });
+
+      res.json({
+        ...finalAnnouncement,
+        message: `Announcement sent to ${successCount} customers. ${failCount} failed.`,
+      });
+    } catch (error) {
+      console.error("Send announcement error:", error);
       res.status(500).json({ message: "Server error" });
     }
   });

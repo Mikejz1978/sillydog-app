@@ -26,6 +26,9 @@ import {
   type InsertUser,
   type Settings,
   type InsertSettings,
+  type Announcement,
+  type InsertAnnouncement,
+  type AnnouncementRecipient,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -129,6 +132,15 @@ export interface IStorage {
   // Settings
   getSettings(): Promise<Settings>;
   updateSettings(updates: Partial<InsertSettings>): Promise<Settings>;
+
+  // Announcements
+  getAllAnnouncements(): Promise<Announcement[]>;
+  getAnnouncement(id: string): Promise<Announcement | undefined>;
+  createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement>;
+  updateAnnouncement(id: string, updates: Partial<Announcement>): Promise<Announcement>;
+  createAnnouncementRecipient(recipient: { announcementId: string; customerId: string; customerName: string; customerPhone: string; status?: string; externalMessageId?: string; errorMessage?: string; }): Promise<AnnouncementRecipient>;
+  updateAnnouncementRecipient(id: string, updates: Partial<AnnouncementRecipient>): Promise<AnnouncementRecipient>;
+  getAnnouncementRecipients(announcementId: string): Promise<AnnouncementRecipient[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -523,6 +535,13 @@ export class MemStorage implements IStorage {
   async deleteUser(_id: string): Promise<void> { throw new Error("Not implemented"); }
   async getSettings(): Promise<Settings> { throw new Error("Not implemented"); }
   async updateSettings(_updates: Partial<InsertSettings>): Promise<Settings> { throw new Error("Not implemented"); }
+  async getAllAnnouncements(): Promise<Announcement[]> { return []; }
+  async getAnnouncement(_id: string): Promise<Announcement | undefined> { return undefined; }
+  async createAnnouncement(_announcement: InsertAnnouncement): Promise<Announcement> { throw new Error("Not implemented"); }
+  async updateAnnouncement(_id: string, _updates: Partial<Announcement>): Promise<Announcement> { throw new Error("Not implemented"); }
+  async createAnnouncementRecipient(_recipient: { announcementId: string; customerId: string; customerName: string; customerPhone: string; status?: string; externalMessageId?: string; errorMessage?: string; }): Promise<AnnouncementRecipient> { throw new Error("Not implemented"); }
+  async updateAnnouncementRecipient(_id: string, _updates: Partial<AnnouncementRecipient>): Promise<AnnouncementRecipient> { throw new Error("Not implemented"); }
+  async getAnnouncementRecipients(_announcementId: string): Promise<AnnouncementRecipient[]> { return []; }
 }
 
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
@@ -1195,6 +1214,73 @@ export class DbStorage implements IStorage {
     }
     
     return result[0];
+  }
+
+  // Announcements
+  async getAllAnnouncements(): Promise<Announcement[]> {
+    return await this.db
+      .select()
+      .from(schema.announcements)
+      .orderBy(desc(schema.announcements.createdAt));
+  }
+
+  async getAnnouncement(id: string): Promise<Announcement | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.announcements)
+      .where(eq(schema.announcements.id, id));
+    return result[0];
+  }
+
+  async createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement> {
+    const result = await this.db
+      .insert(schema.announcements)
+      .values(announcement)
+      .returning();
+    return result[0];
+  }
+
+  async updateAnnouncement(id: string, updates: Partial<Announcement>): Promise<Announcement> {
+    const result = await this.db
+      .update(schema.announcements)
+      .set(updates)
+      .where(eq(schema.announcements.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Announcement not found");
+    return result[0];
+  }
+
+  async createAnnouncementRecipient(recipient: { announcementId: string; customerId: string; customerName: string; customerPhone: string; status?: string; externalMessageId?: string; errorMessage?: string; }): Promise<AnnouncementRecipient> {
+    const result = await this.db
+      .insert(schema.announcementRecipients)
+      .values({
+        announcementId: recipient.announcementId,
+        customerId: recipient.customerId,
+        customerName: recipient.customerName,
+        customerPhone: recipient.customerPhone,
+        status: recipient.status || "pending",
+        externalMessageId: recipient.externalMessageId,
+        errorMessage: recipient.errorMessage,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async updateAnnouncementRecipient(id: string, updates: Partial<AnnouncementRecipient>): Promise<AnnouncementRecipient> {
+    const result = await this.db
+      .update(schema.announcementRecipients)
+      .set(updates)
+      .where(eq(schema.announcementRecipients.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Announcement recipient not found");
+    return result[0];
+  }
+
+  async getAnnouncementRecipients(announcementId: string): Promise<AnnouncementRecipient[]> {
+    return await this.db
+      .select()
+      .from(schema.announcementRecipients)
+      .where(eq(schema.announcementRecipients.announcementId, announcementId));
   }
 }
 

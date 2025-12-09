@@ -27,6 +27,7 @@ import BookNow from "@/pages/book";
 import ReviewPage from "@/pages/review";
 import ReviewsPage from "@/pages/reviews";
 import PortalPreview from "@/pages/portal-preview";
+import Announcements from "@/pages/announcements";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/bookings" component={Bookings} />
       <Route path="/portal-preview" component={PortalPreview} />
+      <Route path="/announcements" component={Announcements} />
       <Route component={NotFound} />
     </Switch>
   );
