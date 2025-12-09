@@ -700,6 +700,10 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "incomplete">("active");
+  const [paymentLinkDialogOpen, setPaymentLinkDialogOpen] = useState(false);
+  const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<Customer | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDescription, setPaymentDescription] = useState("SillyDog Service");
   const { toast } = useToast();
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -934,6 +938,56 @@ export default function Customers() {
     onError: (error: Error) => {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Send payment link mutation
+  const sendPaymentLinkMutation = useMutation({
+    mutationFn: async ({ customerId, amount, description }: { customerId: string; amount: number; description: string }) => {
+      const response = await apiRequest("POST", `/api/customers/${customerId}/send-payment-link`, {
+        amount,
+        description,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Payment Link Sent",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Charge card on file mutation
+  const chargeCardOnFileMutation = useMutation({
+    mutationFn: async ({ customerId, amount, description }: { customerId: string; amount: number; description: string }) => {
+      const response = await apiRequest("POST", `/api/charge-card-on-file`, {
+        customerId,
+        amount,
+        description,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Payment Successful",
+        description: "Card on file has been charged successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Payment Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -1884,6 +1938,29 @@ export default function Customers() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedCustomerForPayment(customer);
+                            setPaymentAmount("");
+                            setPaymentDescription("SillyDog Service");
+                            setPaymentLinkDialogOpen(true);
+                          }}
+                          disabled={sendPaymentLinkMutation.isPending || !customer.smsOptIn || !customer.phone}
+                          data-testid={`button-send-payment-link-${customer.id}`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {!customer.phone ? "No phone number" : !customer.smsOptIn ? "SMS not enabled" : "Send Payment Link"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   {customer.stripePaymentMethodId && (
                     <TooltipProvider>
                       <Tooltip>
@@ -2001,6 +2078,91 @@ export default function Customers() {
                 data-testid="button-confirm-reset-password"
               >
                 {resetPortalPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Payment Link Dialog */}
+      <Dialog open={paymentLinkDialogOpen} onOpenChange={(open) => {
+        setPaymentLinkDialogOpen(open);
+        if (!open) {
+          setSelectedCustomerForPayment(null);
+          setPaymentAmount("");
+          setPaymentDescription("SillyDog Service");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ExternalLink className="w-5 h-5" />
+              Send Payment Link
+            </DialogTitle>
+            <DialogDescription>
+              Send a payment link via SMS to {selectedCustomerForPayment?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount ($)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Enter amount (e.g., 25.00)"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                data-testid="input-payment-amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Input
+                type="text"
+                placeholder="Service description"
+                value={paymentDescription}
+                onChange={(e) => setPaymentDescription(e.target.value)}
+                data-testid="input-payment-description"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPaymentLinkDialogOpen(false);
+                  setSelectedCustomerForPayment(null);
+                  setPaymentAmount("");
+                  setPaymentDescription("SillyDog Service");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!selectedCustomerForPayment || !paymentAmount || parseFloat(paymentAmount) <= 0) {
+                    toast({
+                      title: "Error",
+                      description: "Please enter a valid amount",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  sendPaymentLinkMutation.mutate({
+                    customerId: selectedCustomerForPayment.id,
+                    amount: parseFloat(paymentAmount),
+                    description: paymentDescription,
+                  });
+                  setPaymentLinkDialogOpen(false);
+                  setSelectedCustomerForPayment(null);
+                  setPaymentAmount("");
+                  setPaymentDescription("SillyDog Service");
+                }}
+                disabled={sendPaymentLinkMutation.isPending || !paymentAmount || parseFloat(paymentAmount) <= 0}
+                className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] text-white"
+                data-testid="button-confirm-send-payment-link"
+              >
+                {sendPaymentLinkMutation.isPending ? "Sending..." : "Send Payment Link"}
               </Button>
             </div>
           </div>
