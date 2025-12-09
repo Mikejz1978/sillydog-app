@@ -2140,25 +2140,36 @@ export default function Customers() {
               </Button>
               <Button 
                 onClick={() => {
-                  if (!selectedCustomerForPayment || !paymentAmount || parseFloat(paymentAmount) <= 0) {
+                  // Strip currency symbols and validate format
+                  const cleaned = paymentAmount.replace(/[$,]/g, '').trim();
+                  const isValidFormat = /^\d+(\.\d{1,2})?$/.test(cleaned);
+                  const parsedAmount = parseFloat(cleaned);
+                  
+                  if (!selectedCustomerForPayment || !isValidFormat || isNaN(parsedAmount) || parsedAmount < 0.50 || parsedAmount > 100000) {
                     toast({
                       title: "Error",
-                      description: "Please enter a valid amount",
+                      description: "Please enter a valid amount between $0.50 and $100,000",
                       variant: "destructive",
                     });
                     return;
                   }
                   sendPaymentLinkMutation.mutate({
                     customerId: selectedCustomerForPayment.id,
-                    amount: parseFloat(paymentAmount),
-                    description: paymentDescription,
+                    amount: parsedAmount,
+                    description: paymentDescription.trim() || "SillyDog Service",
                   });
                   setPaymentLinkDialogOpen(false);
                   setSelectedCustomerForPayment(null);
                   setPaymentAmount("");
                   setPaymentDescription("SillyDog Service");
                 }}
-                disabled={sendPaymentLinkMutation.isPending || !paymentAmount || parseFloat(paymentAmount) <= 0}
+                disabled={(() => {
+                  if (sendPaymentLinkMutation.isPending || !paymentAmount) return true;
+                  const cleaned = paymentAmount.replace(/[$,]/g, '').trim();
+                  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return true;
+                  const amt = parseFloat(cleaned);
+                  return isNaN(amt) || amt < 0.50 || amt > 100000;
+                })()}
                 className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] text-white"
                 data-testid="button-confirm-send-payment-link"
               >

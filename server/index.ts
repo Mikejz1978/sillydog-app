@@ -51,6 +51,130 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Stripe webhook must be registered BEFORE JSON body parser
+// to receive the raw body for signature verification
+import Stripe from "stripe";
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-10-29.clover",
+});
+
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const sig = req.headers["stripe-signature"] as string;
+  
+  if (!stripeWebhookSecret) {
+    console.warn("Stripe webhook secret not configured");
+    return res.status(400).send("Webhook secret not configured");
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  console.log(`📨 Stripe webhook received: ${event.type}`);
+
+  // Import storage dynamically to avoid circular dependencies
+  const { storage } = await import("./storage");
+  
+  // Helper to send SMS (imported dynamically)
+  const sendSMS = async (phone: string, message: string) => {
+    const telnyxApiKey = process.env.TELNYX_API_KEY;
+    const telnyxPhoneNumber = process.env.TELNYX_PHONE_NUMBER;
+    if (!telnyxApiKey || !telnyxPhoneNumber) return;
+    
+    try {
+      await fetch('https://api.telnyx.com/v2/messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${telnyxApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ from: telnyxPhoneNumber, to: phone, text: message })
+      });
+    } catch (error) {
+      console.error("SMS send error:", error);
+    }
+  };
+
+  try {
+    switch (event.type) {
+      case "payment_intent.succeeded": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const invoiceId = paymentIntent.metadata?.invoiceId;
+        
+        if (invoiceId) {
+          const invoice = await storage.getInvoice(invoiceId);
+          if (invoice && invoice.status !== "paid") {
+            await storage.markInvoicePaid(invoiceId, paymentIntent.id);
+            console.log(`✅ Invoice ${invoiceId} marked as paid via webhook`);
+            
+            const customer = await storage.getCustomer(invoice.customerId);
+            if (customer?.smsOptIn) {
+              await sendSMS(
+                customer.phone,
+                `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
+              );
+            }
+          }
+        }
+        break;
+      }
+      
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const invoiceId = session.metadata?.invoiceId;
+        
+        if (invoiceId) {
+          const invoice = await storage.getInvoice(invoiceId);
+          if (invoice && invoice.status !== "paid") {
+            await storage.markInvoicePaid(invoiceId, session.payment_intent as string);
+            console.log(`✅ Invoice ${invoiceId} marked as paid via checkout session`);
+            
+            const customer = await storage.getCustomer(invoice.customerId);
+            if (customer?.smsOptIn) {
+              await sendSMS(
+                customer.phone,
+                `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
+              );
+            }
+          }
+        }
+        break;
+      }
+
+      case "setup_intent.succeeded": {
+        const setupIntent = event.data.object as Stripe.SetupIntent;
+        const customerId = setupIntent.metadata?.customerId;
+        const paymentMethodId = setupIntent.payment_method as string;
+        
+        if (customerId && paymentMethodId) {
+          await storage.updateCustomer(customerId, {
+            stripePaymentMethodId: paymentMethodId,
+            autopayEnabled: true,
+            billingMethod: "card",
+          });
+          console.log(`✅ Customer ${customerId} card saved via webhook`);
+        }
+        break;
+      }
+
+      case "payment_intent.payment_failed": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.error(`❌ Payment failed: ${paymentIntent.id} - ${paymentIntent.last_payment_error?.message}`);
+        break;
+      }
+    }
+  } catch (error: any) {
+    console.error("Webhook processing error:", error);
+  }
+
+  res.json({ received: true });
+});
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown

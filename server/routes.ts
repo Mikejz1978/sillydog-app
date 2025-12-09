@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import Stripe from "stripe";
+import { z } from "zod";
 import Telnyx from "telnyx";
 import { storage } from "./storage";
 import passport from "./auth";
@@ -2840,13 +2841,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========== STRIPE CHECKOUT SESSION (Text Payment Link) ==========
+  // Helper to parse currency strings (strips $, commas, validates format, and converts to number)
+  const parseCurrency = (val: string | number): number => {
+    if (typeof val === 'number') return val;
+    // Strip currency symbols and commas
+    const cleaned = val.replace(/[$,]/g, '').trim();
+    // Validate format: must be numeric with optional up to 2 decimal places
+    if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) {
+      return NaN; // Will fail validation
+    }
+    return parseFloat(cleaned);
+  };
+
+  // Zod schema for payment validation - minimum $0.50 (Stripe minimum)
+  const paymentSchema = z.object({
+    amount: z.union([z.number(), z.string()])
+      .transform(parseCurrency)
+      .refine((val) => !isNaN(val) && val >= 0.50 && val <= 100000, {
+        message: "Amount must be between $0.50 and $100,000"
+      }),
+    description: z.string().max(500).optional().default("SillyDog Service"),
+    customerId: z.string().optional(),
+    invoiceId: z.string().optional(),
+  });
+
   app.post("/api/create-checkout-session", async (req, res) => {
     try {
-      const { customerId, invoiceId, amount, description } = req.body;
-      
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Invalid amount" });
+      const validated = paymentSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
       }
+      
+      const { customerId, invoiceId, amount, description } = validated.data;
 
       let stripeCustomerId: string | undefined;
       let customer;
@@ -2881,7 +2907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             price_data: {
               currency: "usd",
-              unit_amount: Math.round(parseFloat(amount) * 100),
+              unit_amount: Math.round(amount * 100),
               product_data: { name: description || "SillyDog Service" },
             },
             quantity: 1,
@@ -2946,13 +2972,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========== STRIPE CHARGE CARD ON FILE ==========
+  const chargeSchema = z.object({
+    customerId: z.string().min(1, "Customer ID is required"),
+    amount: z.union([z.number(), z.string()])
+      .transform(parseCurrency)
+      .refine((val) => !isNaN(val) && val >= 0.50 && val <= 100000, {
+        message: "Amount must be between $0.50 and $100,000"
+      }),
+    description: z.string().max(500).optional().default("SillyDog Service"),
+    invoiceId: z.string().optional(),
+  });
+
   app.post("/api/charge-card-on-file", async (req, res) => {
     try {
-      const { customerId, amount, description, invoiceId } = req.body;
-      
-      if (!customerId || !amount) {
-        return res.status(400).json({ message: "Customer ID and amount are required" });
+      const validated = chargeSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
       }
+      
+      const { customerId, amount, description, invoiceId } = validated.data;
 
       const customer = await storage.getCustomer(customerId);
       if (!customer) {
@@ -2964,7 +3002,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(parseFloat(amount) * 100),
+        amount: Math.round(amount * 100),
         currency: "usd",
         customer: customer.stripeCustomerId,
         payment_method: customer.stripePaymentMethodId,
@@ -2985,7 +3023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (customer.smsOptIn) {
           await sendSMS(
             customer.phone,
-            `Payment of $${parseFloat(amount).toFixed(2)} received! Thank you for your payment.`
+            `Payment of $${amount.toFixed(2)} received! Thank you for your payment.`
           );
         }
       }
@@ -3010,110 +3048,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ========== STRIPE WEBHOOK HANDLER ==========
-  // Note: This needs raw body, added at top of registerRoutes
-  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-    const sig = req.headers["stripe-signature"] as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (!webhookSecret) {
-      console.warn("Stripe webhook secret not configured");
-      return res.status(400).send("Webhook secret not configured");
-    }
-
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err: any) {
-      console.error("Webhook signature verification failed:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    console.log(`📨 Stripe webhook received: ${event.type}`);
-
-    try {
-      switch (event.type) {
-        case "payment_intent.succeeded": {
-          const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          const invoiceId = paymentIntent.metadata?.invoiceId;
-          
-          if (invoiceId) {
-            const invoice = await storage.getInvoice(invoiceId);
-            if (invoice && invoice.status !== "paid") {
-              await storage.markInvoicePaid(invoiceId, paymentIntent.id);
-              console.log(`✅ Invoice ${invoiceId} marked as paid via webhook`);
-              
-              // Send confirmation SMS
-              const customer = await storage.getCustomer(invoice.customerId);
-              if (customer?.smsOptIn) {
-                await sendSMS(
-                  customer.phone,
-                  `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
-                );
-              }
-            }
-          }
-          break;
-        }
-        
-        case "checkout.session.completed": {
-          const session = event.data.object as Stripe.Checkout.Session;
-          const invoiceId = session.metadata?.invoiceId;
-          
-          if (invoiceId) {
-            const invoice = await storage.getInvoice(invoiceId);
-            if (invoice && invoice.status !== "paid") {
-              await storage.markInvoicePaid(invoiceId, session.payment_intent as string);
-              console.log(`✅ Invoice ${invoiceId} marked as paid via checkout session`);
-              
-              // Send confirmation SMS
-              const customer = await storage.getCustomer(invoice.customerId);
-              if (customer?.smsOptIn) {
-                await sendSMS(
-                  customer.phone,
-                  `Payment received! Invoice #${invoice.invoiceNumber} for $${parseFloat(invoice.amount).toFixed(2)} has been paid. Thank you!`
-                );
-              }
-            }
-          }
-          break;
-        }
-
-        case "setup_intent.succeeded": {
-          const setupIntent = event.data.object as Stripe.SetupIntent;
-          const customerId = setupIntent.metadata?.customerId;
-          const paymentMethodId = setupIntent.payment_method as string;
-          
-          if (customerId && paymentMethodId) {
-            // Update customer with new payment method
-            await storage.updateCustomer(customerId, {
-              stripePaymentMethodId: paymentMethodId,
-              autopayEnabled: true,
-              billingMethod: "card",
-            });
-            console.log(`✅ Customer ${customerId} card saved via webhook`);
-          }
-          break;
-        }
-
-        case "payment_intent.payment_failed": {
-          const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          console.error(`❌ Payment failed: ${paymentIntent.id} - ${paymentIntent.last_payment_error?.message}`);
-          break;
-        }
-      }
-    } catch (error: any) {
-      console.error("Webhook processing error:", error);
-    }
-
-    res.json({ received: true });
-  });
+  // NOTE: Stripe webhook handler is registered in server/index.ts before express.json()
+  // to ensure proper signature verification with raw body
 
   // ========== TEXT PAYMENT LINK TO CUSTOMER ==========
+  const sendLinkSchema = z.object({
+    amount: z.union([z.number(), z.string()])
+      .transform(parseCurrency)
+      .refine((val) => !isNaN(val) && val >= 0.50 && val <= 100000, {
+        message: "Amount must be between $0.50 and $100,000"
+      }),
+    description: z.string().max(500).optional().default("SillyDog Service"),
+    invoiceId: z.string().optional(),
+  });
+
   app.post("/api/customers/:id/send-payment-link", async (req, res) => {
     try {
       const { id } = req.params;
-      const { amount, description, invoiceId } = req.body;
+      
+      const validated = sendLinkSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
+      }
+      
+      const { amount, description, invoiceId } = validated.data;
 
       const customer = await storage.getCustomer(id);
       if (!customer) {
@@ -3148,7 +3106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             price_data: {
               currency: "usd",
-              unit_amount: Math.round(parseFloat(amount) * 100),
+              unit_amount: Math.round(amount * 100),
               product_data: { name: description || "SillyDog Service" },
             },
             quantity: 1,
@@ -3163,7 +3121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Send SMS with payment link
-      const message = `Hi ${customer.name}! Here's your payment link for $${parseFloat(amount).toFixed(2)}: ${session.url}`;
+      const message = `Hi ${customer.name}! Here's your payment link for $${amount.toFixed(2)}: ${session.url}`;
       await sendSMS(customer.phone, message);
 
       res.json({ 
