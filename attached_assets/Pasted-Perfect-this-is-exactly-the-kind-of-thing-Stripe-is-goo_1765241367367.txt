@@ -1,0 +1,319 @@
+Perfect, this is exactly the kind of thing Stripe is good at. I’ll give you a step-by-step plan + code skeletons you can drop into your existing app (I’ll assume: React frontend + Node/Express backend).
+
+PHASE 1 – Set up Stripe in your backend
+1. Install Stripe
+# in your server folder
+npm install stripe
+
+2. Add your Stripe keys to .env
+
+From your Stripe dashboard:
+
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...   # (later, for webhooks)
+
+3. Initialize Stripe (server)
+// server/stripeClient.ts
+import Stripe from "stripe";
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2024-06-20", // or whatever latest is
+});
+
+PHASE 2 – Create core payment endpoints
+A. Create/attach a Stripe customer for each of your customers
+
+In your DB, add fields to Customer:
+
+stripeCustomerId: string | null
+
+defaultPaymentMethodId: string | null (for card on file)
+
+When you create a customer (or first time you take payment), create a Stripe customer:
+
+// POST /api/payments/create-stripe-customer
+router.post("/create-stripe-customer", async (req, res) => {
+  const { customerId, name, email, phone } = req.body;
+
+  const customer = await stripe.customers.create({
+    name,
+    email,
+    phone,
+  });
+
+  // save customer.id in your DB for that customer
+  await db.customer.update({
+    where: { id: customerId },
+    data: { stripeCustomerId: customer.id },
+  });
+
+  res.json({ stripeCustomerId: customer.id });
+});
+
+
+You can call this automatically when a new SillyDog customer is created.
+
+B. “Charge Now” – Checkout Session (customer pays on their phone)
+
+This gives you a one-time payment link you can text / open.
+
+// POST /api/payments/create-checkout-session
+router.post("/create-checkout-session", async (req, res) => {
+  const { stripeCustomerId, amountCents, description } = req.body;
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    customer: stripeCustomerId,
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: amountCents,
+          product_data: { name: description || "SillyDog Service" },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: "https://sillydog-app.onrender.com/pay-success?session={CHECKOUT_SESSION_ID}",
+    cancel_url: "https://sillydog-app.onrender.com/pay-cancelled",
+  });
+
+  res.json({ url: session.url });
+});
+
+
+Frontend: call this, then either:
+
+window.location = url
+
+or show a QR and/or SMS it to the customer.
+
+C. Save card on file – SetupIntent
+
+This lets you store a reusable card (Stripe stores it; you just keep the IDs).
+
+// POST /api/payments/create-setup-intent
+router.post("/create-setup-intent", async (req, res) => {
+  const { stripeCustomerId } = req.body;
+
+  const setupIntent = await stripe.setupIntents.create({
+    customer: stripeCustomerId,
+    payment_method_types: ["card"],
+  });
+
+  res.json({ clientSecret: setupIntent.client_secret });
+});
+
+
+Later, when the SetupIntent succeeds, you’ll get a payment_method that you can attach and store (either via webhook or from the frontend response).
+
+D. Charge card on file – PaymentIntent
+// POST /api/payments/charge-card-on-file
+router.post("/charge-card-on-file", async (req, res) => {
+  const { stripeCustomerId, paymentMethodId, amountCents, description } = req.body;
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: amountCents,
+    currency: "usd",
+    customer: stripeCustomerId,
+    payment_method: paymentMethodId,
+    off_session: true,
+    confirm: true,
+    description: description || "SillyDog Service",
+  });
+
+  res.json({ paymentIntent });
+});
+
+
+If Stripe throws an error authentication_required, it means the card needs 3D Secure and you should fall back to a regular Checkout Session.
+
+PHASE 3 – Frontend integration (React)
+1. Install Stripe frontend libs
+# in client folder
+npm install @stripe/stripe-js @stripe/react-stripe-js
+
+2. Wrap your app with <Elements>
+// client/src/StripeProvider.tsx
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY!);
+
+export function StripeProvider({ children }: { children: React.ReactNode }) {
+  return <Elements stripe={stripePromise}>{children}</Elements>;
+}
+
+
+In main.tsx:
+
+<StripeProvider>
+  <App />
+</StripeProvider>
+
+3. “Save Card on File” form
+
+Component on the customer page:
+
+import { useEffect, useState } from "react";
+import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js";
+
+export function SaveCardForm({ stripeCustomerId, onSaved }: {
+  stripeCustomerId: string;
+  onSaved: (paymentMethodId: string, cardSummary: any) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/payments/create-setup-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stripeCustomerId }),
+    })
+      .then(r => r.json())
+      .then(d => setClientSecret(d.clientSecret));
+  }, [stripeCustomerId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements || !clientSecret) return;
+
+    setLoading(true);
+    const card = elements.getElement(CardElement);
+    const result = await stripe.confirmCardSetup(clientSecret, {
+      payment_method: {
+        card: card!,
+      },
+    });
+
+    setLoading(false);
+
+    if (result.error) {
+      alert(result.error.message);
+      return;
+    }
+
+    const pm = result.setupIntent.payment_method as string;
+    // optional: call backend to save pm as default
+    onSaved(pm, result.setupIntent);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <CardElement />
+      <button disabled={!stripe || loading}>
+        {loading ? "Saving..." : "Save card on file"}
+      </button>
+    </form>
+  );
+}
+
+
+When onSaved fires, send the paymentMethodId to your backend to store:
+
+// POST /api/customers/save-default-payment-method
+
+4. “Charge Now” button (in customer view)
+async function handleChargeNow(customerId: string, amountCents: number) {
+  // get stripeCustomerId from your API if not already in state
+  const res = await fetch("/api/payments/create-checkout-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      stripeCustomerId,
+      amountCents,
+      description: "Yard clean-up (1 dog, bi-weekly)",
+    }),
+  });
+
+  const data = await res.json();
+  window.location.href = data.url; // or open in new tab or show QR
+}
+
+
+Later we can also add a “Text payment link” that hits your Twilio endpoint with data.url.
+
+5. “Charge card on file” button
+async function handleChargeCardOnFile() {
+  const res = await fetch("/api/payments/charge-card-on-file", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      stripeCustomerId,
+      paymentMethodId: customer.defaultPaymentMethodId,
+      amountCents: 2500,
+      description: "Weekly SillyDog service",
+    }),
+  });
+
+  const data = await res.json();
+  // show success / update invoice status
+}
+
+PHASE 4 – Webhooks (keep invoices in sync)
+
+Add a webhook endpoint in Express to receive events like payment_intent.succeeded and checkout.session.completed:
+
+// must use raw body!
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), (req, res) => {
+  const sig = req.headers["stripe-signature"] as string;
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET as string
+    );
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    return res.sendStatus(400);
+  }
+
+  switch (event.type) {
+    case "payment_intent.succeeded": {
+      const pi = event.data.object;
+      // update invoice / record payment in your DB
+      break;
+    }
+    case "checkout.session.completed": {
+      const session = event.data.object;
+      // mark related invoice as paid
+      break;
+    }
+  }
+
+  res.sendStatus(200);
+});
+
+
+You’ll point a Stripe webhook to https://your-api-url/api/stripe/webhook.
+
+What I suggest next
+
+If you tell me:
+
+✅ the exact tech: “Yes, it’s Node/Express + React/TS” (or if it’s something else),
+
+✅ where your customer model lives (table fields),
+
+I can write the specific files and endpoints matching your structure:
+
+server/routes/payments.ts
+
+client/components/SaveCardForm.tsx
+
+and how to hook them into your existing customer detail screen.
+
+But even without that, the steps above are the blueprint:
+
+Add Stripe customer + fields.
+
+Endpoints: create checkout session, setup intent, charge card on file.
+
+React Stripe Elements for card form.
+
+Optional: Twilio SMS + Stripe webhooks for full invoicing flow.
