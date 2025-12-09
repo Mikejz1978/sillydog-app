@@ -2654,8 +2654,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("⚠️ Telnyx not configured - announcement will be logged but not sent via SMS");
       }
 
-      // Validate request body using schema
-      const parseResult = insertAnnouncementSchema.safeParse(req.body);
+      // Validate request body using schema (extended with optional customerIds)
+      const announcementRequestSchema = insertAnnouncementSchema.extend({
+        customerIds: z.array(z.string()).optional(), // Optional: specific customers to send to
+      });
+      
+      const parseResult = announcementRequestSchema.safeParse(req.body);
       if (!parseResult.success) {
         return res.status(400).json({ 
           message: "Invalid request data",
@@ -2663,17 +2667,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const { title, messageText, sentBy } = parseResult.data;
+      const { title, messageText, sentBy, customerIds } = parseResult.data;
       const userId = sentBy || (req as any).user?.id || "system";
 
       // Get all active customers with SMS opt-in
       const allCustomers = await storage.getAllCustomers();
-      const smsCustomers = allCustomers.filter(
+      const allSmsEligible = allCustomers.filter(
         (c) => c.status === "active" && c.smsOptIn && c.phone
       );
+      
+      let smsCustomers = allSmsEligible;
+      
+      // If specific customers selected, filter to only those and validate
+      if (customerIds && customerIds.length > 0) {
+        smsCustomers = allSmsEligible.filter((c) => customerIds.includes(c.id));
+        
+        // Log if some requested IDs were not eligible
+        const eligibleIds = new Set(smsCustomers.map((c) => c.id));
+        const invalidIds = customerIds.filter((id) => !eligibleIds.has(id));
+        if (invalidIds.length > 0) {
+          console.log(`⚠️ ${invalidIds.length} requested customer IDs were not SMS-eligible and were skipped`);
+        }
+      }
 
       if (smsCustomers.length === 0) {
-        return res.status(400).json({ message: "No customers with SMS opt-in found" });
+        return res.status(400).json({ 
+          message: "No eligible customers found. Customers must be active, have SMS opt-in enabled, and have a phone number." 
+        });
       }
 
       // Create the announcement record

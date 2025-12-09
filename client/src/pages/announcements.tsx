@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -15,10 +20,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Megaphone, Send, Loader2, Users, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Megaphone, Send, Loader2, Users, CheckCircle, XCircle, Clock, Search, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
+import type { Customer } from "@shared/schema";
 
 const announcementSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -42,6 +48,9 @@ type Announcement = {
 
 export default function Announcements() {
   const { toast } = useToast();
+  const [sendMode, setSendMode] = useState<"all" | "selected">("all");
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
   
   const form = useForm<AnnouncementFormData>({
     resolver: zodResolver(announcementSchema),
@@ -55,19 +64,60 @@ export default function Announcements() {
     queryKey: ["/api/announcements/preview/count"],
   });
 
+  const { data: customers, isLoading: customersLoading } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
   const { data: announcements, isLoading } = useQuery<Announcement[]>({
     queryKey: ["/api/announcements"],
   });
 
+  // Filter customers who can receive SMS (active, opted in, has phone)
+  const smsEligibleCustomers = customers?.filter(
+    (c) => c.status === "active" && c.smsOptIn && c.phone
+  ) ?? [];
+
+  // Filter by search query
+  const filteredCustomers = smsEligibleCustomers.filter((c) =>
+    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.phone.includes(customerSearch)
+  );
+
+  // Calculate recipient count based on mode
+  const actualRecipientCount = sendMode === "all" 
+    ? (recipientCount?.count ?? 0)
+    : selectedCustomerIds.length;
+
+  const toggleCustomer = (customerId: string) => {
+    setSelectedCustomerIds((prev) =>
+      prev.includes(customerId)
+        ? prev.filter((id) => id !== customerId)
+        : [...prev, customerId]
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedCustomerIds(filteredCustomers.map((c) => c.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedCustomerIds([]);
+  };
+
   const sendAnnouncementMutation = useMutation({
     mutationFn: async (data: AnnouncementFormData) => {
-      const response = await apiRequest("POST", "/api/announcements", data);
+      const payload = sendMode === "selected" 
+        ? { ...data, customerIds: selectedCustomerIds }
+        : data;
+      const response = await apiRequest("POST", "/api/announcements", payload);
       return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/announcements/preview/count"] });
       form.reset();
+      setSelectedCustomerIds([]);
+      setSendMode("all");
       toast({
         title: "Announcement Sent!",
         description: data.message || `Message sent to ${data.successfulSends} customers.`,
@@ -83,7 +133,15 @@ export default function Announcements() {
   });
 
   const onSubmit = (data: AnnouncementFormData) => {
-    if (!confirm(`Are you sure you want to send this message to ${recipientCount?.count || 0} customers?`)) {
+    if (sendMode === "selected" && selectedCustomerIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No customers selected",
+        description: "Please select at least one customer to send to.",
+      });
+      return;
+    }
+    if (!confirm(`Are you sure you want to send this message to ${actualRecipientCount} customers?`)) {
       return;
     }
     sendAnnouncementMutation.mutate(data);
@@ -125,10 +183,7 @@ export default function Announcements() {
             Send New Announcement
           </CardTitle>
           <CardDescription>
-            This will send an SMS to all active customers who have opted in to receive messages.
-            <span className="ml-2 font-semibold text-primary">
-              {recipientCount?.count ?? 0} customers will receive this message.
-            </span>
+            Send an SMS to your customers who have opted in to receive messages.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -175,11 +230,118 @@ export default function Announcements() {
                 )}
               />
 
+              {/* Recipient Selection */}
+              <div className="space-y-3 pt-2">
+                <FormLabel>Recipients</FormLabel>
+                <RadioGroup
+                  value={sendMode}
+                  onValueChange={(val) => setSendMode(val as "all" | "selected")}
+                  className="flex flex-col gap-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="all" id="send-all" data-testid="radio-send-all" />
+                    <Label htmlFor="send-all" className="cursor-pointer flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      All SMS customers ({recipientCount?.count ?? 0})
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="selected" id="send-selected" data-testid="radio-send-selected" />
+                    <Label htmlFor="send-selected" className="cursor-pointer flex items-center gap-2">
+                      <UserCheck className="w-4 h-4" />
+                      Select specific customers
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Customer Selection Panel */}
+              {sendMode === "selected" && (
+                <div className="border rounded-lg p-3 space-y-3">
+                  {customersLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-muted-foreground">Loading customers...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="relative flex-1 min-w-[200px]">
+                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            data-testid="input-customer-search"
+                            placeholder="Search customers..."
+                            value={customerSearch}
+                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            className="pl-8"
+                          />
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={selectAll}
+                          data-testid="button-select-all"
+                        >
+                          Select All
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={clearSelection}
+                          data-testid="button-clear-selection"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                      
+                      <div className="text-sm text-muted-foreground">
+                        {selectedCustomerIds.length} of {smsEligibleCustomers.length} SMS-eligible customers selected
+                      </div>
+
+                      <ScrollArea className="h-[200px] border rounded-md">
+                        <div className="p-2 space-y-1">
+                          {smsEligibleCustomers.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No SMS-eligible customers found
+                            </p>
+                          ) : filteredCustomers.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No customers match your search
+                            </p>
+                          ) : (
+                            filteredCustomers.map((customer) => (
+                              <div
+                                key={customer.id}
+                                data-testid={`customer-select-${customer.id}`}
+                                className="flex items-center gap-3 p-2 rounded-md hover-elevate cursor-pointer"
+                                onClick={() => toggleCustomer(customer.id)}
+                              >
+                                <Checkbox
+                                  checked={selectedCustomerIds.includes(customer.id)}
+                                  onCheckedChange={() => toggleCustomer(customer.id)}
+                                  data-testid={`checkbox-customer-${customer.id}`}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{customer.name}</p>
+                                  <p className="text-xs text-muted-foreground">{customer.phone}</p>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-4 pt-4">
                 <Button
                   type="submit"
                   data-testid="button-send-announcement"
-                  disabled={sendAnnouncementMutation.isPending}
+                  disabled={sendAnnouncementMutation.isPending || actualRecipientCount === 0}
                   className="gap-2"
                 >
                   {sendAnnouncementMutation.isPending ? (
@@ -190,7 +352,7 @@ export default function Announcements() {
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Send to {recipientCount?.count ?? 0} Customers
+                      Send to {actualRecipientCount} Customer{actualRecipientCount !== 1 ? "s" : ""}
                     </>
                   )}
                 </Button>
