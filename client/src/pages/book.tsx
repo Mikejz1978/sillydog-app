@@ -407,6 +407,17 @@ export default function BookNow() {
             Serving the community with care since 2020
           </p>
         </div>
+
+        {/* Footer Links */}
+        <div className="mt-4 text-center space-x-4">
+          <a href="/privacy-policy" className="text-sm text-amber-600 hover:underline" data-testid="link-privacy-policy">
+            Privacy Policy
+          </a>
+          <span className="text-gray-400">|</span>
+          <a href="/terms" className="text-sm text-amber-600 hover:underline" data-testid="link-terms">
+            Terms of Service
+          </a>
+        </div>
       </main>
     </div>
   );

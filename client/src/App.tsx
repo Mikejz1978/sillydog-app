@@ -29,6 +29,8 @@ import ReviewsPage from "@/pages/reviews";
 import PortalPreview from "@/pages/portal-preview";
 import Announcements from "@/pages/announcements";
 import Login from "@/pages/login";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import TermsOfService from "@/pages/terms";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -133,6 +135,8 @@ function App() {
           <Switch>
             <Route path="/login" component={Login} />
             <Route path="/book" component={BookNow} />
+            <Route path="/privacy-policy" component={PrivacyPolicy} />
+            <Route path="/terms" component={TermsOfService} />
             <Route path="/review/:token" component={ReviewPage} />
             <Route path="/portal/login" component={PortalLogin} />
             <Route path="/portal" component={CustomerPortal} />
