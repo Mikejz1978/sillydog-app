@@ -1,0 +1,65 @@
+Campaign ID
+4b30019b-08bd-7a8a-4129-a0605b3e425e
+TCR Campaign ID
+CRICVJT
+Description
+Send service-related SMS messages including appointment reminders, on-the-way alerts, service updates, and schedule adjustments to customers who have opted in through our website booking form.
+Date registered
+10 December 2025
+Use case
+Account Notification
+Status
+Failed Telnyx Review
+Message flow
+Customers opt in digitally through our website’s booking form at https://sillydogpoopscoop.com . They check a required opt-in box acknowledging consent to receive optional SMS messages about appointment reminders, scheduling notices, on-the-way alerts, and service updates. Consent is optional and not required for service. Customers may opt out anytime by replying STOP or request help by replying HELP.
+Failure Reasons
+Description
+The link provided https://sillydogpoopscoop.com does not show an opt-in form and when clicking the book now button a valid zip codes needs to be entered to access. Please add a link/screenshot of the digital opt-in form to the opt-in workflow showing the phone number field and full SMS opt-in language provided in the example here - https://support.telnyx.com/en/articles/10684260-10dlc-opt-in-form. Subscriber/Confirmation Opt-out and Help Messages need updating with information provided here - https://support.telnyx.com/en/articles/10645338-10dlc-keywords-and-confirmation-messages.
+Keywords
+Opt-in keywords
+START,YES
+Opt-out keywords
+STOP,UNSUBSCRIBE
+Help keywords
+HELP
+Auto-responses
+Opt-in message
+Thanks for subscribing to Silly Dog Pooper Scooper service notifications. You will receive appointment reminders, on-the-way alerts, and service updates. Message frequency may vary. Msg & data rates may apply. Consent is not a condition of service. Reply STOP to opt out, HELP for help.
+Opt-out message
+Thanks for subscribing to Silly Dog Pooper Scooper service notifications. You will receive appointment reminders, on-the-way alerts, and service updates. Message frequency may vary. Msg & data rates may apply. Consent is not a condition of service. Reply STOP to opt out, HELP for help.
+Help message
+Please contact us at https://sillydogpoopscoop.com or call/text 775-460-2666 for assistance.
+Sample messages
+Message 1
+Silly Dog Pooper Scooper: Reminder — your yard service appointment is scheduled for tomorrow. Reply STOP to opt out or HELP for help.
+Message 2
+Silly Dog Pooper Scooper: Your service has been completed. Thank you! Reply STOP to opt out or HELP for help.
+Compliance links
+Privacy policy
+https://docs.google.com/document/d/1sqNtGNQX_B6m2HT6FvPQh_QJ-CsU9F5OI9Fq0ml3bhE/edit?usp=drive_link
+Terms and conditions
+https://docs.google.com/document/d/1keafk4yew6ND1IfNhAdu2Jno6WKR4FAg-ncZZxDxweA/edit?usp=drive_link
+Embedded link
+https://sillydog-app.onrender.com/book
+Campaign and content attributes
+Subscriber opt-in
+Yes
+Subscriber opt-out
+Yes
+Subscriber help
+Yes
+Number pooling
+No
+Direct lending or loan arrangement
+No
+Embedded link
+Yes
+Embedded phone number
+Yes
+Age-gated content
+No
+Webhooks
+Webhook URL
+https://sillydog-app.onrender.com/webhooks/telnyx/inbound
+Webhook failover URL
+https://sillydog-app.onrender.com/webhooks/telnyx/dlr

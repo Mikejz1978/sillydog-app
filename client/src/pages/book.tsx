@@ -376,7 +376,7 @@ export default function BookNow() {
                             I agree to receive optional SMS messages
                           </FormLabel>
                           <FormDescription className="text-sm leading-relaxed">
-                            I agree to receive optional SMS messages from Silly Dog Pooper Scooper, including service notifications, scheduling updates, and appointment reminders. Consent is optional and not required for service. Message & data rates may apply. Reply STOP to cancel, HELP for help. Your phone number will not be shared or sold.
+                            I agree to receive optional SMS messages from Silly Dog Pooper Scooper, including service notifications, scheduling updates, appointment reminders, on-the-way alerts, and invoice notifications. Consent is optional and not required for service. Message & data rates may apply. Message frequency varies. Reply STOP to cancel, HELP for help. We will not share mobile information with third parties for promotional or marketing purposes.
                           </FormDescription>
                         </div>
                         <FormMessage />

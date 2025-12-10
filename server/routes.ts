@@ -1600,13 +1600,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (incomingText === "HELP") {
           console.log(`❓ HELP received from ${fromPhone} - sending assistance info`);
           
-          // Send EXACT message from Telnyx campaign config
+          // Send EXACT message from Telnyx campaign config (CRICVJT)
           if (telnyxPhoneNumber) {
             try {
               await sendTelnyxSMS(
                 telnyxPhoneNumber,
                 fromPhone,
-                "Silly Dog Pooper Scooper: Please reach out to us at https://sillydogpoopscoop.com or call/text 775-460-2666 for help."
+                "Please contact us at https://sillydogpoopscoop.com or call/text 775-460-2666 for assistance."
               );
               console.log(`✅ Help response sent to ${fromPhone}`);
             } catch (error) {
@@ -1629,7 +1629,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Handle START keyword - Telnyx 10DLC compliant opt-in
-        if (incomingText === "START" || incomingText === "YES" || incomingText === "UNSTOP") {
+        // MUST MATCH EXACTLY what's configured in Telnyx campaign: START, YES
+        if (incomingText === "START" || incomingText === "YES") {
           console.log(`✅ START received from ${fromPhone} - processing opt-in`);
           
           // Find and update customer to opt in to SMS
@@ -1638,13 +1639,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateCustomer(customer.id, { smsOptIn: true });
             console.log(`✅ Customer ${customer.name} opted back in to SMS`);
             
-            // Send Telnyx-compliant opt-in confirmation
+            // Send EXACT message from Telnyx campaign config (CRICVJT)
             if (telnyxPhoneNumber) {
               try {
                 await sendTelnyxSMS(
                   telnyxPhoneNumber,
                   fromPhone,
-                  "Silly Dog Pooper Scooper: You are now subscribed to receive service notifications. Msg&Data rates may apply. Reply HELP for help, STOP to cancel."
+                  "Thanks for subscribing to Silly Dog Pooper Scooper service notifications. You will receive appointment reminders, on-the-way alerts, and service updates. Message frequency may vary. Msg & data rates may apply. Consent is not a condition of service. Reply STOP to opt out, HELP for help."
                 );
                 console.log(`✅ Opt-in confirmation sent to ${fromPhone}`);
               } catch (error) {

@@ -1,0 +1,65 @@
+Campaign ID
+4b30019b-0059-4e7f-d979-6518fc4f1fd1
+TCR Campaign ID
+CUEGN2T
+Description
+Customer service and delivery notifications for Silly Dog Pooper Scooper customers including service reminders, on-the-way alerts, job completion updates, and schedule changes.
+Date registered
+08 December 2025
+Use case
+Delivery Notification
+Status
+Failed Telnyx Review
+Message flow
+Customers opt in by booking services through our website at https://sillydogpoopscoop.com and checking a consent box agreeing to receive SMS notifications. Customers may also opt in by texting START to our business number. SMS messages are used only for service reminders, scheduling updates, arrival alerts, and invoice notifications. Customers can opt out at any time by replying STOP.
+Failure Reasons
+Description
+Please add a link/screenshot of the digital opt-in form to the opt-in workflow showing the phone number field and full SMS opt-in language provided in the example here - https://support.telnyx.com/en/articles/10684260-10dlc-opt-in-form. Opt-in workflow also needs more details added regarding the keyword opt-in. Please update with information provided here - https://support.telnyx.com/en/articles/10562019-guide-to-10dlc-message-flow-field. Subscriber/Confirmation Opt-in Message needs “Message frequency varies” added. More information provided here - https://support.telnyx.com/en/articles/10645338-10dlc-keywords-and-confirmation-messages.
+Keywords
+Opt-in keywords
+START,YES
+Opt-out keywords
+STOP,UNSUBSCRIBE
+Help keywords
+HELP
+Auto-responses
+Opt-in message
+Silly Dog Pooper Scooper: You’re subscribed to service notifications. Reply HELP for help. Msg & data rates may apply. Reply STOP to cancel.
+Opt-out message
+Silly Dog Pooper Scooper: You are unsubscribed and will receive no further messages.
+Help message
+Silly Dog Pooper Scooper: For help visit https://sillydogpoopscoop.com or call 775-460-2666. Reply STOP to cancel messages.
+Sample messages
+Message 1
+Silly Dog Pooper Scooper: Your yard cleaning is scheduled for tomorrow. We’ll text again when we are on the way.
+Message 2
+Silly Dog Pooper Scooper: We’re on the way to clean your yard! Please make sure your gate is unlocked. Thank you!
+Compliance links
+Privacy policy
+https://docs.google.com/document/d/1sqNtGNQX_B6m2HT6FvPQh_QJ-CsU9F5OI9Fq0ml3bhE/edit?usp=drive_link
+Terms and conditions
+https://docs.google.com/document/d/1keafk4yew6ND1IfNhAdu2Jno6WKR4FAg-ncZZxDxweA/edit?usp=drive_link
+Embedded link
+https://sillydogpoopscoop.com
+Campaign and content attributes
+Subscriber opt-in
+Yes
+Subscriber opt-out
+Yes
+Subscriber help
+Yes
+Number pooling
+No
+Direct lending or loan arrangement
+No
+Embedded link
+Yes
+Embedded phone number
+Yes
+Age-gated content
+No
+Webhooks
+Webhook URL
+https://sillydog-app.onrender.com/api/webhooks/telnyx
+Webhook failover URL
+https://sillydog-app.onrender.com/api/webhooks/telnyx
