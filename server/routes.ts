@@ -1557,7 +1557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fromPhone = payload.from.phone_number;
         
         // Handle STOP keyword - Telnyx 10DLC compliant opt-out
-        if (incomingText === "STOP" || incomingText === "UNSUBSCRIBE" || incomingText === "CANCEL" || incomingText === "END" || incomingText === "QUIT") {
+        // MUST MATCH EXACTLY what's configured in Telnyx campaign: STOP, UNSUBSCRIBE
+        if (incomingText === "STOP" || incomingText === "UNSUBSCRIBE") {
           console.log(`🛑 STOP received from ${fromPhone} - processing opt-out`);
           
           // Find and update customer to opt out of SMS
@@ -1567,13 +1568,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`✅ Customer ${customer.name} opted out of SMS`);
           }
           
-          // Send Telnyx-compliant opt-out confirmation
+          // Send EXACT message from Telnyx campaign config
           if (telnyxPhoneNumber) {
             try {
               await sendTelnyxSMS(
                 telnyxPhoneNumber,
                 fromPhone,
-                "Silly Dog Pooper Scooper: You have unsubscribed and will no longer receive messages."
+                "Silly Dog Pooper Scooper: You are unsubscribed and will receive no further messages."
               );
               console.log(`✅ Opt-out confirmation sent to ${fromPhone}`);
             } catch (error) {
@@ -1595,16 +1596,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Handle HELP keyword - Telnyx 10DLC compliant help response
-        if (incomingText === "HELP" || incomingText === "INFO") {
+        // MUST MATCH EXACTLY what's configured in Telnyx campaign: HELP
+        if (incomingText === "HELP") {
           console.log(`❓ HELP received from ${fromPhone} - sending assistance info`);
           
-          // Send Telnyx-compliant help response
+          // Send EXACT message from Telnyx campaign config
           if (telnyxPhoneNumber) {
             try {
               await sendTelnyxSMS(
                 telnyxPhoneNumber,
                 fromPhone,
-                "Silly Dog Pooper Scooper: For assistance, visit https://sillydogpoopscoop.com or call/text 775-460-2666."
+                "Silly Dog Pooper Scooper: Please reach out to us at https://sillydogpoopscoop.com or call/text 775-460-2666 for help."
               );
               console.log(`✅ Help response sent to ${fromPhone}`);
             } catch (error) {

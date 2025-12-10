@@ -1,0 +1,65 @@
+Campaign ID
+4b30019b-04a0-45b6-3668-7cce7ac13ad3
+TCR Campaign ID
+CUAE9IJ
+Description
+Customer service and delivery notifications for Silly Dog Pooper Scooper customers, including appointment reminders, on-the-way alerts, service updates, schedule changes, and invoice notifications.
+Date registered
+09 December 2025
+Use case
+Delivery Notification
+Status
+Failed Telnyx Review
+Message flow
+Digital Opt-In: Customers provide their phone number on our booking page at https://sillydog-app.onrender.com/book. The form includes a clear SMS consent statement: “By providing your phone number, you agree to receive SMS messages from Silly Dog Pooper Scooper about service reminders, scheduling updates, on-the-way alerts, invoices, and customer support. Message & data rates may apply. Message frequency varies. Reply STOP to unsubscribe or HELP for help.” Keyword Opt-In: Customers may text START or YES to our business number to opt in. After texting START/YES, they receive a confirmation message explaining the program, message frequency, STOP/HELP instructions, and that message & data rates may apply. STOP Command: If a customer texts STOP or UNSUBSCRIBE, they are immediately unsubscribed and receive a confirmation message stating they will receive no further texts. HELP Command: If a customer texts HELP, they receive details about our notifications, message frequency, and how to reach customer support. Message Types: We send appointment reminders, on-the-way alerts, job completion updates, schedule changes, and invoice notifications. No marketing or promotional messages are sent.
+Failure Reasons
+Description
+Opt-in form https://sillydog-app.onrender.com/book needs complete SMS opt-in language including "Message frequency varies." and full privacy verbiage similar to "We will not share mobile information with third parties for promotional or marketing purposes." as shown in the example here - https://support.telnyx.com/en/articles/10684260-10dlc-opt-in-form. Opt-in workflow needs more details added for the keyword opt-in. Please update with information provided here - https://support.telnyx.com/en/articles/10562019-guide-to-10dlc-message-flow-field.
+Keywords
+Opt-in keywords
+START,YES
+Opt-out keywords
+STOP,UNSUBSCRIBE
+Help keywords
+HELP
+Auto-responses
+Opt-in message
+Silly Dog Pooper Scooper: You're subscribed to service notifications. Msg & data rates may apply. Message frequency varies. Reply STOP to cancel or HELP for help.
+Opt-out message
+Silly Dog Pooper Scooper: You are unsubscribed and will receive no further messages.
+Help message
+Silly Dog Pooper Scooper: We send appointment reminders, on-the-way alerts, and service notifications. Message frequency varies. Visit https://sillydogpoopscoop.com or call 775-460-2666. Reply STOP to unsubscribe.
+Sample messages
+Message 1
+Silly Dog Pooper Scooper: Your yard cleaning is scheduled for tomorrow. We will send another message when we are on the way. Reply STOP to unsubscribe or HELP for help.
+Message 2
+Silly Dog Pooper Scooper: We are on the way to clean your yard. Please make sure your gate is unlocked. Reply STOP to unsubscribe or HELP for help.
+Compliance links
+Privacy policy
+https://docs.google.com/document/d/1sqNtGNQX_B6m2HT6FvPQh_QJ-CsU9F5OI9Fq0ml3bhE/edit?usp=drive_link
+Terms and conditions
+https://docs.google.com/document/d/1keafk4yew6ND1IfNhAdu2Jno6WKR4FAg-ncZZxDxweA/edit?usp=drive_link
+Embedded link
+https://sillydog-app.onrender.com/book
+Campaign and content attributes
+Subscriber opt-in
+Yes
+Subscriber opt-out
+Yes
+Subscriber help
+Yes
+Number pooling
+No
+Direct lending or loan arrangement
+No
+Embedded link
+Yes
+Embedded phone number
+Yes
+Age-gated content
+No
+Webhooks
+Webhook URL
+https://sillydog-app.onrender.com/api/webhooks/telnyx
+Webhook failover URL
+https://sillydog-app.onrender.com/api/webhooks/telnyx
