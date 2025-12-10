@@ -1553,11 +1553,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (eventType === "message.received") {
         console.log("📥 Incoming message from:", payload.from.phone_number);
         
-        // Find customer by phone number
-        const customer = await storage.findCustomerByPhone(payload.from.phone_number);
+        const incomingText = (payload.text || '').trim().toUpperCase();
+        const fromPhone = payload.from.phone_number;
+        
+        // Handle STOP keyword - Telnyx 10DLC compliant opt-out
+        if (incomingText === "STOP" || incomingText === "UNSUBSCRIBE" || incomingText === "CANCEL" || incomingText === "END" || incomingText === "QUIT") {
+          console.log(`🛑 STOP received from ${fromPhone} - processing opt-out`);
+          
+          // Find and update customer to opt out of SMS
+          const customer = await storage.findCustomerByPhone(fromPhone);
+          if (customer) {
+            await storage.updateCustomer(customer.id, { smsOptIn: false });
+            console.log(`✅ Customer ${customer.name} opted out of SMS`);
+          }
+          
+          // Send Telnyx-compliant opt-out confirmation
+          if (telnyxPhoneNumber) {
+            try {
+              await sendTelnyxSMS(
+                telnyxPhoneNumber,
+                fromPhone,
+                "Silly Dog Pooper Scooper: You have unsubscribed and will no longer receive messages."
+              );
+              console.log(`✅ Opt-out confirmation sent to ${fromPhone}`);
+            } catch (error) {
+              console.error("❌ Failed to send opt-out confirmation:", error);
+            }
+          }
+          
+          // Store the STOP message
+          if (customer) {
+            await storage.createMessage({
+              customerId: customer.id,
+              messageText: payload.text || 'STOP',
+              direction: "inbound",
+              status: "delivered",
+              externalMessageId: payload.id,
+            });
+          }
+          return;
+        }
+        
+        // Handle HELP keyword - Telnyx 10DLC compliant help response
+        if (incomingText === "HELP" || incomingText === "INFO") {
+          console.log(`❓ HELP received from ${fromPhone} - sending assistance info`);
+          
+          // Send Telnyx-compliant help response
+          if (telnyxPhoneNumber) {
+            try {
+              await sendTelnyxSMS(
+                telnyxPhoneNumber,
+                fromPhone,
+                "Silly Dog Pooper Scooper: For assistance, visit https://sillydogpoopscoop.com or call/text 775-460-2666."
+              );
+              console.log(`✅ Help response sent to ${fromPhone}`);
+            } catch (error) {
+              console.error("❌ Failed to send help response:", error);
+            }
+          }
+          
+          // Store the HELP message
+          const customer = await storage.findCustomerByPhone(fromPhone);
+          if (customer) {
+            await storage.createMessage({
+              customerId: customer.id,
+              messageText: payload.text || 'HELP',
+              direction: "inbound",
+              status: "delivered",
+              externalMessageId: payload.id,
+            });
+          }
+          return;
+        }
+        
+        // Handle START keyword - Telnyx 10DLC compliant opt-in
+        if (incomingText === "START" || incomingText === "YES" || incomingText === "UNSTOP") {
+          console.log(`✅ START received from ${fromPhone} - processing opt-in`);
+          
+          // Find and update customer to opt in to SMS
+          const customer = await storage.findCustomerByPhone(fromPhone);
+          if (customer) {
+            await storage.updateCustomer(customer.id, { smsOptIn: true });
+            console.log(`✅ Customer ${customer.name} opted back in to SMS`);
+            
+            // Send Telnyx-compliant opt-in confirmation
+            if (telnyxPhoneNumber) {
+              try {
+                await sendTelnyxSMS(
+                  telnyxPhoneNumber,
+                  fromPhone,
+                  "Silly Dog Pooper Scooper: You are now subscribed to receive service notifications. Msg&Data rates may apply. Reply HELP for help, STOP to cancel."
+                );
+                console.log(`✅ Opt-in confirmation sent to ${fromPhone}`);
+              } catch (error) {
+                console.error("❌ Failed to send opt-in confirmation:", error);
+              }
+            }
+            
+            // Store the START message
+            await storage.createMessage({
+              customerId: customer.id,
+              messageText: payload.text || 'START',
+              direction: "inbound",
+              status: "delivered",
+              externalMessageId: payload.id,
+            });
+          }
+          return;
+        }
+        
+        // Regular incoming message - find customer and store
+        const customer = await storage.findCustomerByPhone(fromPhone);
         
         if (!customer) {
-          console.warn(`⚠️ No customer found for phone: ${payload.from.phone_number}`);
+          console.warn(`⚠️ No customer found for phone: ${fromPhone}`);
           return;
         }
 
