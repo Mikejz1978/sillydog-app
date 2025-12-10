@@ -355,7 +355,7 @@ export default function BookNow() {
                   />
                 </div>
 
-                {/* SMS Consent - Twilio Compliant Optional Opt-In */}
+                {/* SMS Consent - 10DLC Compliant Optional Opt-In */}
                 <div className="space-y-4 pt-4 border-t">
                   <h3 className="text-lg font-semibold">Communication Preferences</h3>
                   
@@ -376,7 +376,7 @@ export default function BookNow() {
                             I agree to receive optional SMS messages
                           </FormLabel>
                           <FormDescription className="text-sm leading-relaxed">
-                            I agree to receive optional SMS messages from Silly Dog Pooper Scooper, including appointment reminders and service updates. Consent is optional and not required for service. Message & data rates may apply. Reply STOP to cancel, HELP for help.
+                            I agree to receive optional SMS messages from Silly Dog Pooper Scooper, including service notifications, scheduling updates, and appointment reminders. Consent is optional and not required for service. Message & data rates may apply. Reply STOP to cancel, HELP for help. Your phone number will not be shared or sold.
                           </FormDescription>
                         </div>
                         <FormMessage />
@@ -397,16 +397,6 @@ export default function BookNow() {
             </Form>
           </CardContent>
         </Card>
-
-        {/* SMS Program Disclosure - Twilio Compliance */}
-        <div className="mt-8 p-4 rounded-md border bg-gray-50/50">
-          <p className="text-sm font-semibold text-gray-700 mb-2">
-            Silly Dog Pooper Scooper – SMS Consent
-          </p>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            By opting in, you may receive optional text messages related to appointment reminders, scheduling, or service notifications. SMS consent is not required to receive service. Reply STOP to unsubscribe or HELP for assistance. Standard message and data rates may apply. Your phone number will not be shared or sold.
-          </p>
-        </div>
 
         {/* Trust Indicators */}
         <div className="mt-6 text-center space-y-2">
