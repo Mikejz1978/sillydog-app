@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X, Send, ExternalLink } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X, Send, ExternalLink, MessageSquare, MessageSquareOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -699,7 +699,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "incomplete">("active");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived" | "incomplete" | "sms-opted" | "no-sms">("active");
   const [paymentLinkDialogOpen, setPaymentLinkDialogOpen] = useState(false);
   const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<Customer | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -1141,13 +1141,19 @@ export default function Customers() {
 
   const filteredCustomers = customers?.filter((customer) => {
     // Apply status filter
-    const statusMatch = statusFilter === "all" 
-      ? true 
-      : statusFilter === "active" 
-        ? customer.status === "active"
-        : statusFilter === "archived"
-          ? customer.status === "inactive"
-          : hasIncompleteData(customer); // incomplete filter
+    let statusMatch = true;
+    if (statusFilter === "active") {
+      statusMatch = customer.status === "active";
+    } else if (statusFilter === "archived") {
+      statusMatch = customer.status === "inactive";
+    } else if (statusFilter === "incomplete") {
+      statusMatch = hasIncompleteData(customer);
+    } else if (statusFilter === "sms-opted") {
+      statusMatch = customer.status === "active" && customer.smsOptIn === true;
+    } else if (statusFilter === "no-sms") {
+      statusMatch = customer.status === "active" && !customer.smsOptIn;
+    }
+    // "all" keeps statusMatch = true
     
     // Apply search filter
     const searchMatch = searchTerm === "" || 
@@ -1705,6 +1711,26 @@ export default function Customers() {
             >
               <AlertCircle className="w-3 h-3 mr-1" />
               Incomplete ({incompleteCustomersCount})
+            </Button>
+            <Button
+              variant={statusFilter === "sms-opted" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("sms-opted")}
+              className={statusFilter === "sms-opted" ? "" : "border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/20"}
+              data-testid="filter-sms-opted"
+            >
+              <MessageSquare className="w-3 h-3 mr-1" />
+              SMS Opted ({customers?.filter(c => c.status === "active" && c.smsOptIn).length || 0})
+            </Button>
+            <Button
+              variant={statusFilter === "no-sms" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("no-sms")}
+              className={statusFilter === "no-sms" ? "" : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800/20"}
+              data-testid="filter-no-sms"
+            >
+              <MessageSquareOff className="w-3 h-3 mr-1" />
+              No SMS ({customers?.filter(c => c.status === "active" && !c.smsOptIn).length || 0})
             </Button>
             <Button
               variant={statusFilter === "all" ? "default" : "outline"}
