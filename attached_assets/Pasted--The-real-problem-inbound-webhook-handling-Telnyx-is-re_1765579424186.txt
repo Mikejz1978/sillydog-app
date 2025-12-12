@@ -1,0 +1,137 @@
+🎯 The real problem: inbound webhook handling
+
+Telnyx is receiving inbound SMS, but your app is not successfully processing them.
+
+There are only 4 possible causes at this point.
+
+Step-by-step checklist (do these in order)
+✅ 1. Webhook URL is correct (looks good)
+
+You have this set everywhere:
+
+https://sillydog-app.onrender.com/api/webhooks/telnyx
+
+
+✔ Correct
+✔ HTTPS
+✔ Public
+✔ Same URL for inbound + failover
+
+So URL itself is NOT the issue.
+
+⚠️ 2. Telnyx expects a FAST 200 OK response
+
+This is critical:
+
+Telnyx does not retry inbound SMS aggressively
+
+If your endpoint:
+
+errors
+
+times out
+
+throws JSON parsing issues
+
+returns anything except 200
+
+👉 Telnyx drops the message.
+
+Even logging too slowly can cause this.
+
+⚠️ 3. Your webhook must accept POST + Telnyx signature
+
+Double-check your webhook handler:
+
+It must:
+
+Accept POST
+
+Parse JSON body
+
+NOT expect Twilio-style fields
+
+NOT require auth
+
+NOT redirect
+
+NOT crash if message body is unexpected
+
+Telnyx sends payloads like:
+
+{
+  "data": {
+    "event_type": "message.received",
+    "payload": {
+      "from": { "phone_number": "+1..." },
+      "to": [{ "phone_number": "+1..." }],
+      "text": "STOP"
+    }
+  }
+}
+
+
+If your code is still assuming Twilio-style Body / From, it will silently fail.
+
+⚠️ 4. CSRF exemption was correct — but logging matters
+
+You already did the right thing by exempting CSRF 👍
+But now we need proof the webhook is firing.
+
+Do this immediately:
+
+Add a raw log at the VERY top of the handler:
+
+console.log("TELNYX WEBHOOK HIT");
+console.log(JSON.stringify(req.body, null, 2));
+
+
+Deploy that and then:
+
+Text the number from your phone
+
+Watch Render logs in real time
+
+If you see nothing → request never reaches your app
+If you see logs but nothing saved → parsing/logic issue
+If you see STOP but no unsubscribe → keyword handling bug
+
+🔍 Why outbound works but inbound doesn’t (summary)
+
+This is the key concept:
+
+Direction	Who initiates	Who must respond
+Outbound	Your app	Carrier
+Inbound	Carrier	Your webhook (fast + valid)
+
+Outbound only needs Telnyx → inbound needs your server to behave perfectly.
+
+What to do NEXT (no guessing)
+Do these 3 things and report back:
+
+1️⃣ Text the Telnyx number from your phone
+Send: HELLO or STOP
+
+2️⃣ Open Render logs while sending
+Tell me:
+
+Do you see TELNYX WEBHOOK HIT?
+
+Any errors?
+
+Any JSON printed?
+
+3️⃣ Tell me:
+
+Framework (Express / Next / Fastify?)
+
+Language (Node?)
+
+Where messages are supposed to be saved (DB table / log / UI)
+
+Bottom line
+
+You are 100% past compliance hell 🎉
+This is now a pure webhook parsing + logging issue, and those are solvable fast.
+
+Once you answer the 3 items above, I can tell you exactly what line of code is breaking inbound messages and fix it cleanly.
