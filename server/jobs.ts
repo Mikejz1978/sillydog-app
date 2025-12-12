@@ -56,7 +56,11 @@ export function startScheduledJobs() {
       
       // Generate routes for the next 7 days for each active schedule
       for (const rule of activeRules) {
-        const startDate = new Date(rule.dtStart);
+        // Parse dtStart properly - handle both "YYYY-MM-DD" and ISO timestamp formats
+        const parsedDate = new Date(rule.dtStart);
+        const startDate = new Date(parsedDate.getUTCFullYear(), parsedDate.getUTCMonth(), parsedDate.getUTCDate());
+        startDate.setHours(0, 0, 0, 0);
+        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -74,13 +78,28 @@ export function startScheduledJobs() {
             continue;
           }
           
-          const daysDiff = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-          
           let shouldGenerate = false;
           if (rule.frequency === "weekly") {
+            const daysDiff = Math.floor((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
             shouldGenerate = daysDiff >= 0;
           } else if (rule.frequency === "biweekly") {
-            shouldGenerate = daysDiff >= 0 && Math.floor(daysDiff / 7) % 2 === 0;
+            // Biweekly: Generate routes every other week starting from the FIRST matching day
+            // Find first occurrence of this day of week on or after dtStart
+            const startDayOfWeek = startDate.getDay();
+            let daysUntilFirstOccurrence = dayOfWeek - startDayOfWeek;
+            if (daysUntilFirstOccurrence < 0) {
+              daysUntilFirstOccurrence += 7; // If the day already passed this week, go to next week
+            }
+            
+            // Calculate the first occurrence date
+            const firstOccurrence = new Date(startDate);
+            firstOccurrence.setDate(startDate.getDate() + daysUntilFirstOccurrence);
+            
+            // Calculate days from the first occurrence to the target date
+            const daysFromFirstOccurrence = Math.floor((targetDate.getTime() - firstOccurrence.getTime()) / (1000 * 60 * 60 * 24));
+            
+            // Generate if this is the first occurrence or exactly 14, 28, 42... days after (every 2 weeks)
+            shouldGenerate = daysFromFirstOccurrence >= 0 && daysFromFirstOccurrence % 14 === 0;
           }
           
           if (shouldGenerate) {
@@ -91,6 +110,7 @@ export function startScheduledJobs() {
               await storage.createRoute({
                 date: targetDateStr,
                 customerId: rule.customerId,
+                scheduleRuleId: rule.id, // Link route to the schedule that created it
                 scheduledTime: rule.windowStart,
                 status: "scheduled",
                 orderIndex: 0,

@@ -1851,7 +1851,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Calculate if this date matches the schedule
-        const startDate = new Date(rule.dtStart);
+        // Parse dtStart properly - handle both "YYYY-MM-DD" and ISO timestamp formats
+        const parsedDate = new Date(rule.dtStart);
+        const startDate = new Date(parsedDate.getUTCFullYear(), parsedDate.getUTCMonth(), parsedDate.getUTCDate());
+        startDate.setHours(0, 0, 0, 0);
+        
         const daysDiff = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         
         let shouldGenerate = false;
@@ -1859,8 +1863,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // For weekly schedules with multiple days, generate on matching days
           shouldGenerate = daysDiff >= 0;
         } else if (rule.frequency === "biweekly") {
-          // Biweekly: every 14 days, but only on specified days
-          shouldGenerate = daysDiff >= 0 && Math.floor(daysDiff / 7) % 2 === 0;
+          // Biweekly: Generate routes every other week starting from the FIRST matching day
+          // Same logic as generateRoutesForSchedule - find first occurrence of this day on or after dtStart
+          const startDayOfWeek = startDate.getDay();
+          let daysUntilFirstOccurrence = dayOfWeek - startDayOfWeek;
+          if (daysUntilFirstOccurrence < 0) {
+            daysUntilFirstOccurrence += 7; // If the day already passed this week, go to next week
+          }
+          
+          // Calculate the first occurrence date
+          const firstOccurrence = new Date(startDate);
+          firstOccurrence.setDate(startDate.getDate() + daysUntilFirstOccurrence);
+          
+          // Calculate days from the first occurrence to the target date
+          const daysFromFirstOccurrence = Math.floor((today.getTime() - firstOccurrence.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Generate if this is the first occurrence or exactly 14, 28, 42... days after (every 2 weeks)
+          shouldGenerate = daysFromFirstOccurrence >= 0 && daysFromFirstOccurrence % 14 === 0;
+          
+          if (shouldGenerate) {
+            console.log(`📅 Biweekly route for ${targetDate}: First occurrence ${firstOccurrence.toISOString().split('T')[0]}, daysFromFirst=${daysFromFirstOccurrence}`);
+          }
         }
         
         if (shouldGenerate) {
