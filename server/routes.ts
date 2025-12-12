@@ -893,6 +893,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Send SMS opt-in invitation to customer
+  app.post("/api/customers/:id/send-opt-in-invite", requireAdmin, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (!customer.phone) {
+        return res.status(400).json({ message: "Customer has no phone number on file" });
+      }
+
+      if (customer.smsOptIn) {
+        return res.status(400).json({ message: "Customer has already opted in for SMS" });
+      }
+
+      // Send opt-in invitation message
+      const message = `Hi ${customer.name}! This is SillyDog Pooper Scooper Services. Reply START to receive service updates and reminders via text. Reply STOP anytime to opt out. Msg & data rates may apply.`;
+
+      await sendSMS(customer.phone, message);
+
+      console.log(`✅ Opt-in invite SMS sent to ${customer.name} at ${customer.phone}`);
+      res.json({ success: true, message: `Opt-in invitation sent to ${customer.name}` });
+    } catch (error: any) {
+      console.error("Failed to send opt-in invite:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Admin: Clear customer's saved payment method
   app.delete("/api/customers/:id/payment-method", requireAdmin, async (req, res) => {
     try {

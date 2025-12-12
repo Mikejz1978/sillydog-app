@@ -944,6 +944,27 @@ export default function Customers() {
     },
   });
 
+  // Send SMS opt-in invite mutation
+  const sendOptInInviteMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("POST", `/api/customers/${customerId}/send-opt-in-invite`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Opt-In Invite Sent",
+        description: data.message,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Send payment link mutation
   const sendPaymentLinkMutation = useMutation({
     mutationFn: async ({ customerId, amount, description }: { customerId: string; amount: number; description: string }) => {
@@ -1964,6 +1985,29 @@ export default function Customers() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  {!customer.smsOptIn && customer.phone && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/20"
+                            onClick={() => {
+                              if (confirm(`Send SMS opt-in invitation to ${customer.name}?\n\nThey will receive a message asking them to reply START to opt in.`)) {
+                                sendOptInInviteMutation.mutate(customer.id);
+                              }
+                            }}
+                            disabled={sendOptInInviteMutation.isPending}
+                            data-testid={`button-send-optin-${customer.id}`}
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Send SMS Opt-In Invitation</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
