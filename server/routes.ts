@@ -1696,6 +1696,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`✅ Stored incoming message from customer: ${customer.name}`);
         
+        // Check if this is customer's first text - send opt-in confirmation if so
+        const existingMessages = await storage.getMessagesByCustomer(customer.id);
+        const isFirstInbound = existingMessages.filter(m => m.direction === 'inbound').length === 1;
+        
+        if (isFirstInbound && telnyxPhoneNumber) {
+          console.log(`📩 First text from ${customer.name} - sending opt-in confirmation`);
+          try {
+            await sendTelnyxSMS(
+              telnyxPhoneNumber,
+              fromPhone,
+              "Thanks for texting Silly Dog Pooper Scooper! You will receive appointment reminders, on-the-way alerts, and service updates. Message frequency may vary. Msg & data rates may apply. Reply STOP to opt out, HELP for help."
+            );
+            console.log(`✅ Opt-in confirmation sent to ${customer.name}`);
+          } catch (error) {
+            console.error("❌ Failed to send opt-in confirmation:", error);
+          }
+        }
+        
         // Send admin notification about new incoming message to all admin phones
         const adminPhones = process.env.ADMIN_PHONE_NUMBERS?.split(',').map(p => p.trim()).filter(Boolean) || [];
         if (adminPhones.length > 0 && telnyxPhoneNumber) {
