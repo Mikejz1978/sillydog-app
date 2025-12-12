@@ -1684,16 +1684,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`✅ Stored incoming message from customer: ${customer.name}`);
         
-        // Send admin notification about new incoming message
-        const adminPhone = process.env.ADMIN_PHONE_NUMBER;
-        if (adminPhone && telnyxPhoneNumber) {
-          try {
-            const messagePreview = (payload.text || '').substring(0, 50);
-            const alertMessage = `📱 New text from ${customer.name}: "${messagePreview}${payload.text?.length > 50 ? '...' : ''}"`;
-            await sendTelnyxSMS(telnyxPhoneNumber, adminPhone, alertMessage);
-            console.log(`📢 Admin notification sent for message from ${customer.name}`);
-          } catch (error) {
-            console.error("❌ Failed to send admin notification:", error);
+        // Send admin notification about new incoming message to all admin phones
+        const adminPhones = process.env.ADMIN_PHONE_NUMBERS?.split(',').map(p => p.trim()).filter(Boolean) || [];
+        if (adminPhones.length > 0 && telnyxPhoneNumber) {
+          const messagePreview = (payload.text || '').substring(0, 50);
+          const alertMessage = `📱 New text from ${customer.name}: "${messagePreview}${payload.text?.length > 50 ? '...' : ''}"`;
+          
+          for (const adminPhone of adminPhones) {
+            try {
+              await sendTelnyxSMS(telnyxPhoneNumber, adminPhone, alertMessage);
+              console.log(`📢 Admin notification sent to ${adminPhone} for message from ${customer.name}`);
+            } catch (error) {
+              console.error(`❌ Failed to send admin notification to ${adminPhone}:`, error);
+            }
           }
         }
       }
