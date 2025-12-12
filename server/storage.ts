@@ -932,12 +932,39 @@ export class DbStorage implements IStorage {
 
   async findCustomerByPhone(phone: string): Promise<Customer | undefined> {
     const cleanDigits = phone.replace(/\D/g, '');
-    const results = await this.db
+    
+    // Try exact match first
+    let results = await this.db
       .select()
       .from(schema.customers)
       .where(eq(schema.customers.phone, cleanDigits))
       .limit(1);
-    return results[0];
+    
+    if (results[0]) return results[0];
+    
+    // If incoming has country code (11 digits starting with 1), try without it
+    if (cleanDigits.length === 11 && cleanDigits.startsWith('1')) {
+      const withoutCountryCode = cleanDigits.substring(1);
+      results = await this.db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.phone, withoutCountryCode))
+        .limit(1);
+      if (results[0]) return results[0];
+    }
+    
+    // If incoming is 10 digits, try with country code prefix
+    if (cleanDigits.length === 10) {
+      const withCountryCode = '1' + cleanDigits;
+      results = await this.db
+        .select()
+        .from(schema.customers)
+        .where(eq(schema.customers.phone, withCountryCode))
+        .limit(1);
+      if (results[0]) return results[0];
+    }
+    
+    return undefined;
   }
 
   // Schedule Rules
