@@ -1,0 +1,143 @@
+✅ What this screen CONFIRMS
+
+From your Messaging Profiles list:
+
+Profile: SillyDog SMS
+
+Status: ✅ Active (green dot)
+
+Webhook URL: ✅ set
+
+Failover URL: ✅ set
+
+Numbers column: 1
+
+👉 That “1” is critical — it means a number IS attached to this profile.
+
+So:
+
+❌ This is NOT a profile-assignment issue
+
+❌ This is NOT a campaign approval issue
+
+❌ This is NOT carrier provisioning anymore
+
+🚨 WHY replies still don’t show in your app
+
+At this point, only one thing can block inbound replies:
+
+👉 Your webhook endpoint is not ACKNOWLEDGING inbound messages correctly
+
+Telnyx WILL drop inbound messages if:
+
+your webhook returns non-200
+
+your webhook times out
+
+your webhook throws an exception
+
+your webhook responds with invalid JSON
+
+your webhook doesn’t respond fast enough (≈ 5s)
+
+Outbound does not depend on this — inbound does.
+
+🔍 What Telnyx is sending you (important)
+
+Inbound SMS hits this endpoint:
+
+POST https://sillydog-app.onrender.com/api/webhooks/telnyx
+
+
+With a payload like:
+
+{
+  "data": {
+    "event_type": "message.received",
+    "payload": {
+      "from": { "phone_number": "+1XXXXXXXXXX" },
+      "to": [{ "phone_number": "+17028679664" }],
+      "text": "TEST"
+    }
+  }
+}
+
+
+If your server does anything other than:
+
+HTTP/1.1 200 OK
+
+
+Telnyx considers the message FAILED and will not retry.
+
+✅ MINIMUM REQUIRED FIX (this is critical)
+
+Your webhook handler must immediately respond 200, even if you process later.
+
+Node / Express example (THIS is what you need):
+app.post("/api/webhooks/telnyx", express.json(), (req, res) => {
+  console.log("TELNYX INBOUND:", JSON.stringify(req.body, null, 2));
+
+  // IMPORTANT: respond immediately
+  res.status(200).send("OK");
+
+  // then process async if needed
+});
+
+
+🚨 If you are:
+
+parsing body incorrectly
+
+waiting on DB writes before responding
+
+throwing when event_type ≠ message.received
+
+→ inbound replies will vanish.
+
+🧪 IMMEDIATE TEST (do this now)
+
+Open Render → Logs
+
+Text TEST to 702-867-9664
+
+You should see ANY log hit instantly
+
+If you see nothing:
+
+webhook not reached → routing problem
+If you see logs but no UI update:
+
+app logic issue
+If you see logs but Telnyx dashboard shows failures:
+
+response status issue
+
+📍 Also CHECK THIS (quick)
+
+In Telnyx:
+Programmable Messaging → Debug → Message Events
+
+You should see inbound messages marked:
+
+DELIVERED → RECEIVED
+
+If you see:
+
+FAILED or WEBHOOK_TIMEOUT → webhook response bug
+
+🎯 Bottom line
+
+✔ Campaign approved
+✔ Number provisioned
+✔ Number attached to profile
+✔ Webhook URL correct
+
+❌ Webhook handler is not responding correctly
+
+Next step (important)
+
+Paste your webhook code for /api/webhooks/telnyx here
+(or screenshot your Render logs when you text back)
+
+I will tell you exactly what line is breaking inbound SMS.

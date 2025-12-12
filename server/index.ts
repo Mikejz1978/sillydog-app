@@ -189,7 +189,18 @@ app.use(express.json({
 app.use(express.urlencoded({ limit: '10mb', extended: false }));
 
 // Apply CSRF protection globally to all state-changing API requests
-app.use("/api", csrfProtection);
+// EXCEPT webhooks which come from external services without CSRF tokens
+app.use("/api", (req, res, next) => {
+  // Skip CSRF for Telnyx webhook (external service)
+  if (req.path === "/webhooks/telnyx") {
+    return next();
+  }
+  // Skip CSRF for Stripe webhook (already handled separately with raw body)
+  if (req.path === "/stripe/webhook") {
+    return next();
+  }
+  return csrfProtection(req, res, next);
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
