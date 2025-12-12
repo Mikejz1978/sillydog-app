@@ -552,7 +552,7 @@ import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
 import { Pool as PgPool } from "pg";
-import { eq, and, desc, gte, lte, gt, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, gt, sql, isNull } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
 
@@ -1140,8 +1140,8 @@ export class DbStorage implements IStorage {
     return await this.db
       .select()
       .from(schema.notifications)
-      .where(eq(schema.notifications.readAt, null))
-      .orderBy(schema.notifications.createdAt);
+      .where(isNull(schema.notifications.readAt))
+      .orderBy(desc(schema.notifications.createdAt));
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
