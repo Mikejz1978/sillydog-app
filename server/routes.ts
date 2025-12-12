@@ -1474,10 +1474,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let messages;
       if (customerId && typeof customerId === "string") {
         messages = await storage.getMessagesByCustomer(customerId);
+        // Mark messages as read when viewing a specific customer's conversation
+        await storage.markMessagesReadForCustomer(customerId);
       } else {
         messages = await storage.getAllMessages();
       }
       res.json(messages);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get unread message count for sidebar badge
+  app.get("/api/messages/unread-count", async (req, res) => {
+    try {
+      const count = await storage.getUnreadMessageCount();
+      res.json({ count });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

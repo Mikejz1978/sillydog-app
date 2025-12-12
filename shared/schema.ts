@@ -163,6 +163,7 @@ export const messages = pgTable("messages", {
   messageText: text("message_text").notNull(),
   status: text("status").notNull().default("sent"), // 'sent', 'delivered', 'failed'
   externalMessageId: text("external_message_id"), // Telnyx message ID for tracking delivery status
+  readAt: timestamp("read_at"), // When admin read the inbound message (null = unread)
   sentAt: timestamp("sent_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

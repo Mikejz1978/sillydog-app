@@ -86,6 +86,8 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   updateMessageStatus(externalMessageId: string, status: string): Promise<void>;
   findCustomerByPhone(phone: string): Promise<Customer | undefined>;
+  getUnreadMessageCount(): Promise<number>;
+  markMessagesReadForCustomer(customerId: string): Promise<void>;
 
   // Schedule Rules
   getAllScheduleRules(): Promise<ScheduleRule[]>;
@@ -519,6 +521,8 @@ export class MemStorage implements IStorage {
   async createMessage(_message: InsertMessage): Promise<Message> { throw new Error("Not implemented"); }
   async updateMessageStatus(_externalMessageId: string, _status: string): Promise<void> { throw new Error("Not implemented"); }
   async findCustomerByPhone(_phone: string): Promise<Customer | undefined> { return undefined; }
+  async getUnreadMessageCount(): Promise<number> { return 0; }
+  async markMessagesReadForCustomer(_customerId: string): Promise<void> { }
   async getAllScheduleRules(): Promise<ScheduleRule[]> { return []; }
   async getScheduleRulesByCustomer(_customerId: string): Promise<ScheduleRule[]> { return []; }
   async createScheduleRule(_rule: InsertScheduleRule): Promise<ScheduleRule> { throw new Error("Not implemented"); }
@@ -548,7 +552,7 @@ import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
 import { Pool as PgPool } from "pg";
-import { eq, and, desc, gte, lte, gt } from "drizzle-orm";
+import { eq, and, desc, gte, lte, gt, sql } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
 
@@ -965,6 +969,28 @@ export class DbStorage implements IStorage {
     }
     
     return undefined;
+  }
+
+  async getUnreadMessageCount(): Promise<number> {
+    const result = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.messages)
+      .where(and(
+        eq(schema.messages.direction, 'inbound'),
+        sql`${schema.messages.readAt} IS NULL`
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
+  async markMessagesReadForCustomer(customerId: string): Promise<void> {
+    await this.db
+      .update(schema.messages)
+      .set({ readAt: new Date() })
+      .where(and(
+        eq(schema.messages.customerId, customerId),
+        eq(schema.messages.direction, 'inbound'),
+        sql`${schema.messages.readAt} IS NULL`
+      ));
   }
 
   // Schedule Rules
