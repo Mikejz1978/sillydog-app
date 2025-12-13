@@ -10,6 +10,7 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
   failed: number;
   charged: number;
   errors: string[];
+  skipped?: boolean;
 }> {
   const results = {
     success: 0,
@@ -17,6 +18,19 @@ export async function generateMonthlyInvoices(month: string, year: string): Prom
     charged: 0,
     errors: [] as string[],
   };
+
+  // Check autobill start date gate - skip autobilling until the specified date
+  const autobillStartDate = process.env.AUTOBILL_START_DATE
+    ? new Date(process.env.AUTOBILL_START_DATE)
+    : null;
+  
+  const now = new Date();
+  
+  if (autobillStartDate && now < autobillStartDate) {
+    console.log(`Autobilling disabled until ${autobillStartDate.toISOString()}`);
+    console.log("Skipping monthly invoice generation and autopay charges.");
+    return { ...results, skipped: true };
+  }
 
   try {
     const allCustomers = await storage.getAllCustomers();
