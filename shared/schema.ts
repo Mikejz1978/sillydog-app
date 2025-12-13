@@ -349,7 +349,7 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 // Customer Reviews
 export const reviews = pgTable("reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: varchar("customer_id").notNull(),
+  customerId: varchar("customer_id"), // Null for imported reviews
   routeId: varchar("route_id"), // Optional - link to specific service
   customerName: text("customer_name").notNull(), // Stored for display even if customer deleted
   rating: integer("rating"), // 1-5 stars (null until submitted)
@@ -357,6 +357,8 @@ export const reviews = pgTable("reviews", {
   reviewToken: varchar("review_token").notNull().unique(), // Cryptographically secure random token
   isPublic: boolean("is_public").notNull().default(true), // Display on website
   status: text("status").notNull().default("pending"), // 'pending', 'submitted'
+  source: text("source").notNull().default("app"), // 'app' for in-app reviews, 'housecall' for imported
+  reviewDate: text("review_date"), // YYYY-MM-DD - original review date (for imports)
   submittedAt: timestamp("submitted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

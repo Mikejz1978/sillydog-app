@@ -2980,13 +2980,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Public: Get public reviews (for display on website)
+  // Returns format: { source, reviewerName, rating, reviewText, reviewDate }
   app.get("/api/reviews/public", async (_req, res) => {
     try {
       const reviews = await storage.getPublicReviews();
-      res.json(reviews);
+      // Transform to public format for website consumption
+      const publicReviews = reviews.map(review => ({
+        source: review.source || "app",
+        reviewerName: review.customerName,
+        rating: review.rating,
+        reviewText: review.comment || "",
+        reviewDate: review.reviewDate || (review.submittedAt ? new Date(review.submittedAt).toISOString().split('T')[0] : null)
+      }));
+      res.json(publicReviews);
     } catch (error) {
       console.error("Get public reviews error:", error);
       res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Admin: Import Housecall Pro reviews (one-time import)
+  // POST /api/admin/import-housecall-reviews
+  // Accepts array: [{ reviewerName, rating, reviewText, reviewDate }]
+  app.post("/api/admin/import-housecall-reviews", async (req, res) => {
+    try {
+      // Simple protection: only allow in development or with admin auth
+      const isAdmin = req.session?.user?.role === 'admin';
+      const isDev = process.env.NODE_ENV !== 'production';
+      
+      if (!isAdmin && !isDev) {
+        return res.status(403).json({ message: "Forbidden - admin access required" });
+      }
+
+      const housecallReviews = req.body;
+      
+      if (!Array.isArray(housecallReviews)) {
+        return res.status(400).json({ message: "Request body must be an array of reviews" });
+      }
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const review of housecallReviews) {
+        const { reviewerName, rating, reviewText, reviewDate } = review;
+        
+        if (!reviewerName || !rating) {
+          skipped++;
+          continue;
+        }
+
+        // Generate unique token for this imported review
+        const reviewToken = `housecall-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
+        // Check for duplicate (same name, date, and rating)
+        const existingReviews = await storage.getPublicReviews();
+        const isDuplicate = existingReviews.some(r => 
+          r.customerName === reviewerName && 
+          r.reviewDate === reviewDate && 
+          r.rating === rating
+        );
+
+        if (isDuplicate) {
+          skipped++;
+          continue;
+        }
+
+        // Create the imported review
+        await storage.createReview({
+          customerId: null, // No customer linked for imports
+          customerName: reviewerName,
+          rating: parseInt(rating),
+          comment: reviewText || "",
+          reviewToken,
+          isPublic: true,
+          status: "submitted",
+          source: "housecall",
+          reviewDate: reviewDate || null,
+        });
+
+        imported++;
+      }
+
+      res.json({ 
+        message: `Import complete: ${imported} reviews imported, ${skipped} skipped (duplicates or invalid)`,
+        imported,
+        skipped
+      });
+    } catch (error) {
+      console.error("Import housecall reviews error:", error);
+      res.status(500).json({ message: "Server error during import" });
     }
   });
 
