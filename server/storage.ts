@@ -564,7 +564,7 @@ import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
 import { Pool as PgPool } from "pg";
-import { eq, and, desc, gte, lte, gt, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, gte, lte, gt, sql, isNull, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import ws from "ws";
 
@@ -1199,9 +1199,9 @@ export class DbStorage implements IStorage {
       .from(schema.reviews)
       .where(and(
         eq(schema.reviews.isPublic, true),
-        eq(schema.reviews.status, "submitted")
+        inArray(schema.reviews.status, ["submitted", "approved"])
       ))
-      .orderBy(desc(schema.reviews.submittedAt));
+      .orderBy(desc(schema.reviews.createdAt));
   }
 
   async getReviewByToken(token: string): Promise<Review | undefined> {

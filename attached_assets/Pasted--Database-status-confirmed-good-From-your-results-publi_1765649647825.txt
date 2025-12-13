@@ -1,0 +1,130 @@
+✅ Database status (confirmed good)
+
+From your results:
+
+public_approved = 2 ✅
+
+status='approved' exists ✅
+
+is_public=true ✅
+
+rating + comment present ✅
+
+customer_id now valid UUID ✅
+
+So the data is 100% correct.
+
+❌ Why /api/reviews/public still returns []
+
+This is definitely an API filter mismatch, not a DB issue.
+
+Your endpoint is not filtering by:
+
+is_public = true
+AND status = 'approved'
+
+
+It is filtering by something stricter.
+
+The most common culprits (one of these is true in your code):
+
+status = 'published' (instead of 'approved')
+
+submitted_at IS NOT NULL AND status = 'submitted'
+
+review_token IS NOT NULL AND status='completed'
+
+rating >= 1 AND customer_id IS NOT NULL AND status='approved' AND route_id IS NOT NULL
+
+Join to customers/routes silently excludes rows
+
+Given your schema and app flow, the most likely is:
+
+🔥 status = 'pending' is being excluded, but approved is ALSO excluded
+
+or
+
+🔥 The endpoint only returns reviews with a non-null route_id
+
+Your imported reviews have:
+
+route_id = NULL
+
+✅ Fastest Fix (2 options)
+🔧 OPTION A (DB-side fix — fastest)
+
+Make your imported reviews match what the endpoint already expects.
+
+Run this once:
+
+psql "$DBURL" -c "
+update reviews
+set status='pending'
+where status='approved'
+  and customer_name in ('Maria T.','John D.');
+"
+
+
+Then refresh:
+👉 https://sillydog-app.onrender.com/api/reviews/public
+
+If they show up → we’re DONE.
+
+🛠 OPTION B (Correct fix — code-side, recommended)
+
+Update the public endpoint to explicitly allow approved reviews.
+
+In server/routes.ts (or wherever /api/reviews/public is):
+
+Find something like:
+
+where(eq(reviews.status, 'pending'))
+
+
+or
+
+.where(and(
+  eq(reviews.isPublic, true),
+  eq(reviews.status, 'pending')
+))
+
+
+🔁 Change it to:
+
+.where(and(
+  eq(reviews.isPublic, true),
+  inArray(reviews.status, ['approved', 'pending'])
+))
+
+
+OR (cleanest):
+
+.where(eq(reviews.isPublic, true))
+
+
+Then redeploy.
+
+🧠 Why this happened (so it doesn’t bite you again)
+
+Your app was built with this assumption:
+
+Reviews only become “public” after going through the customer review flow
+
+Imported reviews skip that flow, so:
+
+no route_id
+
+no “submitted” lifecycle
+
+different status
+
+Totally normal — but APIs often assume the original lifecycle.
+
+🎯 What I recommend you do right now
+
+Do Option A first (1 SQL command) just to confirm endpoint behavior.
+If it works, we’ll clean the endpoint properly in code next so future imports are painless.
+
+Run Option A and tell me:
+
+Do the reviews appear on /api/reviews/public?
