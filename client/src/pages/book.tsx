@@ -238,16 +238,18 @@ export default function BookNow() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email (Optional)</FormLabel>
+                        <FormLabel>Email</FormLabel>
                         <FormControl>
                           <Input
                             type="email"
                             placeholder="john@example.com"
                             data-testid="input-email"
                             {...field}
-                            value={field.value || ""}
                           />
                         </FormControl>
+                        <FormDescription>
+                          We use email for receipts, invoices, and service updates
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

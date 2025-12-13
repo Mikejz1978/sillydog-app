@@ -296,7 +296,7 @@ export const bookingRequests = pgTable("booking_requests", {
   name: text("name").notNull(),
   address: text("address").notNull(),
   phone: text("phone").notNull(),
-  email: text("email"),
+  email: text("email").notNull(),
   numberOfDogs: integer("number_of_dogs").notNull().default(1),
   yardNotes: text("yard_notes"),
   preferredServicePlan: text("preferred_service_plan"), // 'weekly', 'biweekly', 'one-time'
@@ -318,6 +318,7 @@ export const insertBookingRequestSchema = createInsertSchema(bookingRequests).om
   status: true,
 }).extend({
   phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Please enter a valid phone number"),
+  email: z.string().email("Please enter a valid email address"),
   smsOptIn: z.boolean().optional().default(false), // Optional - consent not required for service
 });
 
