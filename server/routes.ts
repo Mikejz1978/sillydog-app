@@ -1234,7 +1234,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           if (customer.smsOptIn && customer.phone) {
-            const reviewUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'your-app.replit.app'}/review/${reviewToken}`;
+            const baseUrl = process.env.PUBLIC_BASE_URL || `https://${process.env.REPLIT_DEV_DOMAIN || 'localhost:5000'}`;
+            const reviewUrl = `${baseUrl}/review/${reviewToken}`;
             
             // Get customizable message template from settings
             const settings = await storage.getSettings();
