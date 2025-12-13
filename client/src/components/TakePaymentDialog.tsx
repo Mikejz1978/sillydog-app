@@ -401,12 +401,17 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
                           <FormLabel>Amount ($)</FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              step="0.01"
-                              min="0.50"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0.00"
                               data-testid="input-card-amount"
-                              {...field}
+                              value={field.value}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (/^\d*\.?\d{0,2}$/.test(val) || val === "") {
+                                  field.onChange(val);
+                                }
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
@@ -456,12 +461,17 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
                           <FormLabel>Amount ($)</FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              step="0.01"
-                              min="0.01"
+                              type="text"
+                              inputMode="decimal"
                               placeholder="0.00"
                               data-testid="input-check-amount"
-                              {...field}
+                              value={field.value}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (/^\d*\.?\d{0,2}$/.test(val) || val === "") {
+                                  field.onChange(val);
+                                }
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
@@ -532,12 +542,17 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
                         <FormLabel>Amount ($)</FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="0.00"
                             data-testid="input-cash-amount"
-                            {...field}
+                            value={field.value}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^\d*\.?\d{0,2}$/.test(val) || val === "") {
+                                field.onChange(val);
+                              }
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
