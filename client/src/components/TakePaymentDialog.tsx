@@ -160,17 +160,6 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
     enabled: open,
   });
 
-  useEffect(() => {
-    if (preselectedInvoiceIds.length > 0) {
-      setSelectedInvoiceIds(preselectedInvoiceIds);
-    }
-  }, [preselectedInvoiceIds]);
-
-  const totalSelected = selectedInvoiceIds.reduce((sum, id) => {
-    const invoice = unpaidInvoices.find(inv => inv.id === id);
-    return sum + (invoice ? parseFloat(invoice.amount) : 0);
-  }, 0);
-
   const cardForm = useForm<CardPaymentValues>({
     resolver: zodResolver(cardPaymentSchema),
     defaultValues: { amount: "", notes: "", invoiceIds: [] },
@@ -185,6 +174,28 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
     resolver: zodResolver(cashPaymentSchema),
     defaultValues: { amount: "", notes: "", invoiceIds: [] },
   });
+
+  useEffect(() => {
+    if (open) {
+      // Reset selected invoices when dialog opens
+      setSelectedInvoiceIds(preselectedInvoiceIds.length > 0 ? preselectedInvoiceIds : []);
+      // Reset payment state
+      setClientSecret(null);
+      setPaymentId(null);
+      setPaymentIntentId(null);
+      // Reset forms
+      cardForm.reset({ amount: "", notes: "", invoiceIds: [] });
+      checkForm.reset({ amount: "", checkNumber: "", checkDate: format(new Date(), "yyyy-MM-dd"), notes: "", invoiceIds: [] });
+      cashForm.reset({ amount: "", notes: "", invoiceIds: [] });
+      // Reset tab
+      setActiveTab("card");
+    }
+  }, [open, preselectedInvoiceIds]);
+
+  const totalSelected = selectedInvoiceIds.reduce((sum, id) => {
+    const invoice = unpaidInvoices.find(inv => inv.id === id);
+    return sum + (invoice ? parseFloat(invoice.amount) : 0);
+  }, 0);
 
   useEffect(() => {
     if (totalSelected > 0) {
