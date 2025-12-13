@@ -1,0 +1,82 @@
+Great — if it’s saved in Stripe, then this is almost always one of these two things:
+
+Your portal is looking at the wrong Stripe customer (super common with Checkout creating a “Guest” customer), or
+
+The portal isn’t refetching the saved card after setup success (UI state stays “No Card Saved”).
+
+Here’s how to tell which one in 60 seconds, and the exact fixes.
+
+1) Make sure the portal is reading the SAME Stripe customer that has the card
+
+In Stripe, open the customer that has the card and copy the Customer ID (cus_...).
+
+Now in your app:
+
+Open the customer portal
+
+DevTools → Network
+
+Find the request that loads the saved card (whatever your endpoint is, like /api/portal/payment-method)
+
+Look at the response (or log it) and find the customerId it’s using.
+
+✅ If the portal is using a different cus_... than Stripe shows, that’s the bug.
+
+Fix (important)
+
+Always use your stored stripeCustomerId on your customer record, and do NOT let Checkout create “guest” customers.
+
+When creating a Checkout Session / PaymentIntent, always pass:
+
+customer: stripeCustomerId
+
+
+(and for PaymentIntent also set setup_future_usage: "off_session" if you want to reuse cards)
+
+2) If customerId matches, then it’s a UI refresh/state bug
+
+You’re showing the toast (“Card Saved”), but the UI isn’t reloading the saved payment method.
+
+Fix
+
+After setup succeeds (your handleSetupSuccess OR your ?setup=success query-param handler), call the same loader you use on page load:
+
+await fetchSavedPaymentMethod();
+await fetchInvoices(); // optional, if you also refresh billing state
+
+
+Also make sure your component runs this on mount:
+
+useEffect(() => {
+  fetchSavedPaymentMethod();
+}, []);
+
+3) Make your “get saved card” endpoint bulletproof
+
+Even if the card is saved, your endpoint might be checking the wrong place.
+
+Best practice:
+
+Read the customer’s invoice_settings.default_payment_method
+
+If null, fall back to listing cards and take the most recent.
+
+const customer = await stripe.customers.retrieve(stripeCustomerId);
+
+let pmId = customer.invoice_settings?.default_payment_method as string | null;
+
+if (!pmId) {
+  const pms = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card" });
+  pmId = pms.data[0]?.id ?? null;
+}
+
+if (!pmId) return res.json({ hasCard: false });
+
+const pm = await stripe.paymentMethods.retrieve(pmId);
+res.json({
+  hasCard: true,
+  brand: pm.card?.brand,
+  last4: pm.card?.last4,
+  expMonth: pm.card?.exp_month,
+  expYear: pm.card?.exp_year,
+});

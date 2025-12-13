@@ -149,7 +149,7 @@ function SetupForm({
   onSuccess, 
   onCancel,
 }: { 
-  onSuccess: () => void; 
+  onSuccess: (paymentMethodId: string) => void; 
   onCancel: () => void;
 }) {
   const stripe = useStripe();
@@ -180,11 +180,13 @@ function SetupForm({
       setErrorMessage(error.message || "Setup failed");
       setIsProcessing(false);
     } else if (setupIntent && setupIntent.status === "succeeded") {
+      // Get the payment method ID from the setup intent
+      const paymentMethodId = setupIntent.payment_method as string;
       toast({
         title: "Card Saved",
         description: "Your card has been saved for autopay.",
       });
-      onSuccess();
+      onSuccess(paymentMethodId);
     }
   };
 
@@ -525,8 +527,15 @@ export default function CustomerPortal() {
     setClientSecret(null);
   };
 
-  const handleSetupSuccess = async () => {
-    // Save the payment method ID to the customer record
+  const handleSetupSuccess = async (paymentMethodId: string) => {
+    // Save the payment method ID to the customer record in the database
+    try {
+      await apiRequest("POST", "/api/portal/save-payment-method", {
+        paymentMethodId,
+      });
+    } catch (error) {
+      console.error("Failed to save payment method:", error);
+    }
     refetchData();
     queryClient.invalidateQueries({ queryKey: ["/api/portal/me"] });
     setSetupDialogOpen(false);

@@ -441,6 +441,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save payment method from customer portal (after SetupIntent completes)
+  app.post("/api/portal/save-payment-method", async (req, res) => {
+    try {
+      const customerId = (req.session as any).portalCustomerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { paymentMethodId } = req.body;
+      
+      if (!paymentMethodId) {
+        return res.status(400).json({ message: "Payment method ID is required" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Attach payment method to the Stripe customer (if not already attached)
+      if (customer.stripeCustomerId) {
+        try {
+          await stripe.paymentMethods.attach(paymentMethodId, {
+            customer: customer.stripeCustomerId,
+          });
+        } catch (attachError: any) {
+          // Payment method might already be attached, that's okay
+          if (!attachError.message?.includes("already been attached")) {
+            console.warn("Could not attach payment method:", attachError.message);
+          }
+        }
+
+        // Set as default payment method for future invoices
+        await stripe.customers.update(customer.stripeCustomerId, {
+          invoice_settings: {
+            default_payment_method: paymentMethodId,
+          },
+        });
+      }
+
+      // Save payment method ID to customer record
+      await storage.updateCustomer(customerId, { 
+        stripePaymentMethodId: paymentMethodId,
+      });
+
+      console.log(`✅ Payment method ${paymentMethodId} saved for customer ${customer.name}`);
+      res.json({ message: "Payment method saved successfully" });
+    } catch (error: any) {
+      console.error("Save payment method error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Reconcile payment after Stripe Checkout redirect (marks all invoices as paid)
   app.post("/api/portal/reconcile-payment", async (req, res) => {
     try {
