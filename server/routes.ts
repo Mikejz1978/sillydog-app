@@ -441,6 +441,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reconcile payment after Stripe Checkout redirect (marks all invoices as paid)
+  app.post("/api/portal/reconcile-payment", async (req, res) => {
+    try {
+      const portalCustomerId = (req.session as any).portalCustomerId;
+      
+      if (!portalCustomerId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { sessionId } = req.body;
+      
+      if (!sessionId) {
+        return res.status(400).json({ message: "Session ID is required" });
+      }
+
+      // Retrieve the checkout session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      
+      if (session.payment_status !== "paid") {
+        return res.status(400).json({ message: "Payment not completed" });
+      }
+
+      // SECURITY: Verify the session belongs to the authenticated customer
+      const sessionCustomerId = session.metadata?.customerId;
+      if (!sessionCustomerId || sessionCustomerId !== portalCustomerId) {
+        console.error(`Security: Customer ${portalCustomerId} tried to reconcile session for customer ${sessionCustomerId}`);
+        return res.status(403).json({ message: "Unauthorized: session does not belong to this customer" });
+      }
+
+      // Get invoice IDs from session metadata
+      const invoiceIdsJson = session.metadata?.invoiceIds;
+      if (!invoiceIdsJson) {
+        return res.json({ message: "No invoices to reconcile" });
+      }
+
+      let invoiceIds: string[];
+      try {
+        invoiceIds = JSON.parse(invoiceIdsJson);
+        if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+          return res.json({ message: "No invoices to reconcile" });
+        }
+      } catch (parseError) {
+        console.error("Failed to parse invoiceIds metadata:", invoiceIdsJson);
+        return res.status(500).json({ message: "Invalid invoice data in payment session" });
+      }
+      
+      // Mark all invoices as paid, with ownership verification
+      let successCount = 0;
+      const errors: string[] = [];
+      
+      for (const invoiceId of invoiceIds) {
+        try {
+          // Verify invoice belongs to this customer before marking paid
+          const invoice = await storage.getInvoice(invoiceId);
+          if (!invoice) {
+            errors.push(`Invoice ${invoiceId} not found`);
+            continue;
+          }
+          if (invoice.customerId !== portalCustomerId) {
+            console.error(`Security: Invoice ${invoiceId} belongs to ${invoice.customerId}, not ${portalCustomerId}`);
+            errors.push(`Invoice ${invoiceId} ownership mismatch`);
+            continue;
+          }
+          if (invoice.status === "paid") {
+            // Already paid, skip
+            successCount++;
+            continue;
+          }
+          
+          await storage.markInvoicePaid(invoiceId, session.payment_intent as string);
+          console.log(`✅ Invoice ${invoiceId} marked as paid from checkout session`);
+          successCount++;
+        } catch (error: any) {
+          console.error(`Failed to mark invoice ${invoiceId} as paid:`, error.message);
+          errors.push(`Invoice ${invoiceId}: ${error.message}`);
+        }
+      }
+
+      // If any invoice failed to update, return error so client can show appropriate message
+      if (errors.length > 0) {
+        return res.status(500).json({ 
+          message: `Payment received but ${errors.length} invoice(s) could not be updated. Please contact support.`, 
+          errors,
+          successCount 
+        });
+      }
+
+      res.json({ message: "Payment reconciled", invoiceCount: successCount });
+    } catch (error: any) {
+      console.error("Reconcile payment error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Update customer profile from portal
   app.patch("/api/portal/profile", async (req, res) => {
     try {
@@ -1343,13 +1437,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe payment route for one-time payments (from Stripe integration blueprint)
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
-      const { amount, invoiceId } = req.body;
+      const { amount, invoiceId, invoiceIds } = req.body;
+      
+      // Support both single invoiceId and array of invoiceIds
+      const allInvoiceIds = invoiceIds && invoiceIds.length > 0 
+        ? invoiceIds 
+        : (invoiceId ? [invoiceId] : []);
       
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(parseFloat(amount) * 100), // Convert to cents
         currency: "usd",
         metadata: {
-          invoiceId: invoiceId || "",
+          invoiceIds: JSON.stringify(allInvoiceIds),
         },
       });
       
@@ -3149,6 +3248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     description: z.string().max(500).optional().default("SillyDog Service"),
     customerId: z.string().optional(),
     invoiceId: z.string().optional(),
+    invoiceIds: z.array(z.string()).optional(),
   });
 
   app.post("/api/create-checkout-session", async (req, res) => {
@@ -3158,7 +3258,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
       }
       
-      const { customerId, invoiceId, amount, description } = validated.data;
+      const { customerId, invoiceId, invoiceIds, amount, description } = validated.data;
+      
+      // Use invoiceIds array if provided, otherwise fall back to single invoiceId
+      const allInvoiceIds = invoiceIds && invoiceIds.length > 0 
+        ? invoiceIds 
+        : (invoiceId ? [invoiceId] : []);
 
       let stripeCustomerId: string | undefined;
       let customer;
@@ -3200,11 +3305,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         ],
         metadata: {
-          invoiceId: invoiceId || "",
+          invoiceIds: JSON.stringify(allInvoiceIds),
           customerId: customerId || "",
         },
-        success_url: `${baseUrl}/portal/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/portal/payment-cancelled`,
+        success_url: `${baseUrl}/portal?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/portal?canceled=1`,
       });
 
       res.json({ url: session.url, sessionId: session.id });

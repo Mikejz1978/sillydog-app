@@ -287,14 +287,29 @@ export default function CustomerPortal() {
     
     if (sessionId) {
       // Payment success - returned from Stripe Checkout
-      toast({
-        title: "Payment Successful!",
-        description: "Your payment has been processed successfully.",
-      });
-      // Refresh data and clear query params
-      refetchData();
-      window.history.replaceState({}, "", "/portal");
-      setActiveTab("billing");
+      // Reconcile the payment server-side to mark all invoices as paid
+      (async () => {
+        try {
+          await apiRequest("POST", "/api/portal/reconcile-payment", {
+            sessionId: sessionId,
+          });
+          toast({
+            title: "Payment Successful!",
+            description: "Your payment has been processed and invoices have been updated.",
+          });
+        } catch (error: any) {
+          console.error("Failed to reconcile payment:", error);
+          // Payment was received but invoice update failed
+          toast({
+            title: "Payment Received",
+            description: "Your payment was processed but there was an issue updating your invoices. Please contact support if your balance doesn't update.",
+            variant: "destructive",
+          });
+        }
+        refetchData();
+        window.history.replaceState({}, "", "/portal");
+        setActiveTab("billing");
+      })();
     } else if (canceled === "1") {
       // Payment was canceled
       toast({
@@ -407,7 +422,7 @@ export default function CustomerPortal() {
         const response = await apiRequest("POST", "/api/create-checkout-session", {
           amount: outstandingBalance,
           customerId: customer.id,
-          invoiceId: unpaidInvoices[0].id,
+          invoiceIds: unpaidInvoices.map(inv => inv.id),
           description: `Payment for ${unpaidInvoices.length} invoice(s)`,
         });
         const data = await response.json();
@@ -420,7 +435,7 @@ export default function CustomerPortal() {
         // Desktop: Use embedded Stripe Elements
         const response = await apiRequest("POST", "/api/create-payment-intent", {
           amount: outstandingBalance,
-          invoiceId: unpaidInvoices[0].id,
+          invoiceIds: unpaidInvoices.map(inv => inv.id),
         });
         const data = await response.json();
         setClientSecret(data.clientSecret);
