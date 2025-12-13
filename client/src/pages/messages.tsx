@@ -321,6 +321,12 @@ export default function Messages() {
                               : 'bg-background border rounded-bl-md'
                           }`}
                         >
+                          {message.direction === 'inbound' && selectedCustomer && (
+                            <p className="text-xs font-semibold text-primary mb-1">{selectedCustomer.name}</p>
+                          )}
+                          {message.direction === 'outbound' && (
+                            <p className="text-xs font-semibold text-white/90 mb-1">SillyDog</p>
+                          )}
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.messageText}</p>
                           <p className={`text-xs mt-2 ${message.direction === 'outbound' ? 'text-white/70' : 'text-muted-foreground'}`}>
                             {format(new Date(message.sentAt), "MMM d, h:mm a")}
