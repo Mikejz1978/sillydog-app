@@ -29,6 +29,9 @@ import {
   type Announcement,
   type InsertAnnouncement,
   type AnnouncementRecipient,
+  type Payment,
+  type InsertPayment,
+  type PaymentApplication,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -143,6 +146,15 @@ export interface IStorage {
   createAnnouncementRecipient(recipient: { announcementId: string; customerId: string; customerName: string; customerPhone: string; status?: string; externalMessageId?: string; errorMessage?: string; }): Promise<AnnouncementRecipient>;
   updateAnnouncementRecipient(id: string, updates: Partial<AnnouncementRecipient>): Promise<AnnouncementRecipient>;
   getAnnouncementRecipients(announcementId: string): Promise<AnnouncementRecipient[]>;
+
+  // Field Payments
+  getAllPayments(): Promise<Payment[]>;
+  getPaymentsByCustomer(customerId: string): Promise<Payment[]>;
+  getPayment(id: string): Promise<Payment | undefined>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  updatePayment(id: string, updates: Partial<Payment>): Promise<Payment>;
+  createPaymentApplication(paymentId: string, invoiceId: string, amount: string): Promise<PaymentApplication>;
+  getPaymentApplicationsByPayment(paymentId: string): Promise<PaymentApplication[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1334,6 +1346,67 @@ export class DbStorage implements IStorage {
       .select()
       .from(schema.announcementRecipients)
       .where(eq(schema.announcementRecipients.announcementId, announcementId));
+  }
+
+  // Field Payments
+  async getAllPayments(): Promise<Payment[]> {
+    return await this.db
+      .select()
+      .from(schema.payments)
+      .orderBy(desc(schema.payments.createdAt));
+  }
+
+  async getPaymentsByCustomer(customerId: string): Promise<Payment[]> {
+    return await this.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.customerId, customerId))
+      .orderBy(desc(schema.payments.createdAt));
+  }
+
+  async getPayment(id: string): Promise<Payment | undefined> {
+    const result = await this.db
+      .select()
+      .from(schema.payments)
+      .where(eq(schema.payments.id, id));
+    return result[0];
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const result = await this.db
+      .insert(schema.payments)
+      .values(payment)
+      .returning();
+    return result[0];
+  }
+
+  async updatePayment(id: string, updates: Partial<Payment>): Promise<Payment> {
+    const result = await this.db
+      .update(schema.payments)
+      .set(updates)
+      .where(eq(schema.payments.id, id))
+      .returning();
+    if (!result[0]) throw new Error("Payment not found");
+    return result[0];
+  }
+
+  async createPaymentApplication(paymentId: string, invoiceId: string, amount: string): Promise<PaymentApplication> {
+    const result = await this.db
+      .insert(schema.paymentApplications)
+      .values({
+        paymentId,
+        invoiceId,
+        amount,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getPaymentApplicationsByPayment(paymentId: string): Promise<PaymentApplication[]> {
+    return await this.db
+      .select()
+      .from(schema.paymentApplications)
+      .where(eq(schema.paymentApplications.paymentId, paymentId));
   }
 }
 
