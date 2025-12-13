@@ -147,6 +147,7 @@ export default function Messages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/messages", selectedCustomerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/all"] });
       setMessageText("");
       toast({
         title: "Message Sent",
@@ -171,6 +172,54 @@ export default function Messages() {
       messageText: messageText.trim(),
     });
   };
+
+  // Mark messages as read mutation
+  const markReadMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      return await apiRequest("POST", `/api/messages/mark-read/${customerId}`, {});
+    },
+    onSuccess: () => {
+      // Refresh the all messages query to update unread counts
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/all"] });
+    },
+  });
+
+  // Auto-select newest unread conversation on page load
+  const hasAutoSelected = useRef(false);
+  useEffect(() => {
+    if (!hasAutoSelected.current && sortedCustomers.length > 0 && customerMessageStats.size > 0) {
+      // Find the first customer with unread messages (they're already sorted to top)
+      const firstUnread = sortedCustomers.find(c => {
+        const stats = customerMessageStats.get(c.id);
+        return stats && stats.unreadCount > 0;
+      });
+      
+      if (firstUnread) {
+        setSelectedCustomerId(firstUnread.id);
+        hasAutoSelected.current = true;
+      } else if (sortedCustomers.length > 0) {
+        // If no unread, select the first customer with recent messages
+        const firstWithMessages = sortedCustomers.find(c => {
+          const stats = customerMessageStats.get(c.id);
+          return stats && stats.hasMessages;
+        });
+        if (firstWithMessages) {
+          setSelectedCustomerId(firstWithMessages.id);
+          hasAutoSelected.current = true;
+        }
+      }
+    }
+  }, [sortedCustomers, customerMessageStats]);
+
+  // Mark messages as read when opening a conversation
+  useEffect(() => {
+    if (selectedCustomerId) {
+      const stats = customerMessageStats.get(selectedCustomerId);
+      if (stats && stats.unreadCount > 0) {
+        markReadMutation.mutate(selectedCustomerId);
+      }
+    }
+  }, [selectedCustomerId]);
 
   const handleSelectCustomer = (customerId: string) => {
     setSelectedCustomerId(customerId);

@@ -1524,6 +1524,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark messages as read for a specific customer
+  app.post("/api/messages/mark-read/:customerId", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      await storage.markMessagesReadForCustomer(customerId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/messages/send", async (req, res) => {
     try {
       const validated = insertMessageSchema.parse(req.body);
