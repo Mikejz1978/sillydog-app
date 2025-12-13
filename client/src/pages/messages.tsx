@@ -34,16 +34,74 @@ export default function Messages() {
     queryKey: ["/api/customers"],
   });
 
+  // Fetch all messages to get unread counts per customer
+  const { data: allMessages } = useQuery<Message[]>({
+    queryKey: ["/api/messages/all"],
+    queryFn: async () => {
+      const response = await fetch("/api/messages");
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      return response.json();
+    },
+  });
+
+  // Calculate unread counts and last message time per customer
+  const customerMessageStats = useMemo(() => {
+    const stats = new Map<string, { unreadCount: number; hasMessages: boolean; lastMessageTime: Date | null }>();
+    if (!allMessages) return stats;
+    
+    allMessages.forEach((msg) => {
+      const existing = stats.get(msg.customerId) || { unreadCount: 0, hasMessages: false, lastMessageTime: null };
+      existing.hasMessages = true;
+      
+      // Count unread inbound messages (from customers)
+      if (msg.direction === 'inbound' && !msg.readAt) {
+        existing.unreadCount++;
+      }
+      
+      // Track last message time for sorting
+      const msgTime = new Date(msg.sentAt);
+      if (!existing.lastMessageTime || msgTime > existing.lastMessageTime) {
+        existing.lastMessageTime = msgTime;
+      }
+      
+      stats.set(msg.customerId, existing);
+    });
+    
+    return stats;
+  }, [allMessages]);
+
   const sortedCustomers = useMemo(() => {
     if (!customers) return [];
     return [...customers]
       .filter(c => c.status === 'active')
-      .sort((a, b) => a.name.localeCompare(b.name))
       .filter(c => 
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.phone.includes(searchQuery)
-      );
-  }, [customers, searchQuery]);
+      )
+      .sort((a, b) => {
+        const statsA = customerMessageStats.get(a.id);
+        const statsB = customerMessageStats.get(b.id);
+        
+        // Prioritize customers with unread messages
+        const unreadA = statsA?.unreadCount || 0;
+        const unreadB = statsB?.unreadCount || 0;
+        if (unreadA !== unreadB) return unreadB - unreadA;
+        
+        // Then customers with any messages (sorted by most recent)
+        const hasMessagesA = statsA?.hasMessages || false;
+        const hasMessagesB = statsB?.hasMessages || false;
+        if (hasMessagesA !== hasMessagesB) return hasMessagesB ? 1 : -1;
+        
+        if (hasMessagesA && hasMessagesB) {
+          const timeA = statsA?.lastMessageTime?.getTime() || 0;
+          const timeB = statsB?.lastMessageTime?.getTime() || 0;
+          if (timeA !== timeB) return timeB - timeA;
+        }
+        
+        // Finally alphabetical
+        return a.name.localeCompare(b.name);
+      });
+  }, [customers, searchQuery, customerMessageStats]);
 
   const composeFilteredCustomers = useMemo(() => {
     if (!customers) return [];
@@ -228,26 +286,46 @@ export default function Messages() {
             {sortedCustomers.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No customers found</p>
             ) : (
-              sortedCustomers.map((customer) => (
-                <button
-                  key={customer.id}
-                  onClick={() => handleSelectCustomer(customer.id)}
-                  className={`w-full text-left p-3 hover-elevate flex items-center gap-3 border-b ${
-                    selectedCustomerId === customer.id
-                      ? "bg-gradient-to-r from-[#00BCD4]/10 to-[#FF6F00]/10"
-                      : ""
-                  }`}
-                  data-testid={`button-customer-${customer.id}`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                    {customer.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium truncate">{customer.name}</div>
-                    <div className="text-sm text-muted-foreground truncate">{customer.phone}</div>
-                  </div>
-                </button>
-              ))
+              sortedCustomers.map((customer) => {
+                const stats = customerMessageStats.get(customer.id);
+                const unreadCount = stats?.unreadCount || 0;
+                const hasMessages = stats?.hasMessages || false;
+                
+                return (
+                  <button
+                    key={customer.id}
+                    onClick={() => handleSelectCustomer(customer.id)}
+                    className={`w-full text-left p-3 hover-elevate flex items-center gap-3 border-b ${
+                      selectedCustomerId === customer.id
+                        ? "bg-gradient-to-r from-[#00BCD4]/10 to-[#FF6F00]/10"
+                        : ""
+                    }`}
+                    data-testid={`button-customer-${customer.id}`}
+                  >
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                        {customer.name.charAt(0).toUpperCase()}
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium truncate ${unreadCount > 0 ? 'font-semibold' : ''}`}>
+                          {customer.name}
+                        </span>
+                        {hasMessages && unreadCount === 0 && (
+                          <MessageSquare className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">{customer.phone}</div>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </ScrollArea>
         </div>
