@@ -3,6 +3,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertBookingRequestSchema } from "@shared/schema";
 import type { z } from "zod";
+
+declare global {
+  interface Window {
+    google?: typeof google;
+  }
+}
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
