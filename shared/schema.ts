@@ -467,3 +467,42 @@ export const announcementRecipients = pgTable("announcement_recipients", {
 });
 
 export type AnnouncementRecipient = typeof announcementRecipients.$inferSelect;
+
+// Field Payments - Track all payments (card, check) taken in the field by staff
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  paymentMethod: text("payment_method").notNull(), // 'card', 'check', 'cash'
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("pending"), // 'pending', 'completed', 'failed', 'refunded'
+  stripePaymentIntentId: text("stripe_payment_intent_id"), // For card payments
+  checkNumber: text("check_number"), // For check payments
+  checkDate: text("check_date"), // For check payments - YYYY-MM-DD
+  notes: text("notes"),
+  processedBy: varchar("processed_by").notNull(), // User ID who processed the payment
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+}).extend({
+  paymentMethod: z.enum(['card', 'check', 'cash']),
+  status: z.enum(['pending', 'completed', 'failed', 'refunded']).optional(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+// Payment Applications - Track which invoices each payment was applied to
+export const paymentApplications = pgTable("payment_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paymentId: varchar("payment_id").notNull().references(() => payments.id, { onDelete: "cascade" }),
+  invoiceId: varchar("invoice_id").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Amount applied to this invoice
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PaymentApplication = typeof paymentApplications.$inferSelect;
