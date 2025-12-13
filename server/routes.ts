@@ -420,6 +420,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Remove saved card from customer portal
+  app.post("/api/portal/remove-card", async (req, res) => {
+    try {
+      const customerId = (req.session as any).portalCustomerId;
+      
+      if (!customerId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      await storage.updateCustomer(customerId, { 
+        stripePaymentMethodId: null,
+        autopayEnabled: false 
+      });
+
+      res.json({ message: "Card removed successfully" });
+    } catch (error: any) {
+      console.error("Remove card error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Update customer profile from portal
   app.patch("/api/portal/profile", async (req, res) => {
     try {

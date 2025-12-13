@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,8 @@ import {
   Loader2,
   Camera,
   History,
-  LogOut
+  LogOut,
+  Trash2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,18 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
+
+// Mobile device detection - checks for mobile browsers and touch devices
+function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+  // Check for common mobile user agents
+  const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+  // Also check for touch capability and small screen
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isSmallScreen = window.innerWidth <= 768;
+  return mobileRegex.test(userAgent.toLowerCase()) || (isTouchDevice && isSmallScreen);
+}
 
 // Payment Form Component for Stripe Elements
 function PaymentForm({ 
@@ -131,6 +144,85 @@ function PaymentForm({
   );
 }
 
+// Setup Form Component for saving card on file
+function SetupForm({ 
+  onSuccess, 
+  onCancel,
+}: { 
+  onSuccess: () => void; 
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setErrorMessage(null);
+
+    const { error, setupIntent } = await stripe.confirmSetup({
+      elements,
+      confirmParams: {
+        return_url: window.location.href,
+      },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      setErrorMessage(error.message || "Setup failed");
+      setIsProcessing(false);
+    } else if (setupIntent && setupIntent.status === "succeeded") {
+      toast({
+        title: "Card Saved",
+        description: "Your card has been saved for autopay.",
+      });
+      onSuccess();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      {errorMessage && (
+        <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+          {errorMessage}
+        </div>
+      )}
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="submit"
+          disabled={!stripe || isProcessing}
+          className="flex-1 bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
+          data-testid="button-save-card"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-4 h-4 mr-2" />
+              Save Card
+            </>
+          )}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isProcessing}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 interface PortalData {
   customer: Customer;
   invoices: Invoice[];
@@ -141,6 +233,7 @@ interface PortalData {
 
 export default function CustomerPortal() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("dashboard");
   
@@ -159,6 +252,12 @@ export default function CustomerPortal() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  
+  // Card management state
+  const [setupDialogOpen, setSetupDialogOpen] = useState(false);
+  const [setupClientSecret, setSetupClientSecret] = useState<string | null>(null);
+  const [isSettingUpCard, setIsSettingUpCard] = useState(false);
+  const [isRemovingCard, setIsRemovingCard] = useState(false);
 
   // Check authentication
   const { data: authData, isLoading: authLoading, isError: authError } = useQuery<{ customer: Customer }>({
@@ -179,6 +278,33 @@ export default function CustomerPortal() {
       setLocation("/portal/login");
     }
   }, [authLoading, authError, authData, setLocation]);
+
+  // Handle query params for Stripe redirect returns (success/cancel)
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const sessionId = params.get("session_id");
+    const canceled = params.get("canceled");
+    
+    if (sessionId) {
+      // Payment success - returned from Stripe Checkout
+      toast({
+        title: "Payment Successful!",
+        description: "Your payment has been processed successfully.",
+      });
+      // Refresh data and clear query params
+      refetchData();
+      window.history.replaceState({}, "", "/portal");
+      setActiveTab("billing");
+    } else if (canceled === "1") {
+      // Payment was canceled
+      toast({
+        title: "Payment Canceled",
+        description: "Your payment was not processed.",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, "", "/portal");
+    }
+  }, [searchString, toast]);
 
   const customer = portalData?.customer;
   const customerInvoices = useMemo(() => 
@@ -270,27 +396,94 @@ export default function CustomerPortal() {
     setIsEditing(false);
   };
 
-  // Payment handlers
+  // Payment handlers - hybrid flow (mobile redirect, desktop embed)
   const handlePayNow = async () => {
-    if (outstandingBalance <= 0 || !unpaidInvoices?.length) return;
+    if (outstandingBalance <= 0 || !unpaidInvoices?.length || !customer) return;
     
     setIsCreatingPayment(true);
     try {
-      const response = await apiRequest("POST", "/api/create-payment-intent", {
-        amount: outstandingBalance,
-        invoiceId: unpaidInvoices[0].id,
-      });
-      const data = await response.json();
-      setClientSecret(data.clientSecret);
-      setPaymentDialogOpen(true);
+      if (isMobileDevice()) {
+        // Mobile: Use Stripe Checkout redirect (avoids keyboard/scroll issues)
+        const response = await apiRequest("POST", "/api/create-checkout-session", {
+          amount: outstandingBalance,
+          customerId: customer.id,
+          invoiceId: unpaidInvoices[0].id,
+          description: `Payment for ${unpaidInvoices.length} invoice(s)`,
+        });
+        const data = await response.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error("No checkout URL returned");
+        }
+      } else {
+        // Desktop: Use embedded Stripe Elements
+        const response = await apiRequest("POST", "/api/create-payment-intent", {
+          amount: outstandingBalance,
+          invoiceId: unpaidInvoices[0].id,
+        });
+        const data = await response.json();
+        setClientSecret(data.clientSecret);
+        setPaymentDialogOpen(true);
+      }
     } catch (error: any) {
       toast({
         title: "Error",
         description: "Failed to initialize payment. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsCreatingPayment(false);
+    } finally {
+      if (!isMobileDevice()) {
+        setIsCreatingPayment(false);
+      }
+    }
+  };
+  
+  // Handle adding a card for autopay
+  const handleSetupCard = async () => {
+    if (!customer) return;
+    
+    setIsSettingUpCard(true);
+    try {
+      const response = await apiRequest("POST", "/api/create-setup-intent", {
+        customerId: customer.id,
+      });
+      const data = await response.json();
+      setSetupClientSecret(data.clientSecret);
+      setSetupDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to set up card. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSettingUpCard(false);
+    }
+  };
+  
+  // Handle removing saved card
+  const handleRemoveCard = async () => {
+    if (!customer) return;
+    
+    setIsRemovingCard(true);
+    try {
+      await apiRequest("POST", "/api/portal/remove-card", {});
+      toast({
+        title: "Card Removed",
+        description: "Your saved card has been removed.",
+      });
+      refetchData();
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/me"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to remove card. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemovingCard(false);
     }
   };
 
@@ -315,6 +508,19 @@ export default function CustomerPortal() {
   const handlePaymentCancel = () => {
     setPaymentDialogOpen(false);
     setClientSecret(null);
+  };
+
+  const handleSetupSuccess = async () => {
+    // Save the payment method ID to the customer record
+    refetchData();
+    queryClient.invalidateQueries({ queryKey: ["/api/portal/me"] });
+    setSetupDialogOpen(false);
+    setSetupClientSecret(null);
+  };
+
+  const handleSetupCancel = () => {
+    setSetupDialogOpen(false);
+    setSetupClientSecret(null);
   };
 
   const handleLogout = () => {
@@ -629,6 +835,88 @@ export default function CustomerPortal() {
               </Card>
             )}
 
+            {/* Saved Payment Method */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Payment Method
+                </CardTitle>
+                <CardDescription>Manage your saved payment method for autopay</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {customer.stripePaymentMethodId ? (
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#00BCD4]/20 to-[#FF6F00]/20 flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">Card on File</p>
+                        <p className="text-sm text-muted-foreground">
+                          Your card is saved for autopay
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-green-600">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Active
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveCard}
+                        disabled={isRemovingCard}
+                        data-testid="button-remove-card"
+                      >
+                        {isRemovingCard ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Remove
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-lg border border-dashed">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">No Card Saved</p>
+                        <p className="text-sm text-muted-foreground">
+                          Save a card for convenient autopay billing
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleSetupCard}
+                      disabled={isSettingUpCard}
+                      className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00]"
+                      data-testid="button-add-card"
+                    >
+                      {isSettingUpCard ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Setting up...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Add Card
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Invoices List */}
             <Card>
               <CardHeader>
@@ -937,6 +1225,29 @@ export default function CustomerPortal() {
                 amount={outstandingBalance}
                 onSuccess={handlePaymentSuccess}
                 onCancel={handlePaymentCancel}
+              />
+            </Elements>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Setup Card Dialog */}
+      <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto [-webkit-overflow-scrolling:touch] pb-[calc(env(safe-area-inset-bottom)+120px)]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Save Payment Method
+            </DialogTitle>
+            <DialogDescription>
+              Save a card for convenient autopay billing. Your card will be securely stored.
+            </DialogDescription>
+          </DialogHeader>
+          {setupClientSecret && (
+            <Elements stripe={stripePromise} options={{ clientSecret: setupClientSecret }}>
+              <SetupForm
+                onSuccess={handleSetupSuccess}
+                onCancel={handleSetupCancel}
               />
             </Elements>
           )}
