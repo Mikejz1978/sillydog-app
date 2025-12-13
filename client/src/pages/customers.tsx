@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X, Send, ExternalLink, MessageSquare, MessageSquareOff } from "lucide-react";
+import { Plus, Search, Phone, Mail, MapPin, DollarSign, Calendar, Trash2, Navigation, Edit, Archive, CheckCircle, AlertTriangle, AlertCircle, Dog, Key, CreditCard, X, Send, ExternalLink, MessageSquare, MessageSquareOff, Banknote } from "lucide-react";
+import { TakePaymentDialog } from "@/components/TakePaymentDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -704,6 +705,8 @@ export default function Customers() {
   const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<Customer | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDescription, setPaymentDescription] = useState("SillyDog Service");
+  const [takePaymentDialogOpen, setTakePaymentDialogOpen] = useState(false);
+  const [takePaymentCustomer, setTakePaymentCustomer] = useState<Customer | null>(null);
   const { toast } = useToast();
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -1891,6 +1894,18 @@ export default function Customers() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      setTakePaymentCustomer(customer);
+                      setTakePaymentDialogOpen(true);
+                    }}
+                    data-testid={`button-take-payment-${customer.id}`}
+                  >
+                    <Banknote className="w-3 h-3 mr-1" />
+                    Take Payment
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
                       // Split name into firstName and lastName for editing
                       const nameParts = customer.name.trim().split(' ');
                       const firstName = nameParts[0] || "";
@@ -2249,6 +2264,15 @@ export default function Customers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Take Payment Dialog */}
+      {takePaymentCustomer && (
+        <TakePaymentDialog
+          open={takePaymentDialogOpen}
+          onOpenChange={setTakePaymentDialogOpen}
+          customer={takePaymentCustomer}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, DollarSign, Calendar, Download, Trash2 } from "lucide-react";
+import { Plus, Search, DollarSign, Calendar, Download, Trash2, CreditCard } from "lucide-react";
+import { TakePaymentDialog } from "@/components/TakePaymentDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,9 @@ export default function Invoices() {
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null);
+  const [preselectedInvoiceIds, setPreselectedInvoiceIds] = useState<string[]>([]);
   const { toast } = useToast();
 
   const { data: customers } = useQuery<Customer[]>({
@@ -371,20 +375,40 @@ export default function Invoices() {
                           Download
                         </Button>
                         {invoice.status !== "paid" && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setInvoiceToDelete(invoice);
-                              setDeleteDialogOpen(true);
-                            }}
-                            disabled={deleteMutation.isPending}
-                            data-testid={`button-delete-${invoice.id}`}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Delete
-                          </Button>
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const invoiceCustomer = customers?.find(c => c.id === invoice.customerId);
+                                if (invoiceCustomer) {
+                                  setPaymentCustomer(invoiceCustomer);
+                                  setPreselectedInvoiceIds([invoice.id]);
+                                  setPaymentDialogOpen(true);
+                                }
+                              }}
+                              className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] text-white border-0"
+                              data-testid={`button-take-payment-${invoice.id}`}
+                            >
+                              <CreditCard className="w-3 h-3 mr-1" />
+                              Take Payment
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInvoiceToDelete(invoice);
+                                setDeleteDialogOpen(true);
+                              }}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-${invoice.id}`}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Delete
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -582,6 +606,16 @@ export default function Invoices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Take Payment Dialog */}
+      {paymentCustomer && (
+        <TakePaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          customer={paymentCustomer}
+          preselectedInvoiceIds={preselectedInvoiceIds}
+        />
+      )}
     </div>
   );
 }

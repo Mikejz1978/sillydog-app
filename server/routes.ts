@@ -3580,6 +3580,394 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== FIELD PAYMENTS (Staff Taking Payments) ==========
+  const fieldPaymentSchema = z.object({
+    customerId: z.string().min(1, "Customer ID is required"),
+    amount: z.union([z.number(), z.string()])
+      .transform(parseCurrency)
+      .refine((val) => !isNaN(val) && val >= 0.50 && val <= 100000, {
+        message: "Amount must be between $0.50 and $100,000"
+      }),
+    invoiceIds: z.array(z.string()).optional(),
+    notes: z.string().optional(),
+  });
+
+  // Create PaymentIntent for field card payment (staff in the field)
+  app.post("/api/field-payments/card-intent", requireStaff, async (req, res) => {
+    try {
+      const validated = fieldPaymentSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
+      }
+
+      const { customerId, amount, invoiceIds, notes } = validated.data;
+      const user = req.user as any;
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Create or get Stripe customer
+      let stripeCustomerId = customer.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          name: customer.name,
+          email: customer.email || undefined,
+          phone: customer.phone,
+          address: { line1: customer.address },
+        });
+        stripeCustomerId = stripeCustomer.id;
+        await storage.updateCustomer(customerId, { stripeCustomerId });
+      }
+
+      // Create payment record in pending state
+      const payment = await storage.createPayment({
+        customerId,
+        paymentMethod: 'card',
+        amount: amount.toFixed(2),
+        status: 'pending',
+        notes: notes || null,
+        processedBy: user.id,
+      });
+
+      // Create PaymentIntent for manual confirmation
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100),
+        currency: "usd",
+        customer: stripeCustomerId,
+        metadata: {
+          customerId,
+          paymentId: payment.id,
+          invoiceIds: invoiceIds ? JSON.stringify(invoiceIds) : "",
+          processedBy: user.id,
+        },
+      });
+
+      // Update payment with stripe payment intent ID
+      await storage.updatePayment(payment.id, {
+        stripePaymentIntentId: paymentIntent.id,
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentId: payment.id,
+        paymentIntentId: paymentIntent.id,
+      });
+    } catch (error: any) {
+      console.error("Field payment card intent error:", error);
+      res.status(500).json({ message: "Error creating payment: " + error.message });
+    }
+  });
+
+  // Confirm card payment and apply to invoices
+  app.post("/api/field-payments/confirm-card", requireStaff, async (req, res) => {
+    try {
+      const { paymentId, paymentIntentId, invoiceIds } = req.body;
+
+      if (!paymentId || !paymentIntentId) {
+        return res.status(400).json({ message: "Payment ID and Payment Intent ID are required" });
+      }
+
+      const payment = await storage.getPayment(paymentId);
+      if (!payment) {
+        return res.status(404).json({ message: "Payment not found" });
+      }
+
+      // Verify the payment intent succeeded
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (paymentIntent.status !== "succeeded") {
+        return res.status(400).json({ message: `Payment not completed. Status: ${paymentIntent.status}` });
+      }
+
+      // Update payment status
+      await storage.updatePayment(paymentId, {
+        status: 'completed',
+        processedAt: new Date(),
+      });
+
+      // Apply payment to invoices if specified
+      const amountInCents = Math.round(parseFloat(payment.amount) * 100);
+      let remainingAmount = amountInCents;
+
+      if (invoiceIds && Array.isArray(invoiceIds) && invoiceIds.length > 0) {
+        for (const invoiceId of invoiceIds) {
+          if (remainingAmount <= 0) break;
+
+          const invoice = await storage.getInvoice(invoiceId);
+          if (invoice && invoice.status !== 'paid') {
+            const invoiceAmountCents = Math.round(parseFloat(invoice.amount) * 100);
+            const amountToApply = Math.min(remainingAmount, invoiceAmountCents);
+            
+            await storage.createPaymentApplication(
+              paymentId,
+              invoiceId,
+              (amountToApply / 100).toFixed(2)
+            );
+
+            // Mark invoice as paid if fully covered
+            if (amountToApply >= invoiceAmountCents) {
+              await storage.markInvoicePaid(invoiceId, paymentIntentId);
+            }
+
+            remainingAmount -= amountToApply;
+          }
+        }
+      }
+
+      // Get customer for SMS notification
+      const customer = await storage.getCustomer(payment.customerId);
+      if (customer && customer.smsOptIn) {
+        await sendSMS(
+          customer.phone,
+          `Payment of $${parseFloat(payment.amount).toFixed(2)} received! Thank you for your payment. - SillyDog Pooper Scooper`
+        );
+      }
+
+      res.json({
+        success: true,
+        paymentId,
+        status: 'completed',
+      });
+    } catch (error: any) {
+      console.error("Confirm card payment error:", error);
+      res.status(500).json({ message: "Error confirming payment: " + error.message });
+    }
+  });
+
+  // Record check payment
+  const checkPaymentSchema = z.object({
+    customerId: z.string().min(1, "Customer ID is required"),
+    amount: z.union([z.number(), z.string()])
+      .transform(parseCurrency)
+      .refine((val) => !isNaN(val) && val >= 0.01 && val <= 100000, {
+        message: "Amount must be between $0.01 and $100,000"
+      }),
+    checkNumber: z.string().min(1, "Check number is required"),
+    checkDate: z.string().optional(),
+    invoiceIds: z.array(z.string()).optional(),
+    notes: z.string().optional(),
+  });
+
+  app.post("/api/field-payments/check", requireStaff, async (req, res) => {
+    try {
+      const validated = checkPaymentSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
+      }
+
+      const { customerId, amount, checkNumber, checkDate, invoiceIds, notes } = validated.data;
+      const user = req.user as any;
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Create payment record
+      const payment = await storage.createPayment({
+        customerId,
+        paymentMethod: 'check',
+        amount: amount.toFixed(2),
+        status: 'completed',
+        checkNumber,
+        checkDate: checkDate || new Date().toISOString().split('T')[0],
+        notes: notes || null,
+        processedBy: user.id,
+      });
+
+      // Update payment with processedAt
+      await storage.updatePayment(payment.id, {
+        processedAt: new Date(),
+      });
+
+      // Apply payment to invoices if specified
+      const amountInCents = Math.round(amount * 100);
+      let remainingAmount = amountInCents;
+
+      if (invoiceIds && Array.isArray(invoiceIds) && invoiceIds.length > 0) {
+        for (const invoiceId of invoiceIds) {
+          if (remainingAmount <= 0) break;
+
+          const invoice = await storage.getInvoice(invoiceId);
+          if (invoice && invoice.status !== 'paid') {
+            const invoiceAmountCents = Math.round(parseFloat(invoice.amount) * 100);
+            const amountToApply = Math.min(remainingAmount, invoiceAmountCents);
+            
+            await storage.createPaymentApplication(
+              payment.id,
+              invoiceId,
+              (amountToApply / 100).toFixed(2)
+            );
+
+            // Mark invoice as paid if fully covered
+            if (amountToApply >= invoiceAmountCents) {
+              await storage.markInvoicePaid(invoiceId, `check-${checkNumber}`);
+            }
+
+            remainingAmount -= amountToApply;
+          }
+        }
+      }
+
+      // Send confirmation SMS if opted in
+      if (customer.smsOptIn) {
+        await sendSMS(
+          customer.phone,
+          `Check payment of $${amount.toFixed(2)} received! Thank you for your payment. - SillyDog Pooper Scooper`
+        );
+      }
+
+      res.json({
+        success: true,
+        paymentId: payment.id,
+        status: 'completed',
+      });
+    } catch (error: any) {
+      console.error("Check payment error:", error);
+      res.status(500).json({ message: "Error recording check payment: " + error.message });
+    }
+  });
+
+  // Record cash payment
+  const cashPaymentSchema = z.object({
+    customerId: z.string().min(1, "Customer ID is required"),
+    amount: z.union([z.number(), z.string()])
+      .transform(parseCurrency)
+      .refine((val) => !isNaN(val) && val >= 0.01 && val <= 100000, {
+        message: "Amount must be between $0.01 and $100,000"
+      }),
+    invoiceIds: z.array(z.string()).optional(),
+    notes: z.string().optional(),
+  });
+
+  app.post("/api/field-payments/cash", requireStaff, async (req, res) => {
+    try {
+      const validated = cashPaymentSchema.safeParse(req.body);
+      if (!validated.success) {
+        return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid input" });
+      }
+
+      const { customerId, amount, invoiceIds, notes } = validated.data;
+      const user = req.user as any;
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Create payment record
+      const payment = await storage.createPayment({
+        customerId,
+        paymentMethod: 'cash',
+        amount: amount.toFixed(2),
+        status: 'completed',
+        notes: notes || null,
+        processedBy: user.id,
+      });
+
+      // Update payment with processedAt
+      await storage.updatePayment(payment.id, {
+        processedAt: new Date(),
+      });
+
+      // Apply payment to invoices if specified
+      const amountInCents = Math.round(amount * 100);
+      let remainingAmount = amountInCents;
+
+      if (invoiceIds && Array.isArray(invoiceIds) && invoiceIds.length > 0) {
+        for (const invoiceId of invoiceIds) {
+          if (remainingAmount <= 0) break;
+
+          const invoice = await storage.getInvoice(invoiceId);
+          if (invoice && invoice.status !== 'paid') {
+            const invoiceAmountCents = Math.round(parseFloat(invoice.amount) * 100);
+            const amountToApply = Math.min(remainingAmount, invoiceAmountCents);
+            
+            await storage.createPaymentApplication(
+              payment.id,
+              invoiceId,
+              (amountToApply / 100).toFixed(2)
+            );
+
+            // Mark invoice as paid if fully covered
+            if (amountToApply >= invoiceAmountCents) {
+              await storage.markInvoicePaid(invoiceId, `cash-${payment.id}`);
+            }
+
+            remainingAmount -= amountToApply;
+          }
+        }
+      }
+
+      // Send confirmation SMS if opted in
+      if (customer.smsOptIn) {
+        await sendSMS(
+          customer.phone,
+          `Cash payment of $${amount.toFixed(2)} received! Thank you for your payment. - SillyDog Pooper Scooper`
+        );
+      }
+
+      res.json({
+        success: true,
+        paymentId: payment.id,
+        status: 'completed',
+      });
+    } catch (error: any) {
+      console.error("Cash payment error:", error);
+      res.status(500).json({ message: "Error recording cash payment: " + error.message });
+    }
+  });
+
+  // Get unpaid invoices for a customer
+  app.get("/api/customers/:id/unpaid-invoices", requireStaff, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const invoices = await storage.getInvoicesByCustomer(id);
+      const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid');
+
+      res.json(unpaidInvoices);
+    } catch (error: any) {
+      console.error("Get unpaid invoices error:", error);
+      res.status(500).json({ message: "Error fetching invoices: " + error.message });
+    }
+  });
+
+  // Get all payments for a customer
+  app.get("/api/customers/:id/payments", requireStaff, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const payments = await storage.getPaymentsByCustomer(id);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Get customer payments error:", error);
+      res.status(500).json({ message: "Error fetching payments: " + error.message });
+    }
+  });
+
+  // Get all payments (admin view)
+  app.get("/api/payments", requireStaff, async (req, res) => {
+    try {
+      const payments = await storage.getAllPayments();
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Get all payments error:", error);
+      res.status(500).json({ message: "Error fetching payments: " + error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
