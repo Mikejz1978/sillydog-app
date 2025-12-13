@@ -1,0 +1,122 @@
+Got it. I checked that exact URL and it is returning 404 Not Found right now. 
+Invalid URL
+
+So we need to fix two things:
+
+Use the correct domain (your app is live on Render now, not Replit)
+
+Make sure your server + frontend routing actually serves /review/:token (so it doesn’t 404)
+
+1) Your “new app review link” should NOT be the Replit domain
+
+You’re deployed at Render for the real app, so the correct review link should be:
+
+https://sillydog-app.onrender.com/review/8ddc4b536f670602a42bc88124d10a8f1cf2d5ccc75ff4c5b95a77545030d12e
+
+The Replit link you pasted is a placeholder domain (your-app.replit.app) and will 404 unless you actually own that exact Replit deployment. 
+Invalid URL
+
+If you do have a real Replit URL, it will look like:
+https://<your-repl-name>.<your-username>.repl.co/... or the new Replit-hosted domain you were given.
+
+2) Fix the “Not Found” page for /review/:token
+
+This is almost always one of these:
+
+A) Your Express server doesn’t have a route for /review/:token
+
+If your app is a React SPA, you need your server to “hand off” that path to the frontend.
+
+Copy/paste this into your server (Express) AFTER your API routes, BEFORE your 404 handler:
+
+// Serve SPA routes that React Router handles (includes /review/:token)
+app.get(["/review/*", "/reviews", "/book", "/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+
+If your built file is in dist, then swap to your actual build path (example):
+
+app.get(["/review/*", "/reviews", "/book", "/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
+B) React Router is missing the route
+
+In your React routes, you need:
+
+<Route path="/review/:token" element={<ReviewPage />} />
+
+
+If it’s missing, the SPA loads but shows “Not Found” inside React.
+
+C) Your app is returning server 404 before React ever loads
+
+That happens if you have a generic server 404 handler like:
+
+app.use((req,res)=>res.status(404).send("Not found"));
+
+
+…and it runs before your SPA fallback route. The fix is simply: move the SPA fallback above the 404 handler.
+
+3) Embed the “Reviews display” on your website + link to “Leave a review”
+
+Best practice:
+
+Website embeds: /reviews (a public page that lists reviews)
+
+Customers submit: /review/:token (unique link per customer/job)
+
+Website embed block (copy/paste)
+
+Use this on your main website:
+
+<section class="section reveal" id="reviews-app">
+  <h2>Latest Reviews</h2>
+  <p class="lead">Real reviews from real customers.</p>
+
+  <div class="card" style="overflow:hidden">
+    <iframe
+      title="SillyDog Reviews"
+      width="100%"
+      height="900"
+      loading="lazy"
+      style="border:0"
+      src="https://sillydog-app.onrender.com/reviews">
+    </iframe>
+  </div>
+</section>
+
+
+And wherever you want a “Leave a review” button (or in your invoice texts), use the tokenized link:
+
+<a class="btn" target="_blank" rel="noopener"
+   href="https://sillydog-app.onrender.com/review/8ddc4b536f670602a42bc88124d10a8f1cf2d5ccc75ff4c5b95a77545030d12e">
+  Leave a Review
+</a>
+
+4) About keeping Housecall Pro reviews after canceling HCP
+
+You can embed them now, but if you cancel, there’s a real risk the hosted review page stops being available later (they don’t clearly guarantee perpetual hosting after cancellation).
+
+Safest plan:
+
+Keep the HCP iframe for now
+
+ALSO start building your own “Testimonials” section (or import your best HCP reviews into your DB/site)
+
+Do this next (fastest way to finish)
+
+Tell me which app is supposed to host reviews:
+
+A) https://sillydog-app.onrender.com (your real app)
+or
+
+B) a real Replit URL (paste the exact base domain)
+
+And paste one thing (no guessing):
+the code from your server where you define routes (usually server/index.ts or server.js) — just the part where app.use(...) and app.get(...) are set up.
+
+Then I’ll give you the exact final patch to make /review/:token stop 404’ing immediately.
+
+ChatGPT can make mistakes. Check important info.
