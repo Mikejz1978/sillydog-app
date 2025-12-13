@@ -388,6 +388,7 @@ export default function Invoices() {
                                   setPaymentDialogOpen(true);
                                 }
                               }}
+                              disabled={!customer}
                               className="bg-gradient-to-r from-[#00BCD4] to-[#FF6F00] text-white border-0"
                               data-testid={`button-take-payment-${invoice.id}`}
                             >
