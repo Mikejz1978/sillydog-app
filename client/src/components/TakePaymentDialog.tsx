@@ -1,17 +1,13 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -28,39 +24,6 @@ interface TakePaymentDialogProps {
   customer: Customer;
   preselectedInvoiceIds?: string[];
 }
-
-const cardPaymentSchema = z.object({
-  amount: z.string().min(1, "Amount is required").refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0.50,
-    "Amount must be at least $0.50"
-  ),
-  notes: z.string().optional(),
-  invoiceIds: z.array(z.string()).optional(),
-});
-
-const checkPaymentSchema = z.object({
-  amount: z.string().min(1, "Amount is required").refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0.01,
-    "Amount must be at least $0.01"
-  ),
-  checkNumber: z.string().min(1, "Check number is required"),
-  checkDate: z.string().optional(),
-  notes: z.string().optional(),
-  invoiceIds: z.array(z.string()).optional(),
-});
-
-const cashPaymentSchema = z.object({
-  amount: z.string().min(1, "Amount is required").refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0.01,
-    "Amount must be at least $0.01"
-  ),
-  notes: z.string().optional(),
-  invoiceIds: z.array(z.string()).optional(),
-});
-
-type CardPaymentValues = z.infer<typeof cardPaymentSchema>;
-type CheckPaymentValues = z.infer<typeof checkPaymentSchema>;
-type CashPaymentValues = z.infer<typeof cashPaymentSchema>;
 
 function CardPaymentForm({ 
   clientSecret, 
@@ -143,14 +106,18 @@ function CardPaymentForm({
 }
 
 export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInvoiceIds = [] }: TakePaymentDialogProps) {
-  const [activeTab, setActiveTab] = useState("card");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "check" | "cash">("card");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [checkNumber, setCheckNumber] = useState("");
+  const [checkDate, setCheckDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>(preselectedInvoiceIds);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { data: unpaidInvoices = [], isLoading: invoicesLoading } = useQuery<Invoice[]>({
+  const { data: unpaidInvoices = [] } = useQuery<Invoice[]>({
     queryKey: ["/api/customers", customer.id, "unpaid-invoices"],
     queryFn: async () => {
       const response = await fetch(`/api/customers/${customer.id}/unpaid-invoices`);
@@ -160,58 +127,40 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
     enabled: open,
   });
 
-  const cardForm = useForm<CardPaymentValues>({
-    resolver: zodResolver(cardPaymentSchema),
-    defaultValues: { amount: "", notes: "", invoiceIds: [] },
-  });
-
-  const checkForm = useForm<CheckPaymentValues>({
-    resolver: zodResolver(checkPaymentSchema),
-    defaultValues: { amount: "", checkNumber: "", checkDate: format(new Date(), "yyyy-MM-dd"), notes: "", invoiceIds: [] },
-  });
-
-  const cashForm = useForm<CashPaymentValues>({
-    resolver: zodResolver(cashPaymentSchema),
-    defaultValues: { amount: "", notes: "", invoiceIds: [] },
-  });
-
+  // Reset dialog state every time it opens
   useEffect(() => {
     if (open) {
-      // Reset selected invoices when dialog opens
+      setPaymentMethod("card");
+      setAmount("");
+      setNotes("");
+      setCheckNumber("");
+      setCheckDate(format(new Date(), "yyyy-MM-dd"));
       setSelectedInvoiceIds(preselectedInvoiceIds.length > 0 ? preselectedInvoiceIds : []);
-      // Reset payment state
       setClientSecret(null);
       setPaymentId(null);
       setPaymentIntentId(null);
-      // Reset forms
-      cardForm.reset({ amount: "", notes: "", invoiceIds: [] });
-      checkForm.reset({ amount: "", checkNumber: "", checkDate: format(new Date(), "yyyy-MM-dd"), notes: "", invoiceIds: [] });
-      cashForm.reset({ amount: "", notes: "", invoiceIds: [] });
-      // Reset tab
-      setActiveTab("card");
     }
-  }, [open, preselectedInvoiceIds]);
+  }, [open]);
 
   const totalSelected = selectedInvoiceIds.reduce((sum, id) => {
     const invoice = unpaidInvoices.find(inv => inv.id === id);
     return sum + (invoice ? parseFloat(invoice.amount) : 0);
   }, 0);
 
+  // Auto-fill amount when invoices are selected (only if amount is empty)
   useEffect(() => {
-    if (totalSelected > 0) {
-      cardForm.setValue("amount", totalSelected.toFixed(2));
-      checkForm.setValue("amount", totalSelected.toFixed(2));
-      cashForm.setValue("amount", totalSelected.toFixed(2));
+    if (totalSelected > 0 && amount === "") {
+      setAmount(totalSelected.toFixed(2));
     }
   }, [totalSelected]);
 
   const createCardIntentMutation = useMutation({
-    mutationFn: async (data: CardPaymentValues) => {
+    mutationFn: async () => {
       const response = await apiRequest("POST", "/api/field-payments/card-intent", {
         customerId: customer.id,
-        amount: parseFloat(data.amount),
+        amount: parseFloat(amount),
         invoiceIds: selectedInvoiceIds,
-        notes: data.notes,
+        notes,
       });
       return response.json();
     },
@@ -226,14 +175,14 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
   });
 
   const recordCheckMutation = useMutation({
-    mutationFn: async (data: CheckPaymentValues) => {
+    mutationFn: async () => {
       const response = await apiRequest("POST", "/api/field-payments/check", {
         customerId: customer.id,
-        amount: parseFloat(data.amount),
-        checkNumber: data.checkNumber,
-        checkDate: data.checkDate,
+        amount: parseFloat(amount),
+        checkNumber,
+        checkDate,
         invoiceIds: selectedInvoiceIds,
-        notes: data.notes,
+        notes,
       });
       return response.json();
     },
@@ -249,12 +198,12 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
   });
 
   const recordCashMutation = useMutation({
-    mutationFn: async (data: CashPaymentValues) => {
+    mutationFn: async () => {
       const response = await apiRequest("POST", "/api/field-payments/cash", {
         customerId: customer.id,
-        amount: parseFloat(data.amount),
+        amount: parseFloat(amount),
         invoiceIds: selectedInvoiceIds,
-        notes: data.notes,
+        notes,
       });
       return response.json();
     },
@@ -273,10 +222,6 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
     setClientSecret(null);
     setPaymentId(null);
     setPaymentIntentId(null);
-    setSelectedInvoiceIds([]);
-    cardForm.reset();
-    checkForm.reset();
-    cashForm.reset();
     onOpenChange(false);
   };
 
@@ -286,17 +231,40 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
     );
   };
 
-  const onCardSubmit = (data: CardPaymentValues) => {
-    createCardIntentMutation.mutate(data);
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow empty, or valid decimal format with up to 2 decimal places
+    if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+      setAmount(val);
+    }
   };
 
-  const onCheckSubmit = (data: CheckPaymentValues) => {
-    recordCheckMutation.mutate(data);
+  const handleSubmit = () => {
+    const numericAmount = parseFloat(amount);
+    
+    if (!numericAmount || numericAmount <= 0) {
+      toast({ title: "Error", description: "Enter a valid payment amount", variant: "destructive" });
+      return;
+    }
+
+    if (paymentMethod === "card") {
+      if (numericAmount < 0.50) {
+        toast({ title: "Error", description: "Card payments must be at least $0.50", variant: "destructive" });
+        return;
+      }
+      createCardIntentMutation.mutate();
+    } else if (paymentMethod === "check") {
+      if (!checkNumber.trim()) {
+        toast({ title: "Error", description: "Check number is required", variant: "destructive" });
+        return;
+      }
+      recordCheckMutation.mutate();
+    } else if (paymentMethod === "cash") {
+      recordCashMutation.mutate();
+    }
   };
 
-  const onCashSubmit = (data: CashPaymentValues) => {
-    recordCashMutation.mutate(data);
-  };
+  const isProcessing = createCardIntentMutation.isPending || recordCheckMutation.isPending || recordCashMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -358,23 +326,43 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
             </Card>
           )}
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="card" className="flex items-center gap-2" data-testid="tab-card">
-                <CreditCard className="h-4 w-4" />
-                Card
-              </TabsTrigger>
-              <TabsTrigger value="check" className="flex items-center gap-2" data-testid="tab-check">
-                <FileText className="h-4 w-4" />
-                Check
-              </TabsTrigger>
-              <TabsTrigger value="cash" className="flex items-center gap-2" data-testid="tab-cash">
-                <Banknote className="h-4 w-4" />
-                Cash
-              </TabsTrigger>
-            </TabsList>
+          {/* Payment Method Tabs - Always clickable */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              type="button"
+              variant={paymentMethod === "card" ? "default" : "outline"}
+              onClick={() => setPaymentMethod("card")}
+              className="flex-1 flex items-center justify-center gap-2"
+              data-testid="tab-card"
+            >
+              <CreditCard className="h-4 w-4" />
+              Card
+            </Button>
+            <Button
+              type="button"
+              variant={paymentMethod === "check" ? "default" : "outline"}
+              onClick={() => setPaymentMethod("check")}
+              className="flex-1 flex items-center justify-center gap-2"
+              data-testid="tab-check"
+            >
+              <FileText className="h-4 w-4" />
+              Check
+            </Button>
+            <Button
+              type="button"
+              variant={paymentMethod === "cash" ? "default" : "outline"}
+              onClick={() => setPaymentMethod("cash")}
+              className="flex-1 flex items-center justify-center gap-2"
+              data-testid="tab-cash"
+            >
+              <Banknote className="h-4 w-4" />
+              Cash
+            </Button>
+          </div>
 
-            <TabsContent value="card" className="mt-4">
+          {/* Card Payment Form */}
+          {paymentMethod === "card" && (
+            <>
               {clientSecret ? (
                 <Elements stripe={stripePromise} options={{ clientSecret }}>
                   <CardPaymentForm
@@ -391,200 +379,138 @@ export function TakePaymentDialog({ open, onOpenChange, customer, preselectedInv
                   />
                 </Elements>
               ) : (
-                <Form {...cardForm}>
-                  <form onSubmit={cardForm.handleSubmit(onCardSubmit)} className="space-y-4">
-                    <FormField
-                      control={cardForm.control}
-                      name="amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Amount ($)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.00"
-                              data-testid="input-card-amount"
-                              value={field.value}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (/^\d*\.?\d{0,2}$/.test(val) || val === "") {
-                                  field.onChange(val);
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="card-amount">Amount ($)</Label>
+                    <Input
+                      id="card-amount"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={handleAmountChange}
+                      data-testid="input-card-amount"
                     />
-                    <FormField
-                      control={cardForm.control}
-                      name="notes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Notes (Optional)</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Payment notes..."
-                              data-testid="input-card-notes"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                  </div>
+                  <div>
+                    <Label htmlFor="card-notes">Notes (Optional)</Label>
+                    <Textarea
+                      id="card-notes"
+                      placeholder="Payment notes..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      data-testid="input-card-notes"
                     />
-                    <div className="flex justify-end gap-2 pt-4">
-                      <Button type="button" variant="outline" onClick={handleClose}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={createCardIntentMutation.isPending}>
-                        {createCardIntentMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        Continue to Payment
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="outline" onClick={handleClose}>
+                      Cancel
+                    </Button>
+                    <Button type="button" onClick={handleSubmit} disabled={isProcessing}>
+                      {isProcessing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Continue to Payment
+                    </Button>
+                  </div>
+                </div>
               )}
-            </TabsContent>
+            </>
+          )}
 
-            <TabsContent value="check" className="mt-4">
-              <Form {...checkForm}>
-                <form onSubmit={checkForm.handleSubmit(onCheckSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={checkForm.control}
-                      name="amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Amount ($)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0.00"
-                              data-testid="input-check-amount"
-                              value={field.value}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (/^\d*\.?\d{0,2}$/.test(val) || val === "") {
-                                  field.onChange(val);
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={checkForm.control}
-                      name="checkNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Check Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="1234" data-testid="input-check-number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={checkForm.control}
-                    name="checkDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Check Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" data-testid="input-check-date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+          {/* Check Payment Form */}
+          {paymentMethod === "check" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="check-amount">Amount ($)</Label>
+                  <Input
+                    id="check-amount"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={handleAmountChange}
+                    data-testid="input-check-amount"
                   />
-                  <FormField
-                    control={checkForm.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Payment notes..." data-testid="input-check-notes" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                </div>
+                <div>
+                  <Label htmlFor="check-number">Check Number</Label>
+                  <Input
+                    id="check-number"
+                    placeholder="1234"
+                    value={checkNumber}
+                    onChange={(e) => setCheckNumber(e.target.value)}
+                    data-testid="input-check-number"
                   />
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={handleClose}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={recordCheckMutation.isPending}>
-                      {recordCheckMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Record Check Payment
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </TabsContent>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="check-date">Check Date</Label>
+                <Input
+                  id="check-date"
+                  type="date"
+                  value={checkDate}
+                  onChange={(e) => setCheckDate(e.target.value)}
+                  data-testid="input-check-date"
+                />
+              </div>
+              <div>
+                <Label htmlFor="check-notes">Notes (Optional)</Label>
+                <Textarea
+                  id="check-notes"
+                  placeholder="Payment notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  data-testid="input-check-notes"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleSubmit} disabled={isProcessing}>
+                  {isProcessing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Record Check Payment
+                </Button>
+              </div>
+            </div>
+          )}
 
-            <TabsContent value="cash" className="mt-4">
-              <Form {...cashForm}>
-                <form onSubmit={cashForm.handleSubmit(onCashSubmit)} className="space-y-4">
-                  <FormField
-                    control={cashForm.control}
-                    name="amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Amount ($)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            data-testid="input-cash-amount"
-                            value={field.value}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (/^\d*\.?\d{0,2}$/.test(val) || val === "") {
-                                field.onChange(val);
-                              }
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={cashForm.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Payment notes..." data-testid="input-cash-notes" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button type="button" variant="outline" onClick={handleClose}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={recordCashMutation.isPending}>
-                      {recordCashMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Record Cash Payment
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </TabsContent>
-          </Tabs>
+          {/* Cash Payment Form */}
+          {paymentMethod === "cash" && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="cash-amount">Amount ($)</Label>
+                <Input
+                  id="cash-amount"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={handleAmountChange}
+                  data-testid="input-cash-amount"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cash-notes">Notes (Optional)</Label>
+                <Textarea
+                  id="cash-notes"
+                  placeholder="Payment notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  data-testid="input-cash-notes"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleSubmit} disabled={isProcessing}>
+                  {isProcessing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Record Cash Payment
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
