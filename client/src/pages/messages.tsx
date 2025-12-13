@@ -214,10 +214,8 @@ export default function Messages() {
   // Mark messages as read when opening a conversation
   useEffect(() => {
     if (selectedCustomerId) {
-      const stats = customerMessageStats.get(selectedCustomerId);
-      if (stats && stats.unreadCount > 0) {
-        markReadMutation.mutate(selectedCustomerId);
-      }
+      // Always call mark-read - server handles whether there are actually unread messages
+      markReadMutation.mutate(selectedCustomerId);
     }
   }, [selectedCustomerId]);
 
