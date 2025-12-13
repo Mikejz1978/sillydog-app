@@ -1,0 +1,126 @@
+1) Backend: add an SSE stream + broadcaster
+
+Open: server/index.ts (or wherever your Express app is defined)
+
+Add this near the top (after your app is created):
+
+// --- SSE streams: customerId -> set of response objects ---
+const messageStreams = new Map<string, Set<import("express").Response>>();
+
+function sseSend(customerId: string, payload: any) {
+  const set = messageStreams.get(customerId);
+  if (!set || set.size === 0) return;
+
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const res of set) {
+    try {
+      res.write(data);
+    } catch {
+      // ignore broken connections
+    }
+  }
+}
+
+
+Now add the SSE endpoint:
+
+app.get("/api/messages/stream", (req, res) => {
+  const customerId = String(req.query.customerId || "");
+  if (!customerId) return res.status(400).send("customerId required");
+
+  // SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  // If you’re behind proxies, this helps
+  res.flushHeaders?.();
+
+  if (!messageStreams.has(customerId)) messageStreams.set(customerId, new Set());
+  messageStreams.get(customerId)!.add(res);
+
+  // Keep-alive ping so proxies don’t close the connection
+  const ping = setInterval(() => {
+    try {
+      res.write(`event: ping\ndata: {}\n\n`);
+    } catch {}
+  }, 25000);
+
+  req.on("close", () => {
+    clearInterval(ping);
+    messageStreams.get(customerId)?.delete(res);
+    if (messageStreams.get(customerId)?.size === 0) messageStreams.delete(customerId);
+  });
+});
+
+2) Backend: push to SSE when messages are created
+
+You need to call sseSend(customerId, message) in two places:
+
+A) When an inbound Telnyx SMS is saved
+
+Find your Telnyx inbound webhook handler (something like /api/telnyx/inbound or /api/sms/inbound).
+
+After you insert the inbound message into the DB, do:
+
+sseSend(customerId, savedMessageRow);
+
+B) When you send an outbound message
+
+Find your “send message” endpoint (e.g. /api/messages/send).
+
+After you insert the outbound message into the DB, do:
+
+sseSend(customerId, savedMessageRow);
+
+
+Important: savedMessageRow should be the actual row you return to the client (id, direction, message_text, sent_at, status, etc.).
+
+If you paste your two endpoints, I’ll tell you the exact line to add in each.
+
+3) Frontend: subscribe with EventSource
+
+Open: client/src/pages/messages.tsx
+
+Add this effect (uses SSE for the currently selected customer):
+
+useEffect(() => {
+  if (!selectedCustomer?.id) return;
+
+  const es = new EventSource(`/api/messages/stream?customerId=${selectedCustomer.id}`);
+
+  es.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    setMessages((prev) => {
+      // de-dupe by id if we already have it
+      if (prev.some((m: any) => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  };
+
+  es.addEventListener("ping", () => { /* keep-alive */ });
+
+  es.onerror = () => {
+    // optional: you can close and let the browser retry automatically
+    // es.close();
+  };
+
+  return () => es.close();
+}, [selectedCustomer?.id]);
+
+
+That’s it. Now inbound and outbound messages should appear instantly.
+
+4) Quick sanity checks
+
+After deploy, test this:
+
+Open Messages page
+
+Click a customer
+
+From your phone, text your Telnyx number “TEST”
+
+It should appear without refresh
+
+Send a reply from the app — it should appear instantly too

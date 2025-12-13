@@ -206,7 +206,37 @@ async function generateRoutesForSchedule(rule: any, daysAhead: number): Promise<
   return routesCreated;
 }
 
+// ========== SSE MESSAGE STREAMS ==========
+const messageStreams = new Map<string, Set<import("express").Response>>();
+
+function sseSend(customerId: string, payload: any) {
+  const set = messageStreams.get(customerId);
+  if (!set || set.size === 0) return;
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const res of set) {
+    try { res.write(data); } catch {}
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ========== SSE STREAM ENDPOINT ==========
+  app.get("/api/messages/stream", requireStaff, (req, res) => {
+    const customerId = String(req.query.customerId || "");
+    if (!customerId) return res.status(400).send("customerId required");
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+    if (!messageStreams.has(customerId)) messageStreams.set(customerId, new Set());
+    messageStreams.get(customerId)!.add(res);
+    const ping = setInterval(() => { try { res.write(`event: ping\ndata: {}\n\n`); } catch {} }, 25000);
+    req.on("close", () => {
+      clearInterval(ping);
+      messageStreams.get(customerId)?.delete(res);
+      if (messageStreams.get(customerId)?.size === 0) messageStreams.delete(customerId);
+    });
+  });
+
   // ========== CSRF TOKEN ENDPOINT ==========
   app.get("/api/csrf-token", getCsrfToken);
 
@@ -1576,6 +1606,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         externalMessageId,
       });
       
+      // Push to SSE for real-time updates
+      sseSend(message.customerId, message);
+      
       res.status(201).json(message);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -1636,13 +1669,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Store the STOP message
           if (customer) {
-            await storage.createMessage({
+            const stopMsg = await storage.createMessage({
               customerId: customer.id,
               messageText: payload.text || 'STOP',
               direction: "inbound",
               status: "delivered",
               externalMessageId: payload.id,
             });
+            sseSend(customer.id, stopMsg);
           }
           return;
         }
@@ -1669,13 +1703,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Store the HELP message
           const customer = await storage.findCustomerByPhone(fromPhone);
           if (customer) {
-            await storage.createMessage({
+            const helpMsg = await storage.createMessage({
               customerId: customer.id,
               messageText: payload.text || 'HELP',
               direction: "inbound",
               status: "delivered",
               externalMessageId: payload.id,
             });
+            sseSend(customer.id, helpMsg);
           }
           return;
         }
@@ -1706,13 +1741,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Store the START message
-            await storage.createMessage({
+            const startMsg = await storage.createMessage({
               customerId: customer.id,
               messageText: payload.text || 'START',
               direction: "inbound",
               status: "delivered",
               externalMessageId: payload.id,
             });
+            sseSend(customer.id, startMsg);
           }
           return;
         }
@@ -1726,13 +1762,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Store incoming message
-        await storage.createMessage({
+        const inboundMsg = await storage.createMessage({
           customerId: customer.id,
           messageText: payload.text || '',
           direction: "inbound",
           status: "delivered",
           externalMessageId: payload.id,
         });
+        
+        // Push to SSE for real-time updates
+        sseSend(customer.id, inboundMsg);
         
         console.log(`✅ Stored incoming message from customer: ${customer.name}`);
         

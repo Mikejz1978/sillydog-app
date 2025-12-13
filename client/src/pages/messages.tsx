@@ -125,6 +125,26 @@ export default function Messages() {
     enabled: !!selectedCustomerId,
   });
 
+  // SSE subscription for real-time message updates
+  useEffect(() => {
+    if (!selectedCustomerId) return;
+    const es = new EventSource(`/api/messages/stream?customerId=${selectedCustomerId}`);
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data) as Message;
+      // Add message to cache if not already present
+      queryClient.setQueryData<Message[]>(["/api/messages", selectedCustomerId], (prev) => {
+        if (!prev) return [msg];
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      // Also update allMessages for unread counts in sidebar
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/all"] });
+    };
+    es.addEventListener("ping", () => {});
+    es.onerror = () => {};
+    return () => es.close();
+  }, [selectedCustomerId]);
+
   useEffect(() => {
     const currentCount = messages?.length ?? 0;
     const prevCount = prevMessageCountRef.current;
